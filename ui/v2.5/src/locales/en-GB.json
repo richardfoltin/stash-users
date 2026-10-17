@@ -327,6 +327,11 @@
         "username": "Username",
         "users": {
           "add_user": "Add user",
+          "auto_login": "Log in automatically from the local network",
+          "auto_login_admin_warning": "This user is an administrator: anyone on the local network gets full access to Stash without a password.",
+          "auto_login_desc": "Requests from the local network that are not signed in are signed in as this user, without a password. Only one user can sign in automatically; turning this on turns it off for every other user.",
+          "auto_login_enabled": "Auto login",
+          "auto_login_section_desc": "One user can be set to sign in automatically: anyone on the local network who is not signed in uses Stash as that user.",
           "change_password_for": "Change password for {name}",
           "change_role": "Change role",
           "change_role_for": "Change role for {name}",

@@ -259,3 +259,68 @@ func TestUserService_APIKey(t *testing.T) {
 	_, err = s.AuthenticateByAPIKey(ctx, "global-key")
 	assert.ErrorIs(t, err, user.ErrAccessDenied)
 }
+
+func TestUserService_AutoLoginUser(t *testing.T) {
+	ctx := context.Background()
+	s, _ := newTestService(t)
+
+	u, _, err := s.AutoLoginUser(ctx)
+	require.NoError(t, err)
+	assert.Nil(t, u, "no users")
+
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: adminRole}, "adminpw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "editor", Roles: modifyRole}, "editorpw"))
+
+	u, _, err = s.AutoLoginUser(ctx)
+	require.NoError(t, err)
+	assert.Nil(t, u, "no user marked")
+
+	// the token of the marked user authenticates its sessions, like the
+	// token of a password login
+	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: modifyRole, AutoLogin: true}))
+	u, token, err := s.AutoLoginUser(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, u)
+	assert.Equal(t, "editor", u.Username)
+	assert.Equal(t, modifyRole, u.Roles)
+	loginToken, err := s.Login(ctx, "editor", "editorpw")
+	require.NoError(t, err)
+	assert.Equal(t, loginToken, token)
+	_, err = s.AuthenticateSession(ctx, "editor", token)
+	assert.NoError(t, err)
+
+	// a password change ends the sessions; the new token is returned
+	require.NoError(t, s.ChangeUserPassword(ctx, "editor", "new"))
+	_, err = s.AuthenticateSession(ctx, "editor", token)
+	assert.ErrorIs(t, err, user.ErrAccessDenied)
+	u, newToken, err := s.AutoLoginUser(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, u)
+	assert.NotEqual(t, token, newToken)
+	_, err = s.AuthenticateSession(ctx, "editor", newToken)
+	assert.NoError(t, err)
+
+	// a locked user is not logged in automatically
+	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: models.Roles{}, AutoLogin: true}))
+	u, _, err = s.AutoLoginUser(ctx)
+	require.NoError(t, err)
+	assert.Nil(t, u, "locked user")
+
+	// nor is a removed user
+	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: modifyRole, AutoLogin: true}))
+	require.NoError(t, s.DeleteUser(ctx, "editor"))
+	u, _, err = s.AutoLoginUser(ctx)
+	require.NoError(t, err)
+	assert.Nil(t, u, "removed user")
+
+	// nor is a user whose mark was cleared
+	require.NoError(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Roles: adminRole, AutoLogin: true}))
+	u, _, err = s.AutoLoginUser(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, u)
+	assert.Equal(t, "admin", u.Username)
+	require.NoError(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Roles: adminRole}))
+	u, _, err = s.AutoLoginUser(ctx)
+	require.NoError(t, err)
+	assert.Nil(t, u, "mark cleared")
+}

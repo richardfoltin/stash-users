@@ -79,9 +79,6 @@ func (s *Store) LoginRequired(ctx context.Context) bool {
 }
 
 func (s *Store) Login(w http.ResponseWriter, r *http.Request) error {
-	// ignore error - we want a new session regardless
-	newSession, _ := s.sessionStore.Get(r, cookieName)
-
 	username := r.FormValue(usernameFormKey)
 	password := r.FormValue(passwordFormKey)
 
@@ -93,10 +90,23 @@ func (s *Store) Login(w http.ResponseWriter, r *http.Request) error {
 
 	logger.Infof("User %s logged in", username)
 
+	return s.CreateSession(w, r, username, token)
+}
+
+// CreateSession stores a login session of the user, with its current session
+// token, in the session cookie.
+func (s *Store) CreateSession(w http.ResponseWriter, r *http.Request, username string, token string) error {
+	// ignore error - we want a new session regardless
+	newSession, _ := s.sessionStore.Get(r, cookieName)
+
 	newSession.Values[userIDKey] = username
 	newSession.Values[sessionTokenKey] = token
 	// a login session is never a plugin session
 	delete(newSession.Values, pluginSessionKey)
+
+	// the authentication middleware may already have refreshed the cookie on
+	// this request; drop that header so only the new cookie is sent
+	dropSetCookie(w.Header(), cookieName)
 
 	return newSession.Save(r, w)
 }

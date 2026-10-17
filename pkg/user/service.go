@@ -33,8 +33,8 @@ var (
 	ErrUserAlreadyExists        = errors.New("user with that username already exists")
 )
 
-// UserSource stores the users. It keeps the usernames unique, and the first
-// and the last user admins.
+// UserSource stores the users. It keeps the usernames unique, the first and
+// the last user admins, and at most one user marked for auto login.
 type UserSource interface {
 	AllUsers(ctx context.Context) ([]*models.User, error)
 	GetUser(ctx context.Context, username string) (*models.User, error)
@@ -149,6 +149,36 @@ func (s *Service) AuthenticateSession(ctx context.Context, username string, sess
 	}
 
 	return u, nil
+}
+
+// AutoLoginUser returns the unlocked user marked for auto login, if any, and
+// the token to store in its session.
+func (s *Service) AutoLoginUser(ctx context.Context) (*models.User, string, error) {
+	users, err := s.Store.AllUsers(ctx)
+	if err != nil {
+		logger.Errorf("error getting users for auto login: %v", err)
+		return nil, "", ErrInternalError
+	}
+
+	idx := slices.IndexFunc(users, func(u *models.User) bool {
+		return u.AutoLogin
+	})
+	if idx == -1 || userIsLocked(users[idx]) {
+		return nil, "", nil
+	}
+
+	u := users[idx]
+	token, err := s.Store.GetSessionToken(ctx, u.Username)
+	if errors.Is(err, ErrUserNotExist) {
+		// the user was removed concurrently
+		return nil, "", nil
+	}
+	if err != nil {
+		logger.Errorf("error getting session token: %v", err)
+		return nil, "", ErrInternalError
+	}
+
+	return u, token, nil
 }
 
 // AuthenticateByAPIKey authenticates the global API key as the admin it was
@@ -284,6 +314,10 @@ func (s *Service) UpdateUser(ctx context.Context, username string, updated model
 
 	if !slices.Equal(existingUser.Roles, updated.Roles) {
 		logger.Infof("[user] updated roles for user %q", updated.Username)
+	}
+
+	if existingUser.AutoLogin != updated.AutoLogin {
+		logger.Infof("[user] set auto login for user %q to %t", updated.Username, updated.AutoLogin)
 	}
 
 	return nil

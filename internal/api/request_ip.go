@@ -107,9 +107,9 @@ func getRequestIP(r *http.Request, trustedNets []net.IPNet, trustedAddrs []net.I
 	}
 
 	// only handle X-FORWARDED-FOR if the request is coming from a trusted proxy
-	if r.Header.Get("X-FORWARDED-FOR") != "" {
+	if forwardedFor := strings.Join(r.Header.Values("X-FORWARDED-FOR"), ","); forwardedFor != "" {
 		// Request was proxied
-		proxyChain := strings.Split(r.Header.Get("X-FORWARDED-FOR"), ", ")
+		proxyChain := strings.Split(forwardedFor, ",")
 
 		// validate proxies against local network only
 		if !isLocalIP(requestIP) && !isTrustedProxy(requestIP, trustedNets, trustedAddrs) {
@@ -117,11 +117,18 @@ func getRequestIP(r *http.Request, trustedNets []net.IPNet, trustedAddrs []net.I
 			return nil, fmt.Errorf("non-local IP %s with X-FORWARDED-FOR header", requestIP)
 		}
 
-		// Safe to validate X-Forwarded-For
-		// Client should be the first entry
-		requestIP = net.ParseIP(proxyChain[0])
-		if requestIP == nil {
-			return nil, fmt.Errorf("unable to parse client IP from X-FORWARDED-FOR header: %s", proxyChain[0])
+		// the client is the right-most address that is not a local or trusted
+		// proxy: the addresses to its left are sent by the client
+		for i := len(proxyChain) - 1; i >= 0; i-- {
+			entry := strings.TrimSpace(proxyChain[i])
+			requestIP = net.ParseIP(entry)
+			if requestIP == nil {
+				return nil, fmt.Errorf("unable to parse client IP from X-FORWARDED-FOR header: %s", entry)
+			}
+
+			if !isLocalIP(requestIP) && !isTrustedProxy(requestIP, trustedNets, trustedAddrs) {
+				break
+			}
 		}
 	}
 

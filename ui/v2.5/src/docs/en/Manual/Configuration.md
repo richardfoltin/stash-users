@@ -151,7 +151,7 @@ Some scrapers require a Chrome instance to function correctly. If left empty, st
 
 ## Authentication
 
-Without users, Stash does not require signing in. Once a user exists, only signed-in users can use Stash. Roles, signing in and recovering access are described in [Users and Permissions](/help/Users.md).
+Without users, Stash does not require signing in. Once a user exists, only signed-in users can use Stash. Roles, signing in, automatic login and recovering access are described in [Users and Permissions](/help/Users.md).
 
 Users are managed in the `Users` section of `Settings > Security`, and are stored in the `users` section of `config.yml`. Passwords are stored as hashes. A `username` and `password` set in `config.yml` by an earlier version of stash are treated as a user with the `Admin` role, and are moved into the `users` section the first time users are changed.
 

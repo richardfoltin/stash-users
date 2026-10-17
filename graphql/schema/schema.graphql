@@ -660,7 +660,7 @@ type Mutation {
   # Users
   "Creates a user. The first user must have the ADMIN role"
   userCreate(input: UserCreateInput!): User @hasRole(role: ADMIN)
-  "Sets the name and roles of a user. The last admin keeps the ADMIN role"
+  "Sets the name, roles and auto login of a user. The last admin keeps the ADMIN role"
   userUpdate(input: UserUpdateInput!): User @hasRole(role: ADMIN)
   "Deletes a user. The last admin cannot be deleted"
   userDestroy(input: UserDestroyInput!): Boolean! @hasRole(role: ADMIN)

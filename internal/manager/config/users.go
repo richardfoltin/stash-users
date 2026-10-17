@@ -29,6 +29,7 @@ type StoredUser struct {
 	Roles        []models.RoleEnum `json:"roles" koanf:"roles"`
 	// SessionToken is replaced when the password changes, ending the sessions
 	SessionToken string `json:"sessiontoken" koanf:"sessiontoken"`
+	AutoLogin    bool   `json:"autologin" koanf:"autologin"`
 }
 
 func (u StoredUser) toMap() map[string]interface{} {
@@ -47,13 +48,18 @@ func (u StoredUser) toMap() map[string]interface{} {
 		ret["sessiontoken"] = u.SessionToken
 	}
 
+	if u.AutoLogin {
+		ret["autologin"] = true
+	}
+
 	return ret
 }
 
 func (u StoredUser) toUser() *models.User {
 	return &models.User{
-		Username: u.Username,
-		Roles:    slices.Clone(u.Roles),
+		Username:  u.Username,
+		Roles:     slices.Clone(u.Roles),
+		AutoLogin: u.AutoLogin,
 	}
 }
 
@@ -202,6 +208,14 @@ func (s *UserStore) findUser(users []StoredUser, username string) int {
 	return slices.IndexFunc(users, func(u StoredUser) bool {
 		return u.Username == username
 	})
+}
+
+func clearOtherAutoLogin(users []StoredUser, idx int) {
+	for i := range users {
+		if i != idx {
+			users[i].AutoLogin = false
+		}
+	}
 }
 
 func hasOtherAdmin(users []StoredUser, username string) bool {
@@ -358,16 +372,24 @@ func (s *UserStore) CreateUser(ctx context.Context, u models.User, password stri
 			return nil, user.ErrFirstUserNotAdmin
 		}
 
-		return append(users, StoredUser{
+		users = append(users, StoredUser{
 			Username:     u.Username,
 			PasswordHash: hash,
 			Roles:        slices.Clone(u.Roles),
 			SessionToken: token,
-		}), nil
+			AutoLogin:    u.AutoLogin,
+		})
+
+		if u.AutoLogin {
+			clearOtherAutoLogin(users, len(users)-1)
+		}
+
+		return users, nil
 	})
 }
 
-// ReplaceUser replaces the name and roles of the user, but not its password.
+// ReplaceUser replaces the name, roles and auto login mark of the user, but not
+// its password.
 func (s *UserStore) ReplaceUser(ctx context.Context, username string, updated models.User) error {
 	return s.modifyUsers(func(users []StoredUser) ([]StoredUser, error) {
 		idx := s.findUser(users, username)
@@ -385,6 +407,12 @@ func (s *UserStore) ReplaceUser(ctx context.Context, username string, updated mo
 
 		users[idx].Username = updated.Username
 		users[idx].Roles = slices.Clone(updated.Roles)
+		users[idx].AutoLogin = updated.AutoLogin
+
+		if updated.AutoLogin {
+			clearOtherAutoLogin(users, idx)
+		}
+
 		return users, nil
 	})
 }

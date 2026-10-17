@@ -21,6 +21,11 @@ type User {
   Should not be visible to other users
   """
   roles: [RoleEnum!] @isUserOwner
+  """
+  If true, requests from the local network without a session are logged in as
+  this user. At most one user has auto login.
+  """
+  autoLogin: Boolean!
 }
 
 input UserCreateInput {
@@ -30,12 +35,19 @@ input UserCreateInput {
   """
   password: String!
   roles: [RoleEnum!]!
+  "Setting auto login for this user clears it for every other user"
+  autoLogin: Boolean
 }
 
 input UserUpdateInput {
   existingName: String!
   name: String!
   roles: [RoleEnum!]!
+  """
+  Setting auto login for this user clears it for every other user.
+  Left unchanged if not set.
+  """
+  autoLogin: Boolean
 }
 
 input UserDestroyInput {

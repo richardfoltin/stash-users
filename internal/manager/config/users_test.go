@@ -384,3 +384,100 @@ func TestUserStore_ListedUserOverridesLegacyUser(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, models.Roles{models.RoleEnumRead}, u.Roles)
 }
+
+// autoLoginUsers returns the names of the users marked for auto login.
+func autoLoginUsers(t *testing.T, s *UserStore) []string {
+	t.Helper()
+
+	users, err := s.AllUsers(context.Background())
+	require.NoError(t, err)
+
+	var ret []string
+	for _, u := range users {
+		if u.AutoLogin {
+			ret = append(ret, u.Username)
+		}
+	}
+	return ret
+}
+
+func TestUserStore_AutoLogin(t *testing.T) {
+	ctx := context.Background()
+	s, fn := newTestUserStore(t, "username: admin\npassword: "+mustHash(t, "secret")+"\n")
+
+	adminRole := models.Roles{models.RoleEnumAdmin}
+	modifyRole := models.Roles{models.RoleEnumModify}
+	readRole := models.Roles{models.RoleEnumRead}
+
+	assert.Empty(t, autoLoginUsers(t, s))
+
+	// the legacy user can be marked - it is moved into the users list
+	require.NoError(t, s.ReplaceUser(ctx, "admin", models.User{Username: "admin", Roles: adminRole, AutoLogin: true}))
+	assert.Equal(t, []string{"admin"}, autoLoginUsers(t, s))
+
+	// creating a marked user clears the mark of every other user
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "editor", Roles: modifyRole, AutoLogin: true}, "pw"))
+	assert.Equal(t, []string{"editor"}, autoLoginUsers(t, s))
+
+	// creating an unmarked user leaves the mark unchanged
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole}, "pw"))
+	assert.Equal(t, []string{"editor"}, autoLoginUsers(t, s))
+
+	// marking another user clears the mark of every other user
+	require.NoError(t, s.ReplaceUser(ctx, "viewer", models.User{Username: "viewer", Roles: readRole, AutoLogin: true}))
+	assert.Equal(t, []string{"viewer"}, autoLoginUsers(t, s))
+
+	// the mark persists across reloads, and moves with a renamed user
+	assert.Equal(t, []string{"viewer"}, autoLoginUsers(t, loadTestUserStore(t, fn)))
+	require.NoError(t, s.ReplaceUser(ctx, "viewer", models.User{Username: "viewer2", Roles: readRole, AutoLogin: true}))
+	assert.Equal(t, []string{"viewer2"}, autoLoginUsers(t, loadTestUserStore(t, fn)))
+
+	// the mark is only stored for the marked user
+	data, err := os.ReadFile(fn)
+	require.NoError(t, err)
+	assert.Equal(t, 1, strings.Count(string(data), "autologin"))
+
+	// changing the password keeps the mark
+	require.NoError(t, s.ChangeUserPassword(ctx, "viewer2", "new"))
+	assert.Equal(t, []string{"viewer2"}, autoLoginUsers(t, s))
+
+	// clearing the mark
+	require.NoError(t, s.ReplaceUser(ctx, "viewer2", models.User{Username: "viewer2", Roles: readRole}))
+	assert.Empty(t, autoLoginUsers(t, s))
+	data, err = os.ReadFile(fn)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "autologin", "mark is omitted when false")
+
+	// removing the marked user removes the mark
+	require.NoError(t, s.ReplaceUser(ctx, "editor", models.User{Username: "editor", Roles: modifyRole, AutoLogin: true}))
+	require.NoError(t, s.DeleteUser(ctx, "editor"))
+	assert.Empty(t, autoLoginUsers(t, s))
+	assert.Empty(t, autoLoginUsers(t, loadTestUserStore(t, fn)))
+}
+
+// TestUserStore_AutoLoginConcurrent marks two users concurrently: at most one
+// user must be marked.
+func TestUserStore_AutoLoginConcurrent(t *testing.T) {
+	ctx := context.Background()
+	readRole := models.Roles{models.RoleEnumRead}
+
+	for i := 0; i < 20; i++ {
+		s, fn := newTestUserStore(t, "")
+		require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: models.Roles{models.RoleEnumAdmin}}, "pw"))
+		require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer1", Roles: readRole}, "pw"))
+
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_ = s.ReplaceUser(ctx, "viewer1", models.User{Username: "viewer1", Roles: readRole, AutoLogin: true})
+		}()
+		go func() {
+			defer wg.Done()
+			_ = s.CreateUser(ctx, models.User{Username: "viewer2", Roles: readRole, AutoLogin: true}, "pw")
+		}()
+		wg.Wait()
+
+		assert.Len(t, autoLoginUsers(t, loadTestUserStore(t, fn)), 1)
+	}
+}

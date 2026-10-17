@@ -54,6 +54,7 @@ type UserService interface {
 	GetUser(ctx context.Context, username string) (*models.User, error)
 	AuthenticateByAPIKey(ctx context.Context, apiKey string) (*models.User, error)
 	AuthenticateSession(ctx context.Context, username string, sessionToken string) (*models.User, error)
+	AutoLoginUser(ctx context.Context) (*models.User, string, error)
 
 	CreateUser(ctx context.Context, u models.User, password string) error
 	UpdateUser(ctx context.Context, username string, updated models.User) error

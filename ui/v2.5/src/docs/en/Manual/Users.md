@@ -18,11 +18,19 @@ The last `Admin` user cannot be removed or demoted.
 
 Plugin hooks run with `Admin` rights, regardless of the role of the user whose change triggered them. Plugin settings, stash-box API keys and the Handy connection key are only visible to administrators.
 
+## Automatic login
+
+Requests from the local network that are not signed in are signed in as the automatic user, without a password. The local network means private, loopback and link-local addresses, and the `100.64.0.0/10` range. Requests from other addresses must sign in with a password.
+
+Only one user can log in automatically. Turn it on when adding a user, or with the `Log in automatically from the local network` switch under the user. Turning it on for one user turns it off for every other user.
+
+> **⚠️ Note:** Automatic login is only for trusted local networks. Behind a reverse proxy that does not pass `X-Forwarded-For`, or behind container NAT, every request looks local, so everyone who can reach Stash is signed in automatically. The `100.64.0.0/10` range includes Tailscale and CGNAT clients. Do not turn on automatic login for an `Admin` user unless everyone who can reach Stash this way may have full access.
+
 ## Signing in and logging out
 
-The user icon in the navigation bar shows the signed-in user and their role when you point at it, and opens `Change password`. The `Log out` button next to it ends the session and opens the login page.
+The user icon in the navigation bar shows the signed-in user and their role when you point at it, and opens `Change password`. The `Log out` button next to it ends the session and opens the login page. On the local network, while a user is set to log in automatically, opening any other page signs you in as that user again.
 
-The login page asks for a username and password.
+The login page asks for a username and password. The login page itself is never signed in automatically, so another user can sign in there.
 
 Changing a password ends all sessions of that user. Passwords cannot be longer than 72 bytes.
 

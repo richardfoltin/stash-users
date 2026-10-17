@@ -121,9 +121,9 @@ func handleLogin(s manager.UserService) http.HandlerFunc {
 	}
 }
 
-func handleLoginPost() http.HandlerFunc {
+func handleLoginPost(getStore func() *session.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		err := manager.GetInstance().SessionStore.Login(w, r)
+		err := getStore().Login(w, r)
 		if err != nil {
 			// always log the error
 			logger.Errorf("Error logging in: %v from IP: %s", err, r.RemoteAddr)
@@ -146,9 +146,9 @@ func handleLoginPost() http.HandlerFunc {
 	}
 }
 
-func handleLogout(s manager.UserService) http.HandlerFunc {
+func handleLogout(s manager.UserService, getStore func() *session.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := manager.GetInstance().SessionStore.Logout(w, r); err != nil {
+		if err := getStore().Logout(w, r); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

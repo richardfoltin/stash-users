@@ -37,6 +37,7 @@ import (
 	"github.com/stashapp/stash/pkg/fsutil"
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/plugin"
+	"github.com/stashapp/stash/pkg/session"
 	"github.com/stashapp/stash/pkg/utils"
 	"github.com/stashapp/stash/ui"
 )
@@ -127,11 +128,15 @@ func Initialize() (*Server, error) {
 	r.Use(RequestIPMiddleware)
 	userService := mgr.UserService
 
-	r.Use(authenticateHandler(userService))
 	// the session store is replaced when setup completes
+	getStore := func() *session.Store {
+		return manager.GetInstance().SessionStore
+	}
+
+	r.Use(authenticateHandler(userService, getStore))
 	visitedPluginHandler := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			manager.GetInstance().SessionStore.VisitedPluginHandler()(next).ServeHTTP(w, r)
+			getStore().VisitedPluginHandler()(next).ServeHTTP(w, r)
 		})
 	}
 	r.Use(visitedPluginHandler)
@@ -247,8 +252,8 @@ func Initialize() (*Server, error) {
 	staticLoginUI := statigz.FileServer(ui.LoginUIBox.(fs.ReadDirFS))
 
 	r.Get(loginEndpoint, handleLogin(userService))
-	r.Post(loginEndpoint, handleLoginPost())
-	r.Get(logoutEndpoint, handleLogout(userService))
+	r.Post(loginEndpoint, handleLoginPost(getStore))
+	r.Get(logoutEndpoint, handleLogout(userService, getStore))
 	r.Get(loginLocaleEndpoint, handleLoginLocale(cfg))
 	r.HandleFunc(loginEndpoint+"/*", func(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = strings.TrimPrefix(r.URL.Path, loginEndpoint)

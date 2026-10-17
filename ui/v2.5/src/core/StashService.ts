@@ -2773,11 +2773,27 @@ export const useUserCreate = () =>
     },
   });
 
+// The cached users are replaced rather than evicted, so that the users list
+// shows the change at once, without reloading. Auto login moves to the
+// updated user.
 export const useUserUpdate = () =>
   GQL.useUserUpdateMutation({
-    update(cache, result) {
-      if (!result.data?.userUpdate) return;
-      evictQueries(cache, userMutationImpactedQueries);
+    update(cache, result, { variables }) {
+      const updated = result.data?.userUpdate;
+      if (!updated) return;
+
+      const replace = (u: GQL.UserDataFragment) => {
+        if (u.name === variables?.input.existingName) return updated;
+        if (updated.autoLogin && u.autoLogin) return { ...u, autoLogin: false };
+        return u;
+      };
+
+      cache.updateQuery({ query: GQL.UsersDocument }, (data) =>
+        data ? { users: data.users.map(replace) } : data
+      );
+      cache.updateQuery({ query: GQL.MeDocument }, (data) =>
+        data?.me ? { me: replace(data.me) } : data
+      );
     },
   });
 

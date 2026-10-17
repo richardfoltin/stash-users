@@ -1,7 +1,11 @@
 import React, { useState } from "react";
 import { Badge, Button, Form } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
-import { faInfoCircle, faTrashAlt } from "@fortawesome/free-solid-svg-icons";
+import {
+  faExclamationTriangle,
+  faInfoCircle,
+  faTrashAlt,
+} from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import {
   useChangeUserPassword,
@@ -99,10 +103,44 @@ const PasswordInput: React.FC<{
   );
 };
 
+const AutoLoginInput: React.FC<{
+  value: boolean;
+  role: GQL.RoleEnum | undefined;
+  onChange: (v: boolean) => void;
+}> = ({ value, role, onChange }) => {
+  const intl = useIntl();
+
+  return (
+    <Form.Group id="user-auto-login">
+      <Form.Switch
+        id="user-auto-login-check"
+        checked={value}
+        label={intl.formatMessage({
+          id: "config.general.auth.users.auto_login",
+        })}
+        onChange={() => onChange(!value)}
+      />
+      <Form.Text className="text-muted">
+        {intl.formatMessage({
+          id: "config.general.auth.users.auto_login_desc",
+        })}
+      </Form.Text>
+      {value && role === GQL.RoleEnum.Admin && (
+        <Form.Text className="text-warning">
+          {intl.formatMessage({
+            id: "config.general.auth.users.auto_login_admin_warning",
+          })}
+        </Form.Text>
+      )}
+    </Form.Group>
+  );
+};
+
 interface IUserInput {
   name: string;
   password: string;
   role: GQL.RoleEnum;
+  autoLogin: boolean;
 }
 
 const AddUserModal: React.FC<{
@@ -122,6 +160,7 @@ const AddUserModal: React.FC<{
         password: "",
         // the first user must be an admin
         role: firstUser ? GQL.RoleEnum.Admin : GQL.RoleEnum.Read,
+        autoLogin: false,
       }}
       validate={(v) => v.name.trim() !== "" && validPassword(v.password)}
       renderField={(v, setValue) => (
@@ -147,6 +186,11 @@ const AddUserModal: React.FC<{
             value={v?.role ?? GQL.RoleEnum.Read}
             disabled={firstUser}
             onChange={(role) => setValue({ ...v!, role })}
+          />
+          <AutoLoginInput
+            value={v?.autoLogin ?? false}
+            role={v?.role}
+            onChange={(autoLogin) => setValue({ ...v!, autoLogin })}
           />
         </>
       )}
@@ -182,6 +226,7 @@ export const SettingsUsers: React.FC = () => {
             name: v.name.trim(),
             password: v.password,
             roles: [v.role],
+            autoLogin: v.autoLogin,
           },
         },
       });
@@ -204,6 +249,32 @@ export const SettingsUsers: React.FC = () => {
             existingName: u.name,
             name: u.name,
             roles: [role],
+          },
+        },
+      });
+      Toast.success(
+        intl.formatMessage(
+          { id: "config.general.auth.users.user_updated" },
+          { name: u.name }
+        )
+      );
+    } catch (e) {
+      Toast.error(e);
+    }
+  }
+
+  async function onChangeAutoLogin(
+    u: GQL.UserDataFragment,
+    autoLogin: boolean
+  ) {
+    try {
+      await updateUser({
+        variables: {
+          input: {
+            existingName: u.name,
+            name: u.name,
+            roles: u.roles ?? [],
+            autoLogin,
           },
         },
       });
@@ -284,7 +355,7 @@ export const SettingsUsers: React.FC = () => {
       (u) => getUserRole(u) === GQL.RoleEnum.Admin
     ).length;
 
-    return users.map((u) => {
+    return users.map((u, i) => {
       const role = getUserRole(u);
       const isLastAdmin = role === GQL.RoleEnum.Admin && adminCount <= 1;
       const isCurrentUser = u.name === currentUser?.name;
@@ -307,7 +378,27 @@ export const SettingsUsers: React.FC = () => {
               >
                 <FormattedMessage id={roleMessageID(role)} />
               </Badge>
+              {u.autoLogin && (
+                <Badge className="user-badge" variant="info">
+                  <FormattedMessage id="config.general.auth.users.auto_login_enabled" />
+                </Badge>
+              )}
             </div>
+            <Form.Switch
+              id={`user-auto-login-${i}`}
+              className="user-auto-login-switch"
+              checked={u.autoLogin}
+              label={intl.formatMessage({
+                id: "config.general.auth.users.auto_login",
+              })}
+              onChange={() => onChangeAutoLogin(u, !u.autoLogin)}
+            />
+            {u.autoLogin && role === GQL.RoleEnum.Admin && (
+              <div className="user-note text-warning">
+                <Icon icon={faExclamationTriangle} />
+                <FormattedMessage id="config.general.auth.users.auto_login_admin_warning" />
+              </div>
+            )}
             {isLastAdmin && (
               <div className="user-note">
                 <Icon icon={faInfoCircle} />
@@ -436,7 +527,11 @@ export const SettingsUsers: React.FC = () => {
       {renderUsers()}
 
       <div className="setting">
-        <div />
+        <div>
+          <div className="sub-heading">
+            <FormattedMessage id="config.general.auth.users.auto_login_section_desc" />
+          </div>
+        </div>
         <div>
           <Button onClick={() => setIsCreating(true)}>
             <FormattedMessage id="config.general.auth.users.add_user" />
