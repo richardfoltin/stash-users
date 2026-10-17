@@ -81,6 +81,16 @@ The default filter for the top-level pages may be set to the current filter by c
 
 Saved filters, default filters, pinned criteria and pinned sort options are shared by all users. Saving a filter, including `Overwrite` and `Rename`, requires the `Editor` role. Deleting a saved filter, `Set as default` and pinning criteria or sort options require the `Admin` role. See [Users and Permissions](/help/Users.md).
 
+### List memory
+
+Each list page remembers how you left it, and opens that way the next time you open it without a query in the URL. It remembers the sort, page size, display mode, zoom, filter criteria and search. It does not remember the page number.
+
+The memory is kept per list page, and separately for the list on each object's own page, such as the scenes of each performer. It is kept per user, in this browser: other users and other browsers have their own memory.
+
+A URL with a query, such as a link to a filtered list, overrides the memory. Only the parts you change are remembered, so the criteria of a link are not remembered unless you change them.
+
+The memory has two parts: the view (sort, page size, display mode and zoom) and the filter (criteria and search). A part is remembered as a whole once you change anything in it. The default filter applies only to the parts that you never changed.
+
 ## Reveal file in file manager
 
 The `Reveal in file manager` action is available for file-based scenes, galleries and images in the `File Info` tab. This action will open the file manager to the location of the file on disk. The file will be selected if supported by the file manager.

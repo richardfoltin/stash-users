@@ -4,6 +4,7 @@ import * as GQL from "src/core/generated-graphql";
 interface IPermissions {
   // undefined if authentication is not configured
   user?: GQL.UserDataFragment;
+  loadFailed?: boolean;
   // undefined if the user is locked
   role?: GQL.RoleEnum;
   isAdmin: boolean;
@@ -56,7 +57,7 @@ export function getPermissions(
   loadFailed?: boolean
 ): IPermissions {
   if (loadFailed) {
-    return permissionsForRole(GQL.RoleEnum.Read);
+    return { ...permissionsForRole(GQL.RoleEnum.Read), loadFailed };
   }
 
   if (!user) {

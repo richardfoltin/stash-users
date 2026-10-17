@@ -12,6 +12,15 @@ import * as GQL from "src/core/generated-graphql";
 import { DisplayMode } from "src/models/list-filter/types";
 import { Criterion } from "src/models/list-filter/criteria/criterion";
 import { usePermissions } from "src/hooks/Permissions";
+import {
+  browserStorage,
+  IListState,
+  listMemorySlot,
+  mergeListState,
+  readListMemory,
+  RememberedListState,
+  saveListMemory,
+} from "./listMemory";
 
 function locationEquals(
   loc1: ReturnType<typeof useLocation> | undefined,
@@ -138,6 +147,54 @@ function useEmptyFilter(props: {
   return emptyFilter;
 }
 
+// returns the parts of the filter that are remembered for a list
+function listState(filter: ListFilterModel): IListState {
+  return {
+    settings: {
+      sortBy: filter.sortBy,
+      sortDirection: filter.sortDirection,
+      itemsPerPage: filter.itemsPerPage,
+      displayMode: filter.displayMode,
+      zoomIndex: filter.zoomIndex,
+    },
+    criteria: {
+      searchTerm: filter.searchTerm,
+      criteria: filter.criteria.map((c) => JSON.stringify(c.toQueryParams())),
+    },
+  };
+}
+
+// returns a copy of the default filter with the remembered state applied, on
+// the first page. A random sort gets a new seed, as when loading a default
+// filter.
+function restoreFilter(
+  defaultFilter: ListFilterModel,
+  remembered: RememberedListState | undefined
+) {
+  const ret = defaultFilter.clone();
+  if (!remembered) return ret;
+
+  const { settings, criteria } = mergeListState(
+    listState(defaultFilter),
+    remembered
+  );
+  ret.sortBy = settings.sortBy;
+  ret.sortDirection = settings.sortDirection;
+  ret.itemsPerPage = settings.itemsPerPage;
+  ret.displayMode = settings.displayMode;
+  ret.zoomIndex = settings.zoomIndex;
+  ret.searchTerm = criteria.searchTerm;
+
+  // the criteria are decoded as from the URL query
+  const decoded = defaultFilter.empty();
+  decoded.configureFromDecodedParams({ c: criteria.criteria });
+  ret.criteria = decoded.criteria;
+
+  ret.currentPage = 1;
+  ret.randomSeed = -1;
+  return ret;
+}
+
 export interface IFilterStateHook {
   filterMode: GQL.FilterMode;
   defaultFilter?: ListFilterModel;
@@ -160,10 +217,7 @@ export function useFilterState(
     defaultFilter: propDefaultFilter,
   } = props;
 
-  const [filter, setFilterState] = useState<ListFilterModel>(
-    () =>
-      new ListFilterModel(filterMode, config, { defaultSortBy: defaultSort })
-  );
+  const location = useLocation();
 
   const emptyFilter = useEmptyFilter({ filterMode, defaultSort, config });
 
@@ -171,11 +225,64 @@ export function useFilterState(
     emptyFilter,
     view
   );
+  const defaultFilter = propDefaultFilter ?? defaultFilterFromConfig;
 
-  const { setFilter } = useFilterURL(filter, setFilterState, {
-    defaultFilter: propDefaultFilter ?? defaultFilterFromConfig,
+  const { user, loadFailed } = usePermissions();
+  const userName = user?.name;
+  const memorySlot = useMemo(
+    () =>
+      useURL === false
+        ? undefined
+        : listMemorySlot({
+            view,
+            pathname: location.pathname,
+            userName,
+            loadFailed,
+          }),
+    [useURL, view, location.pathname, userName, loadFailed]
+  );
+
+  // the remembered state is applied when the URL has no query
+  const noQuery = !location.search;
+  const startFilter = useMemo(
+    () =>
+      noQuery
+        ? restoreFilter(
+            defaultFilter,
+            readListMemory(browserStorage(), memorySlot)
+          )
+        : defaultFilter,
+    [noQuery, defaultFilter, memorySlot]
+  );
+
+  const [filter, setFilterState] = useState<ListFilterModel>(() =>
+    useURL !== false && noQuery
+      ? startFilter
+      : new ListFilterModel(filterMode, config, { defaultSortBy: defaultSort })
+  );
+
+  const { setFilter: setURLFilter } = useFilterURL(filter, setFilterState, {
+    defaultFilter: startFilter,
     active: useURL,
   });
+
+  const setFilter = useCallback(
+    (
+      value: ListFilterModel | ((prevState: ListFilterModel) => ListFilterModel)
+    ) => {
+      const newFilter = isFunction(value) ? value(filter) : value;
+      if (memorySlot) {
+        saveListMemory(
+          browserStorage(),
+          memorySlot,
+          listState(filter),
+          listState(newFilter)
+        );
+      }
+      setURLFilter(newFilter);
+    },
+    [filter, memorySlot, setURLFilter]
+  );
 
   return { filter, setFilter };
 }
