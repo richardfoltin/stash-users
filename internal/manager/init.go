@@ -192,6 +192,13 @@ func initJobManager(cfg *config.Config) *job.Manager {
 func (s *Manager) postInit(ctx context.Context) error {
 	s.RefreshConfig()
 
+	// without users, the local network uses stash without a password
+	if created, err := s.Config.UserStore.CreateFirstAdmin(ctx); err != nil {
+		logger.Errorf("error creating the first admin user: %v", err)
+	} else if created {
+		logger.Infof("No users configured: created the user %q with the Admin role, no password and auto login from the local network", config.FirstAdminUsername)
+	}
+
 	s.SessionStore = session.NewStore(s.Config, s.UserService)
 	s.PluginCache.RegisterSessionStore(s.SessionStore)
 

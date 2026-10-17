@@ -2805,7 +2805,13 @@ export const useUserDestroy = () =>
     },
   });
 
-export const useChangeUserPassword = () => GQL.useChangeUserPasswordMutation();
+export const useChangeUserPassword = () =>
+  GQL.useChangeUserPasswordMutation({
+    update(cache, result) {
+      if (!result.data?.changeUserPassword) return;
+      evictQueries(cache, userMutationImpactedQueries);
+    },
+  });
 
 export const useChangePassword = () => GQL.useChangePasswordMutation();
 

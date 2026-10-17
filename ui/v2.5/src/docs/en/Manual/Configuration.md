@@ -151,7 +151,7 @@ Some scrapers require a Chrome instance to function correctly. If left empty, st
 
 ## Authentication
 
-Without users, Stash does not require signing in. Once a user exists, only signed-in users can use Stash. Roles, signing in, automatic login and recovering access are described in [Users and Permissions](/help/Users.md).
+Stash always has at least one user, and only signed-in users can use it. When Stash starts without any users, it creates the user `admin` with the `Admin` role, no password and automatic login from the local network. Roles, signing in, automatic login and recovering access are described in [Users and Permissions](/help/Users.md).
 
 Users are managed in the `Users` section of `Settings > Security`, and are stored in the `users` section of `config.yml`. Passwords are stored as hashes. A `username` and `password` set in `config.yml` by an earlier version of stash are treated as a user with the `Admin` role, and are moved into the `users` section the first time users are changed.
 
@@ -175,7 +175,7 @@ These options are typically not exposed in the UI and must be changed manually i
 | `no_proxy` | A list of domains for which the proxy must not be used. Default is all local LAN: localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12 |
 | `sequential_scanning` | Modifies behaviour of the scanning functionality to generate support files (previews/sprites/phash) at the same time as fingerprinting/screenshotting. Useful when scanning cached remote files. |
 | `trusted_proxies` | A list of trusted proxy IPs or CIDR ranges. If a request comes from a trusted proxy or if the request IP address is a local address, the `X-FORWARDED-FOR` header will be used to determine the client's real IP address. Default is empty (no trusted proxies). |
-| `public_whitelist` | A list of public IP addresses or subnets (in CIDR range format eg: `192.168.1.0/24`) that are allowed to access the system when no credentials are configured. |
+| `public_whitelist` | A list of public IP addresses or subnets (in CIDR range format eg: `192.168.1.0/24`) that are allowed to access the system when no credentials are configured. Stash now creates the user `admin` when there are no users, so this no longer allows access without signing in. See [Users and Permissions](/help/Users.md). |
 | `signed_url_expiry` | The expiry time for signed URLs, in seconds. Signed URLs are used when authentication is required. Defaults to 4 hours to accommodate long video playback sessions. |
 
 The following environment variables are also supported:

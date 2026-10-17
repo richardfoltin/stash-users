@@ -324,3 +324,76 @@ func TestUserService_AutoLoginUser(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, u, "mark cleared")
 }
+
+// newFirstAdminService returns a user service with the first admin, which has
+// no password and auto login.
+func newFirstAdminService(t *testing.T) *user.Service {
+	t.Helper()
+
+	s, cfg := newTestService(t)
+	created, err := cfg.UserStore.CreateFirstAdmin(context.Background())
+	require.NoError(t, err)
+	require.True(t, created)
+
+	return s
+}
+
+func TestUserService_FirstPassword(t *testing.T) {
+	ctx := context.Background()
+	s := newFirstAdminService(t)
+
+	// a user without a password is never logged in with a password
+	_, err := s.Login(ctx, "admin", "")
+	assert.ErrorIs(t, err, user.ErrAccessDenied)
+	_, err = s.Login(ctx, "admin", "anything")
+	assert.ErrorIs(t, err, user.ErrAccessDenied)
+
+	// and sets the first password without the current one
+	require.NoError(t, s.ChangePassword(ctx, "admin", "", "first"))
+	assert.NoError(t, s.ValidateCredentials(ctx, "admin", "first"))
+	u, err := s.GetUser(ctx, "admin")
+	require.NoError(t, err)
+	assert.True(t, u.HasPassword)
+
+	// once the user has a password, the current password is required
+	assert.ErrorIs(t, s.ChangePassword(ctx, "admin", "", "second"), user.ErrCurrentPasswordIncorrect)
+	assert.ErrorIs(t, s.ChangePassword(ctx, "admin", "wrong", "second"), user.ErrCurrentPasswordIncorrect)
+	assert.NoError(t, s.ValidateCredentials(ctx, "admin", "first"))
+	require.NoError(t, s.ChangePassword(ctx, "admin", "first", "second"))
+	assert.NoError(t, s.ValidateCredentials(ctx, "admin", "second"))
+}
+
+func TestUserService_AutoLoginWithoutPassword(t *testing.T) {
+	ctx := context.Background()
+	s := newFirstAdminService(t)
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "editor", Roles: modifyRole}, "pw"))
+
+	// auto login cannot be turned off for the user without a password
+	assert.ErrorIs(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Roles: adminRole}), user.ErrAutoLoginNoPassword)
+
+	// nor given to another user, which would turn it off for that user
+	assert.ErrorIs(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: modifyRole, AutoLogin: true}), user.ErrAutoLoginUserNoPassword)
+	assert.ErrorIs(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole, AutoLogin: true}, "pw"), user.ErrAutoLoginUserNoPassword)
+
+	// other changes are allowed
+	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: readRole}))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole}, "pw"))
+
+	u, _, err := s.AutoLoginUser(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, u)
+	assert.Equal(t, "admin", u.Username)
+
+	// once the user has a password, auto login can be moved and turned off
+	require.NoError(t, s.ChangeUserPassword(ctx, "admin", "pw"))
+	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: readRole, AutoLogin: true}))
+	u, _, err = s.AutoLoginUser(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, u)
+	assert.Equal(t, "editor", u.Username)
+
+	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: readRole}))
+	u, _, err = s.AutoLoginUser(ctx)
+	require.NoError(t, err)
+	assert.Nil(t, u)
+}

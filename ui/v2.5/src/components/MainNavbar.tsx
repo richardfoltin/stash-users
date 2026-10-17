@@ -394,6 +394,7 @@ export const MainNavbar: React.FC = () => {
       {showChangePassword && user && (
         <ChangePasswordDialog
           username={user.name}
+          hasPassword={user.hasPassword}
           onClose={() => setShowChangePassword(false)}
         />
       )}

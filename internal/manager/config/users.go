@@ -20,6 +20,10 @@ const (
 	Users    = "users"
 )
 
+// FirstAdminUsername is the name of the user created when no users are
+// configured.
+const FirstAdminUsername = "admin"
+
 var ErrUsersListExists = errors.New("the username and password are managed in the users list: use the user management instead")
 
 // StoredUser is a user as stored in the config file, with its password hash.
@@ -57,10 +61,15 @@ func (u StoredUser) toMap() map[string]interface{} {
 
 func (u StoredUser) toUser() *models.User {
 	return &models.User{
-		Username:  u.Username,
-		Roles:     slices.Clone(u.Roles),
-		AutoLogin: u.AutoLogin,
+		Username:    u.Username,
+		Roles:       slices.Clone(u.Roles),
+		AutoLogin:   u.AutoLogin,
+		HasPassword: u.hasPassword(),
 	}
+}
+
+func (u StoredUser) hasPassword() bool {
+	return u.PasswordHash != ""
 }
 
 func (u StoredUser) isAdmin() bool {
@@ -218,6 +227,18 @@ func clearOtherAutoLogin(users []StoredUser, idx int) {
 	}
 }
 
+// otherAutoLoginHasNoPassword returns true if a user other than the user at
+// idx is marked for auto login and has no password.
+func otherAutoLoginHasNoPassword(users []StoredUser, idx int) bool {
+	for i, u := range users {
+		if i != idx && u.AutoLogin && !u.hasPassword() {
+			return true
+		}
+	}
+
+	return false
+}
+
 func hasOtherAdmin(users []StoredUser, username string) bool {
 	return slices.ContainsFunc(users, func(u StoredUser) bool {
 		return u.Username != username && u.isAdmin()
@@ -298,6 +319,11 @@ func (s *UserStore) ValidateCredentials(ctx context.Context, username string, pa
 		return false
 	}
 
+	// a user without a password can only be logged in automatically
+	if !u.hasPassword() {
+		return false
+	}
+
 	err = bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password))
 
 	return err == nil
@@ -372,6 +398,10 @@ func (s *UserStore) CreateUser(ctx context.Context, u models.User, password stri
 			return nil, user.ErrFirstUserNotAdmin
 		}
 
+		if u.AutoLogin && otherAutoLoginHasNoPassword(users, -1) {
+			return nil, user.ErrAutoLoginUserNoPassword
+		}
+
 		users = append(users, StoredUser{
 			Username:     u.Username,
 			PasswordHash: hash,
@@ -403,6 +433,14 @@ func (s *UserStore) ReplaceUser(ctx context.Context, username string, updated mo
 
 		if users[idx].isAdmin() && !updated.Roles.HasRole(models.RoleEnumAdmin) && !hasOtherAdmin(users, username) {
 			return nil, user.ErrRemoveLastAdminRole
+		}
+
+		if users[idx].AutoLogin && !users[idx].hasPassword() && !updated.AutoLogin {
+			return nil, user.ErrAutoLoginNoPassword
+		}
+
+		if updated.AutoLogin && otherAutoLoginHasNoPassword(users, idx) {
+			return nil, user.ErrAutoLoginUserNoPassword
 		}
 
 		users[idx].Username = updated.Username
@@ -455,4 +493,40 @@ func (s *UserStore) DeleteUser(ctx context.Context, username string) error {
 
 		return slices.Delete(users, idx, idx+1), nil
 	})
+}
+
+// CreateFirstAdmin creates an admin without a password and with auto login, if
+// no users are configured. Returns true if the user was created.
+func (s *UserStore) CreateFirstAdmin(ctx context.Context) (bool, error) {
+	token, err := newSessionToken()
+	if err != nil {
+		return false, err
+	}
+
+	s.Lock()
+	defer s.Unlock()
+
+	users, err := s.allUsersNoLock()
+	if err != nil {
+		return false, err
+	}
+
+	if len(users) > 0 {
+		return false, nil
+	}
+
+	admin := StoredUser{
+		Username:     FirstAdminUsername,
+		Roles:        []models.RoleEnum{models.RoleEnumAdmin},
+		SessionToken: token,
+		AutoLogin:    true,
+	}
+
+	s.set(Users, []map[string]interface{}{admin.toMap()})
+
+	if err := s.writeNoLock(); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }

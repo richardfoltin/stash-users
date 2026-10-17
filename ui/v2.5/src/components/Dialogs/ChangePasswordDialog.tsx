@@ -11,8 +11,9 @@ import { ModalComponent } from "../Shared/Modal";
 // changing the password ends the user's sessions, so the login page follows
 export const ChangePasswordDialog: React.FC<{
   username: string;
+  hasPassword: boolean;
   onClose: () => void;
-}> = ({ username, onClose }) => {
+}> = ({ username, hasPassword, onClose }) => {
   const intl = useIntl();
   const Toast = useToast();
   const [changePassword] = useChangePassword();
@@ -25,7 +26,7 @@ export const ChangePasswordDialog: React.FC<{
   const mismatch = confirmPassword !== "" && newPassword !== confirmPassword;
   const tooLong = passwordTooLong(newPassword);
   const valid =
-    existingPassword !== "" &&
+    (!hasPassword || existingPassword !== "") &&
     newPassword !== "" &&
     !tooLong &&
     !mismatch &&
@@ -108,12 +109,13 @@ export const ChangePasswordDialog: React.FC<{
           if (valid) onSubmit();
         }}
       >
-        {renderPasswordInput(
-          "current_password",
-          existingPassword,
-          setExistingPassword,
-          "current-password"
-        )}
+        {hasPassword &&
+          renderPasswordInput(
+            "current_password",
+            existingPassword,
+            setExistingPassword,
+            "current-password"
+          )}
         {renderPasswordInput(
           "new_password",
           newPassword,

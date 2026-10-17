@@ -481,3 +481,72 @@ func TestUserStore_AutoLoginConcurrent(t *testing.T) {
 		assert.Len(t, autoLoginUsers(t, loadTestUserStore(t, fn)), 1)
 	}
 }
+
+func TestUserStore_CreateFirstAdmin(t *testing.T) {
+	ctx := context.Background()
+	s, fn := newTestUserStore(t, "")
+
+	created, err := s.CreateFirstAdmin(ctx)
+	require.NoError(t, err)
+	assert.True(t, created)
+
+	// the admin is stored, has no password and is logged in automatically
+	reloaded := loadTestUserStore(t, fn)
+	assert.True(t, reloaded.LoginRequired(ctx))
+	assert.Equal(t, []string{FirstAdminUsername}, usernames(t, reloaded))
+	assert.Equal(t, []string{FirstAdminUsername}, autoLoginUsers(t, reloaded))
+
+	u, err := reloaded.GetUser(ctx, FirstAdminUsername)
+	require.NoError(t, err)
+	require.NotNil(t, u)
+	assert.Equal(t, models.Roles{models.RoleEnumAdmin}, u.Roles)
+	assert.False(t, u.HasPassword)
+	assert.False(t, reloaded.ValidateCredentials(ctx, FirstAdminUsername, ""))
+
+	// it is created once
+	created, err = reloaded.CreateFirstAdmin(ctx)
+	require.NoError(t, err)
+	assert.False(t, created)
+	assert.Equal(t, []string{FirstAdminUsername}, usernames(t, loadTestUserStore(t, fn)))
+}
+
+func TestUserStore_CreateFirstAdminLegacyUser(t *testing.T) {
+	ctx := context.Background()
+	hash := mustHash(t, "secret")
+	s, fn := newTestUserStore(t, "username: legacy\npassword: "+hash+"\n")
+
+	// the legacy user is the first admin, with its password
+	created, err := s.CreateFirstAdmin(ctx)
+	require.NoError(t, err)
+	assert.False(t, created)
+
+	reloaded := loadTestUserStore(t, fn)
+	assert.Equal(t, []string{"legacy"}, usernames(t, reloaded))
+	assert.Empty(t, autoLoginUsers(t, reloaded))
+	assert.Equal(t, hash, reloaded.GetPasswordHash())
+
+	u, err := reloaded.GetUser(ctx, "legacy")
+	require.NoError(t, err)
+	require.NotNil(t, u)
+	assert.Equal(t, models.Roles{models.RoleEnumAdmin}, u.Roles)
+	assert.True(t, u.HasPassword)
+	assert.True(t, reloaded.ValidateCredentials(ctx, "legacy", "secret"))
+}
+
+func TestUserStore_CreateFirstAdminExistingUsers(t *testing.T) {
+	ctx := context.Background()
+	s, fn := newTestUserStore(t, "")
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "root", Roles: models.Roles{models.RoleEnumAdmin}}, "pw"))
+
+	before, err := os.ReadFile(fn)
+	require.NoError(t, err)
+
+	created, err := s.CreateFirstAdmin(ctx)
+	require.NoError(t, err)
+	assert.False(t, created)
+
+	after, err := os.ReadFile(fn)
+	require.NoError(t, err)
+	assert.Equal(t, string(before), string(after), "the config file must not change")
+	assert.Equal(t, []string{"root"}, usernames(t, loadTestUserStore(t, fn)))
+}

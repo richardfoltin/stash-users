@@ -41,8 +41,7 @@ function validPassword(password: string | undefined) {
 const RoleSelect: React.FC<{
   value: GQL.RoleEnum;
   onChange: (v: GQL.RoleEnum) => void;
-  disabled?: boolean;
-}> = ({ value, onChange, disabled }) => {
+}> = ({ value, onChange }) => {
   const intl = useIntl();
 
   return (
@@ -52,7 +51,6 @@ const RoleSelect: React.FC<{
         as="select"
         className="input-control"
         value={value}
-        disabled={disabled}
         onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
           onChange(e.currentTarget.value as GQL.RoleEnum)
         }
@@ -106,8 +104,9 @@ const PasswordInput: React.FC<{
 const AutoLoginInput: React.FC<{
   value: boolean;
   role: GQL.RoleEnum | undefined;
+  disabledReason?: string;
   onChange: (v: boolean) => void;
-}> = ({ value, role, onChange }) => {
+}> = ({ value, role, disabledReason, onChange }) => {
   const intl = useIntl();
 
   return (
@@ -115,15 +114,17 @@ const AutoLoginInput: React.FC<{
       <Form.Switch
         id="user-auto-login-check"
         checked={value}
+        disabled={!!disabledReason}
         label={intl.formatMessage({
           id: "config.general.auth.users.auto_login",
         })}
         onChange={() => onChange(!value)}
       />
       <Form.Text className="text-muted">
-        {intl.formatMessage({
-          id: "config.general.auth.users.auto_login_desc",
-        })}
+        {disabledReason ??
+          intl.formatMessage({
+            id: "config.general.auth.users.auto_login_desc",
+          })}
       </Form.Text>
       {value && role === GQL.RoleEnum.Admin && (
         <Form.Text className="text-warning">
@@ -144,22 +145,18 @@ interface IUserInput {
 }
 
 const AddUserModal: React.FC<{
-  firstUser: boolean;
+  autoLoginDisabledReason?: string;
   close: (v?: IUserInput) => void;
-}> = ({ firstUser, close }) => {
+}> = ({ autoLoginDisabledReason, close }) => {
   const intl = useIntl();
 
   return (
     <SettingModal<IUserInput>
       headingID="config.general.auth.users.add_user"
-      subHeadingID={
-        firstUser ? "config.general.auth.users.first_user_desc" : undefined
-      }
       value={{
         name: "",
         password: "",
-        // the first user must be an admin
-        role: firstUser ? GQL.RoleEnum.Admin : GQL.RoleEnum.Read,
+        role: GQL.RoleEnum.Read,
         autoLogin: false,
       }}
       validate={(v) => v.name.trim() !== "" && validPassword(v.password)}
@@ -184,12 +181,12 @@ const AddUserModal: React.FC<{
           />
           <RoleSelect
             value={v?.role ?? GQL.RoleEnum.Read}
-            disabled={firstUser}
             onChange={(role) => setValue({ ...v!, role })}
           />
           <AutoLoginInput
             value={v?.autoLogin ?? false}
             role={v?.role}
+            disabledReason={autoLoginDisabledReason}
             onChange={(autoLogin) => setValue({ ...v!, autoLogin })}
           />
         </>
@@ -217,6 +214,24 @@ export const SettingsUsers: React.FC = () => {
   const [deleting, setDeleting] = useState<GQL.UserDataFragment>();
 
   const users = data?.users ?? [];
+
+  // a user without a password can only log in automatically, so auto login
+  // cannot move away from that user
+  const autoLoginUser = users.find((u) => u.autoLogin);
+  function autoLoginDisabledReason(u?: GQL.UserDataFragment) {
+    if (!autoLoginUser || autoLoginUser.hasPassword) return;
+
+    if (u?.name === autoLoginUser.name) {
+      return intl.formatMessage({
+        id: "config.general.auth.users.auto_login_no_password",
+      });
+    }
+
+    return intl.formatMessage(
+      { id: "config.general.auth.users.auto_login_other_no_password" },
+      { name: autoLoginUser.name }
+    );
+  }
 
   async function onCreate(v: IUserInput) {
     try {
@@ -341,16 +356,6 @@ export const SettingsUsers: React.FC = () => {
 
     if (loading) return <LoadingIndicator inline small />;
 
-    if (users.length === 0) {
-      return (
-        <div className="setting">
-          <div className="sub-heading">
-            <FormattedMessage id="config.general.auth.users.no_users" />
-          </div>
-        </div>
-      );
-    }
-
     const adminCount = users.filter(
       (u) => getUserRole(u) === GQL.RoleEnum.Admin
     ).length;
@@ -359,6 +364,7 @@ export const SettingsUsers: React.FC = () => {
       const role = getUserRole(u);
       const isLastAdmin = role === GQL.RoleEnum.Admin && adminCount <= 1;
       const isCurrentUser = u.name === currentUser?.name;
+      const autoLoginDisabled = autoLoginDisabledReason(u);
 
       return (
         <div key={u.name} className="setting user-setting">
@@ -383,16 +389,28 @@ export const SettingsUsers: React.FC = () => {
                   <FormattedMessage id="config.general.auth.users.auto_login_enabled" />
                 </Badge>
               )}
+              {!u.hasPassword && (
+                <Badge className="user-badge" variant="warning">
+                  <FormattedMessage id="config.general.auth.users.no_password" />
+                </Badge>
+              )}
             </div>
             <Form.Switch
               id={`user-auto-login-${i}`}
               className="user-auto-login-switch"
               checked={u.autoLogin}
+              disabled={!!autoLoginDisabled}
               label={intl.formatMessage({
                 id: "config.general.auth.users.auto_login",
               })}
               onChange={() => onChangeAutoLogin(u, !u.autoLogin)}
             />
+            {autoLoginDisabled && (
+              <div className="user-note">
+                <Icon icon={faInfoCircle} />
+                {autoLoginDisabled}
+              </div>
+            )}
             {u.autoLogin && role === GQL.RoleEnum.Admin && (
               <div className="user-note text-warning">
                 <Icon icon={faExclamationTriangle} />
@@ -451,7 +469,7 @@ export const SettingsUsers: React.FC = () => {
     >
       {isCreating && (
         <AddUserModal
-          firstUser={users.length === 0}
+          autoLoginDisabledReason={autoLoginDisabledReason()}
           close={(v) => {
             setIsCreating(false);
             if (v) onCreate(v);

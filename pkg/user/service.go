@@ -31,10 +31,13 @@ var (
 	ErrAccessDenied             = errors.New("access denied")
 	ErrCurrentPasswordIncorrect = errors.New("current password incorrect")
 	ErrUserAlreadyExists        = errors.New("user with that username already exists")
+	ErrAutoLoginNoPassword      = errors.New("auto login cannot be turned off for a user without a password: set a password first")
+	ErrAutoLoginUserNoPassword  = errors.New("auto login cannot be given to another user while the auto login user has no password: set a password for that user first")
 )
 
 // UserSource stores the users. It keeps the usernames unique, the first and
-// the last user admins, and at most one user marked for auto login.
+// the last user admins, and at most one user marked for auto login, who keeps
+// the mark while it has no password.
 type UserSource interface {
 	AllUsers(ctx context.Context) ([]*models.User, error)
 	GetUser(ctx context.Context, username string) (*models.User, error)
@@ -78,6 +81,13 @@ func userIsLocked(u *models.User) bool {
 }
 
 func (s *Service) ValidateCredentials(ctx context.Context, username string, password string) error {
+	// an empty password is never accepted - a user without a password can
+	// only be logged in automatically
+	if password == "" {
+		logger.Infof("[login attempt] empty password for user %s", username)
+		return ErrAccessDenied
+	}
+
 	// ensure user is not locked
 	u, err := s.GetUser(ctx, username)
 	if err != nil {
@@ -324,12 +334,20 @@ func (s *Service) UpdateUser(ctx context.Context, username string, updated model
 }
 
 // ChangePassword changes the password of the user, checking the current
-// password.
+// password. A user without a password sets the first one without it.
 func (s *Service) ChangePassword(ctx context.Context, username, currentPassword, newPassword string) error {
+	u, err := s.GetUser(ctx, username)
+	if err != nil {
+		logger.Errorf("error getting user for password change: %v", err)
+		return ErrInternalError
+	}
+
 	// validate current credentials
-	if err := s.ValidateCredentials(ctx, username, currentPassword); err != nil {
-		logger.Infof("[user] failed password change attempt for %q: incorrect current password", username)
-		return ErrCurrentPasswordIncorrect
+	if u == nil || u.HasPassword {
+		if err := s.ValidateCredentials(ctx, username, currentPassword); err != nil {
+			logger.Infof("[user] failed password change attempt for %q: incorrect current password", username)
+			return ErrCurrentPasswordIncorrect
+		}
 	}
 
 	return s.ChangeUserPassword(ctx, username, newPassword)

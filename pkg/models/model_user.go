@@ -6,6 +6,9 @@ type User struct {
 	// AutoLogin is true if requests from the local network without a session
 	// are logged in as this user. At most one user has it set.
 	AutoLogin bool
+	// HasPassword is false for a user without a password, who can only be
+	// logged in automatically.
+	HasPassword bool
 }
 
 // IsAdmin returns true if the user has the ADMIN role.

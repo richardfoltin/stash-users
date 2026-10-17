@@ -26,6 +26,11 @@ type User {
   this user. At most one user has auto login.
   """
   autoLogin: Boolean!
+  """
+  False if the user has no password and can only be logged in automatically.
+  Such a user keeps auto login until a password is set.
+  """
+  hasPassword: Boolean!
 }
 
 input UserCreateInput {
@@ -56,7 +61,7 @@ input UserDestroyInput {
 
 input UserChangePasswordInput {
   """
-  Password in plain text
+  Password in plain text. Not checked for a user without a password.
   """
   existingPassword: String!
   newPassword: String!
