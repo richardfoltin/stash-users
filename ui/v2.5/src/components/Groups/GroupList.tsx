@@ -203,7 +203,7 @@ export const FilteredGroupList = PatchComponent(
   "FilteredGroupList",
   (props: IGroupList) => {
     const intl = useIntl();
-    const { isAdmin, canModify, canDelete } = usePermissions();
+    const { isAdmin, can } = usePermissions();
 
     const searchFocus = useFocus();
 
@@ -313,7 +313,7 @@ export const FilteredGroupList = PatchComponent(
       );
     }
 
-    const onEdit = canModify
+    const onEdit = can(GQL.Permission.GroupsEdit)
       ? () => {
           showModal(
             <EditGroupsDialog
@@ -324,7 +324,7 @@ export const FilteredGroupList = PatchComponent(
         }
       : undefined;
 
-    const onDelete = canDelete
+    const onDelete = can(GQL.Permission.GroupsDelete)
       ? () => {
           showModal(
             <DeleteEntityDialog

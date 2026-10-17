@@ -178,6 +178,34 @@
   }
 }
 
+#roles .role-setting {
+  .role-user-count,
+  .role-all-permissions {
+    color: $muted-gray;
+    font-size: 0.8rem;
+  }
+
+  .role-user-count {
+    margin-top: 0.5rem;
+  }
+}
+
+.role-object-permissions {
+  th:not(:first-child),
+  td:not(:first-child) {
+    text-align: center;
+    width: 6rem;
+  }
+
+  .form-check {
+    display: inline-block;
+  }
+}
+
+.role-other-permission {
+  margin-bottom: 0.75rem;
+}
+
 #stashes .card {
   // override overflow so that menu shows correctly
   overflow: visible;

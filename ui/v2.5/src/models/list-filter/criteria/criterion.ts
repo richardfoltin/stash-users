@@ -7,6 +7,7 @@ import {
   TimestampCriterionInput,
   ConfigDataFragment,
   DateCriterionInput,
+  Permission,
 } from "src/core/generated-graphql";
 import TextUtils from "src/utils/text";
 import {
@@ -264,7 +265,7 @@ interface ICriterionOptionParams {
   makeCriterion: MakeCriterionFn;
   hidden?: boolean;
   sfwMessageID?: string;
-  adminOnly?: boolean;
+  permission?: Permission;
 }
 
 export class CriterionOption {
@@ -276,8 +277,8 @@ export class CriterionOption {
   // used for legacy criteria that are not shown in the UI
   public readonly hidden: boolean = false;
 
-  // shown only to admins
-  public readonly adminOnly: boolean = false;
+  // shown only to users with the permission, if set
+  public readonly permission?: Permission;
 
   constructor(options: ICriterionOptionParams) {
     this.type = options.type;
@@ -285,7 +286,7 @@ export class CriterionOption {
     this.makeCriterionFn = options.makeCriterion;
     this.hidden = options.hidden ?? false;
     this.sfwMessageID = options.sfwMessageID;
-    this.adminOnly = options.adminOnly ?? false;
+    this.permission = options.permission;
   }
 
   public makeCriterion(config?: ConfigDataFragment) {

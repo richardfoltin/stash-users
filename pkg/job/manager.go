@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stashapp/stash/pkg/logger"
+	"github.com/stashapp/stash/pkg/models"
 )
 
 const maxGraveyardSize = 10
@@ -179,7 +180,9 @@ func (m *Manager) dispatch(ctx context.Context, j *Job) (done chan struct{}) {
 	j.Status = StatusRunning
 
 	// create a cancellable context for the job that is not canceled by the outer context
-	ctx, cancelFunc := context.WithCancel(context.WithoutCancel(ctx))
+	// a job works on the whole library, whichever scenes the user who started
+	// it may see
+	ctx, cancelFunc := context.WithCancel(models.SetAllScenesVisible(context.WithoutCancel(ctx)))
 	j.cancelFunc = cancelFunc
 
 	done = make(chan struct{})

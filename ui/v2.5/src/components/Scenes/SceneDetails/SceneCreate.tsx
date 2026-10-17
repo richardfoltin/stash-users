@@ -16,7 +16,7 @@ const SceneCreate: React.FC = PatchComponent("SceneCreate", () => {
   const intl = useIntl();
   const Toast = useToast();
   const { configuration } = useConfigurationContext();
-  const { isAdmin } = usePermissions();
+  const { can } = usePermissions();
   const visibility = configuration.general.defaultSceneVisibility;
 
   const location = useLocation();
@@ -81,8 +81,10 @@ const SceneCreate: React.FC = PatchComponent("SceneCreate", () => {
       );
     } else if (
       result.data?.sceneCreate === null &&
-      visibility === GQL.RoleEnum.Admin &&
-      !isAdmin
+      ((visibility === GQL.SceneVisibility.Restricted &&
+        !can(GQL.Permission.ViewRestrictedScenes)) ||
+        (visibility === GQL.SceneVisibility.Private &&
+          !can(GQL.Permission.ViewPrivateScenes)))
     ) {
       // created, but hidden from the current user by the default visibility
       if (!andNew) {

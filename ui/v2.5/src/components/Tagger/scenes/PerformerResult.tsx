@@ -12,6 +12,7 @@ import { getStashboxBase } from "src/utils/stashbox";
 import { ExternalLink } from "src/components/Shared/ExternalLink";
 import { Link } from "react-router-dom";
 import { LinkButton } from "../LinkButton";
+import { usePermissions } from "src/hooks/Permissions";
 import { PerformerCollisionWarningButton } from "../PerformerCollisionWarningButton";
 import {
   getPerformerCollisionMessageIds,
@@ -66,6 +67,9 @@ const PerformerResult: React.FC<IPerformerResultProps> = ({
   endpoint,
   ageFromDate,
 }) => {
+  const { can } = usePermissions();
+  const canEditPerformers = can(GQL.Permission.PerformersEdit);
+
   const { data: performerData, loading: stashLoading } =
     GQL.useFindPerformerQuery({
       variables: { id: performer.stored_id ?? "" },
@@ -193,9 +197,11 @@ const PerformerResult: React.FC<IPerformerResultProps> = ({
         </b>
       </div>
       <ButtonGroup>
-        <Button variant="secondary" onClick={() => onCreate()}>
-          <FormattedMessage id="actions.create" />
-        </Button>
+        {canEditPerformers && (
+          <Button variant="secondary" onClick={() => onCreate()}>
+            <FormattedMessage id="actions.create" />
+          </Button>
+        )}
         <Button
           variant={selectedSource === "skip" ? "primary" : "secondary"}
           onClick={() => handleSkip()}
@@ -227,7 +233,7 @@ const PerformerResult: React.FC<IPerformerResultProps> = ({
         {collisionMessageIds.length > 0 && (
           <PerformerCollisionWarningButton messageIds={collisionMessageIds} />
         )}
-        {endpoint && onLink && (
+        {endpoint && onLink && canEditPerformers && (
           <LinkButton disabled={selectedID === undefined} onLink={onLink} />
         )}
       </ButtonGroup>

@@ -40,6 +40,7 @@ import {
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
 import cloneDeep from "lodash-es/cloneDeep";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IProps {
   image: GQL.ImageDataFragment;
@@ -56,6 +57,8 @@ export const ImageEditPanel: React.FC<IProps> = ({
 }) => {
   const intl = useIntl();
   const Toast = useToast();
+  const { can } = usePermissions();
+  const canScrape = can(GQL.Permission.UseScrapers);
 
   // Network state
   const [isLoading, setIsLoading] = useState(false);
@@ -480,7 +483,7 @@ export const ImageEditPanel: React.FC<IProps> = ({
             )}
           </div>
           <div className="ml-auto text-right d-flex">
-            {!isNew && (
+            {!isNew && canScrape && (
               <ScraperMenu
                 toggle={intl.formatMessage({ id: "actions.scrape_with" })}
                 scrapers={fragmentScrapers}
@@ -497,7 +500,7 @@ export const ImageEditPanel: React.FC<IProps> = ({
 
             {renderURLListField(
               "urls",
-              onScrapeImageURL,
+              canScrape ? onScrapeImageURL : undefined,
               urlScrapable,
               "urls",
               urlProps

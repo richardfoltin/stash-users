@@ -34,7 +34,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   onClose,
 }) => {
   const intl = useIntl();
-  const { canDelete } = usePermissions();
+  const { can } = usePermissions();
 
   const [sceneMarkerCreate] = useSceneMarkerCreate();
   const [sceneMarkerUpdate] = useSceneMarkerUpdate();
@@ -318,7 +318,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
           >
             <FormattedMessage id="actions.cancel" />
           </Button>
-          {!isNew && canDelete && (
+          {!isNew && can(GQL.Permission.MarkersDelete) && (
             <Button
               variant="danger"
               className="ml-auto"

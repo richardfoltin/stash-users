@@ -23,7 +23,7 @@ func (s *Service) Create(ctx context.Context, input models.CreateSceneInput) (*m
 
 	// the new scene is set up even if its default visibility hides it from
 	// its creator; the files to assign are still subject to the visibility
-	createCtx := models.SetViewerRole(ctx, models.RoleEnumAdmin)
+	createCtx := models.SetAllScenesVisible(ctx)
 
 	// don't pass the file ids since they may be already assigned
 	// assign them afterwards
@@ -69,7 +69,7 @@ func (s *Service) Create(ctx context.Context, input models.CreateSceneInput) (*m
 	s.PluginCache.RegisterPostHooks(ctx, ret.ID, hook.SceneCreatePost, nil, nil)
 
 	// the scene is not returned if it is hidden from its creator
-	if _, restricted := models.ViewerRole(ctx); restricted {
+	if len(models.HiddenSceneVisibilities(ctx)) > 0 {
 		return s.Repository.Find(ctx, ret.ID)
 	}
 

@@ -10,7 +10,7 @@ import (
 func (r *mutationResolver) UserCreate(ctx context.Context, input UserCreateInput) (*models.User, error) {
 	err := r.userService.CreateUser(ctx, models.User{
 		Username:  input.Name,
-		Roles:     models.Roles(input.Roles),
+		Role:      stringValue(input.RoleID),
 		AutoLogin: input.AutoLogin != nil && *input.AutoLogin,
 	}, input.Password)
 	if err != nil {
@@ -23,7 +23,7 @@ func (r *mutationResolver) UserCreate(ctx context.Context, input UserCreateInput
 func (r *mutationResolver) UserUpdate(ctx context.Context, input UserUpdateInput) (*models.User, error) {
 	updated := models.User{
 		Username: input.Name,
-		Roles:    models.Roles(input.Roles),
+		Role:     stringValue(input.RoleID),
 	}
 
 	// auto login is left unchanged if not set

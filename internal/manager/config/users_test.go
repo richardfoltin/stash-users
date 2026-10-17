@@ -80,7 +80,7 @@ func TestUserStore_LegacyUser(t *testing.T) {
 	u, err := s.GetUser(ctx, "admin")
 	require.NoError(t, err)
 	require.NotNil(t, u)
-	assert.Equal(t, models.Roles{models.RoleEnumAdmin}, u.Roles, "legacy user must be an admin")
+	assert.Equal(t, models.RoleIDAdmin, u.Role, "legacy user must be an admin")
 
 	assert.True(t, s.ValidateCredentials(ctx, "admin", "secret"))
 	assert.False(t, s.ValidateCredentials(ctx, "admin", "wrong"))
@@ -100,11 +100,11 @@ func TestUserStore_CreateUpdateDelete(t *testing.T) {
 	ctx := context.Background()
 	s, fn := newTestUserStore(t, "")
 
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: models.Roles{models.RoleEnumAdmin}}, "adminpw"))
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "editor", Roles: models.Roles{models.RoleEnumModify}}, "editorpw"))
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: models.Roles{models.RoleEnumRead}}, "viewerpw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Role: models.RoleIDAdmin}, "adminpw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "editor", Role: models.RoleIDEditor}, "editorpw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: models.RoleIDViewer}, "viewerpw"))
 
-	assert.Error(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: models.Roles{models.RoleEnumRead}}, "x"), "duplicate username")
+	assert.Error(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: models.RoleIDViewer}, "x"), "duplicate username")
 
 	assert.True(t, s.LoginRequired(ctx))
 	assert.Equal(t, []string{"admin", "editor", "viewer"}, usernames(t, s))
@@ -122,22 +122,22 @@ func TestUserStore_CreateUpdateDelete(t *testing.T) {
 	assert.Equal(t, []string{"admin", "editor", "viewer"}, usernames(t, reloaded))
 	u, err := reloaded.GetUser(ctx, "editor")
 	require.NoError(t, err)
-	assert.Equal(t, models.Roles{models.RoleEnumModify}, u.Roles)
+	assert.Equal(t, models.RoleIDEditor, u.Role)
 	assert.True(t, reloaded.ValidateCredentials(ctx, "viewer", "viewerpw"))
 
 	// update role and name - password is unchanged
-	require.NoError(t, s.ReplaceUser(ctx, "viewer", models.User{Username: "viewer2", Roles: models.Roles{models.RoleEnumModify}}))
+	require.NoError(t, s.ReplaceUser(ctx, "viewer", models.User{Username: "viewer2", Role: models.RoleIDEditor}))
 	u, err = s.GetUser(ctx, "viewer2")
 	require.NoError(t, err)
 	require.NotNil(t, u)
-	assert.Equal(t, models.Roles{models.RoleEnumModify}, u.Roles)
+	assert.Equal(t, models.RoleIDEditor, u.Role)
 	assert.True(t, s.ValidateCredentials(ctx, "viewer2", "viewerpw"))
 	u, err = s.GetUser(ctx, "viewer")
 	require.NoError(t, err)
 	assert.Nil(t, u)
 
-	assert.Error(t, s.ReplaceUser(ctx, "viewer2", models.User{Username: "editor", Roles: models.Roles{models.RoleEnumRead}}), "rename to existing username")
-	assert.Error(t, s.ReplaceUser(ctx, "missing", models.User{Username: "missing", Roles: models.Roles{models.RoleEnumRead}}))
+	assert.Error(t, s.ReplaceUser(ctx, "viewer2", models.User{Username: "editor", Role: models.RoleIDViewer}), "rename to existing username")
+	assert.Error(t, s.ReplaceUser(ctx, "missing", models.User{Username: "missing", Role: models.RoleIDViewer}))
 
 	// change password
 	require.NoError(t, s.ChangeUserPassword(ctx, "editor", "newpw"))
@@ -164,22 +164,22 @@ func TestUserStore_Invariants(t *testing.T) {
 	ctx := context.Background()
 	s, _ := newTestUserStore(t, "")
 
-	adminRole := models.Roles{models.RoleEnumAdmin}
-	readRole := models.Roles{models.RoleEnumRead}
+	adminRole := models.RoleIDAdmin
+	readRole := models.RoleIDViewer
 
-	assert.ErrorIs(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole}, "pw"), user.ErrFirstUserNotAdmin)
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: adminRole}, "pw"))
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole}, "pw"))
+	assert.ErrorIs(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: readRole}, "pw"), user.ErrFirstUserNotAdmin)
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Role: adminRole}, "pw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: readRole}, "pw"))
 
 	tests := []struct {
 		name string
 		fn   func() error
 		want error
 	}{
-		{"duplicate username", func() error { return s.CreateUser(ctx, models.User{Username: "admin", Roles: adminRole}, "pw") }, user.ErrUserAlreadyExists},
-		{"demote last admin", func() error { return s.ReplaceUser(ctx, "admin", models.User{Username: "admin", Roles: readRole}) }, user.ErrRemoveLastAdminRole},
+		{"duplicate username", func() error { return s.CreateUser(ctx, models.User{Username: "admin", Role: adminRole}, "pw") }, user.ErrUserAlreadyExists},
+		{"demote last admin", func() error { return s.ReplaceUser(ctx, "admin", models.User{Username: "admin", Role: readRole}) }, user.ErrRemoveLastAdminRole},
 		{"delete last admin", func() error { return s.DeleteUser(ctx, "admin") }, user.ErrDeleteLastAdminUser},
-		{"replace missing user", func() error { return s.ReplaceUser(ctx, "missing", models.User{Username: "missing", Roles: readRole}) }, user.ErrUserNotExist},
+		{"replace missing user", func() error { return s.ReplaceUser(ctx, "missing", models.User{Username: "missing", Role: readRole}) }, user.ErrUserNotExist},
 		{"delete missing user", func() error { return s.DeleteUser(ctx, "missing") }, user.ErrUserNotExist},
 		{"change password of missing user", func() error { return s.ChangeUserPassword(ctx, "missing", "pw") }, user.ErrUserNotExist},
 	}
@@ -198,8 +198,8 @@ func TestUserStore_LastAdminConcurrent(t *testing.T) {
 
 	for i := 0; i < 20; i++ {
 		s, fn := newTestUserStore(t, "")
-		require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin1", Roles: models.Roles{models.RoleEnumAdmin}}, "pw"))
-		require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin2", Roles: models.Roles{models.RoleEnumAdmin}}, "pw"))
+		require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin1", Role: models.RoleIDAdmin}, "pw"))
+		require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin2", Role: models.RoleIDAdmin}, "pw"))
 
 		var wg sync.WaitGroup
 		wg.Add(2)
@@ -209,7 +209,7 @@ func TestUserStore_LastAdminConcurrent(t *testing.T) {
 		}()
 		go func() {
 			defer wg.Done()
-			_ = s.ReplaceUser(ctx, "admin2", models.User{Username: "admin2", Roles: models.Roles{models.RoleEnumRead}})
+			_ = s.ReplaceUser(ctx, "admin2", models.User{Username: "admin2", Role: models.RoleIDViewer})
 		}()
 		wg.Wait()
 
@@ -231,12 +231,12 @@ func TestUserStore_PasswordTooLong(t *testing.T) {
 
 	long := strings.Repeat("a", user.MaxPasswordLength+1)
 	maxLength := strings.Repeat("a", user.MaxPasswordLength)
-	adminRole := models.Roles{models.RoleEnumAdmin}
+	adminRole := models.RoleIDAdmin
 
-	assert.ErrorIs(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: adminRole}, long), user.ErrPasswordTooLong)
+	assert.ErrorIs(t, s.CreateUser(ctx, models.User{Username: "admin", Role: adminRole}, long), user.ErrPasswordTooLong)
 	assert.False(t, s.LoginRequired(ctx), "user must not be created")
 
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: adminRole}, maxLength))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Role: adminRole}, maxLength))
 	assert.True(t, s.ValidateCredentials(ctx, "admin", maxLength))
 
 	assert.ErrorIs(t, s.ChangeUserPassword(ctx, "admin", long), user.ErrPasswordTooLong)
@@ -246,7 +246,7 @@ func TestUserStore_PasswordTooLong(t *testing.T) {
 func TestUserStore_SessionToken(t *testing.T) {
 	ctx := context.Background()
 	s, fn := newTestUserStore(t, "username: admin\npassword: "+mustHash(t, "secret")+"\n")
-	readRole := models.Roles{models.RoleEnumRead}
+	readRole := models.RoleIDViewer
 
 	// the legacy user has a token derived from the password hash
 	legacyToken, err := s.GetSessionToken(ctx, "admin")
@@ -254,7 +254,7 @@ func TestUserStore_SessionToken(t *testing.T) {
 	require.NotEmpty(t, legacyToken)
 
 	// moving the legacy user into the users list keeps its sessions
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole}, "pw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: readRole}, "pw"))
 	token, err := s.GetSessionToken(ctx, "admin")
 	require.NoError(t, err)
 	assert.Equal(t, legacyToken, token)
@@ -285,7 +285,7 @@ func TestUserStore_SessionToken(t *testing.T) {
 	require.NoError(t, s.DeleteUser(ctx, "viewer"))
 	_, err = s.GetSessionToken(ctx, "viewer")
 	assert.ErrorIs(t, err, user.ErrUserNotExist)
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole}, "new"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: readRole}, "new"))
 	token, err = s.GetSessionToken(ctx, "viewer")
 	require.NoError(t, err)
 	assert.NotEqual(t, viewerToken, token)
@@ -313,7 +313,7 @@ func TestUserStore_SetLegacyCredentials(t *testing.T) {
 	assert.True(t, s.ValidateCredentials(ctx, "admin", "secret"))
 
 	// once users are listed, the legacy credentials cannot be changed
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: models.Roles{models.RoleEnumRead}}, "pw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: models.RoleIDViewer}, "pw"))
 	other := "other"
 	empty := ""
 	assert.ErrorIs(t, s.SetLegacyCredentials(&other, &password), ErrUsersListExists)
@@ -333,7 +333,7 @@ func TestUserStore_LegacyUserMigration(t *testing.T) {
 	s, fn := newTestUserStore(t, "username: admin\npassword: "+hash+"\napi_key: key\n")
 
 	// modifying users moves the legacy user into the users list
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: models.Roles{models.RoleEnumRead}}, "viewerpw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: models.RoleIDViewer}, "viewerpw"))
 
 	reloaded := loadTestUserStore(t, fn)
 	assert.Equal(t, []string{"admin", "viewer"}, usernames(t, reloaded))
@@ -345,7 +345,7 @@ func TestUserStore_LegacyUserMigration(t *testing.T) {
 	assert.True(t, reloaded.ValidateCredentials(ctx, "admin", "secret"))
 	u, err := reloaded.GetUser(ctx, "admin")
 	require.NoError(t, err)
-	assert.Equal(t, models.Roles{models.RoleEnumAdmin}, u.Roles)
+	assert.Equal(t, models.RoleIDAdmin, u.Role)
 
 	data, err := os.ReadFile(fn)
 	require.NoError(t, err)
@@ -382,7 +382,7 @@ func TestUserStore_ListedUserOverridesLegacyUser(t *testing.T) {
 
 	u, err := s.GetUser(ctx, "viewer")
 	require.NoError(t, err)
-	assert.Equal(t, models.Roles{models.RoleEnumRead}, u.Roles)
+	assert.Equal(t, models.RoleIDViewer, u.Role)
 }
 
 // autoLoginUsers returns the names of the users marked for auto login.
@@ -405,31 +405,31 @@ func TestUserStore_AutoLogin(t *testing.T) {
 	ctx := context.Background()
 	s, fn := newTestUserStore(t, "username: admin\npassword: "+mustHash(t, "secret")+"\n")
 
-	adminRole := models.Roles{models.RoleEnumAdmin}
-	modifyRole := models.Roles{models.RoleEnumModify}
-	readRole := models.Roles{models.RoleEnumRead}
+	adminRole := models.RoleIDAdmin
+	modifyRole := models.RoleIDEditor
+	readRole := models.RoleIDViewer
 
 	assert.Empty(t, autoLoginUsers(t, s))
 
 	// the legacy user can be marked - it is moved into the users list
-	require.NoError(t, s.ReplaceUser(ctx, "admin", models.User{Username: "admin", Roles: adminRole, AutoLogin: true}))
+	require.NoError(t, s.ReplaceUser(ctx, "admin", models.User{Username: "admin", Role: adminRole, AutoLogin: true}))
 	assert.Equal(t, []string{"admin"}, autoLoginUsers(t, s))
 
 	// creating a marked user clears the mark of every other user
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "editor", Roles: modifyRole, AutoLogin: true}, "pw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "editor", Role: modifyRole, AutoLogin: true}, "pw"))
 	assert.Equal(t, []string{"editor"}, autoLoginUsers(t, s))
 
 	// creating an unmarked user leaves the mark unchanged
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole}, "pw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: readRole}, "pw"))
 	assert.Equal(t, []string{"editor"}, autoLoginUsers(t, s))
 
 	// marking another user clears the mark of every other user
-	require.NoError(t, s.ReplaceUser(ctx, "viewer", models.User{Username: "viewer", Roles: readRole, AutoLogin: true}))
+	require.NoError(t, s.ReplaceUser(ctx, "viewer", models.User{Username: "viewer", Role: readRole, AutoLogin: true}))
 	assert.Equal(t, []string{"viewer"}, autoLoginUsers(t, s))
 
 	// the mark persists across reloads, and moves with a renamed user
 	assert.Equal(t, []string{"viewer"}, autoLoginUsers(t, loadTestUserStore(t, fn)))
-	require.NoError(t, s.ReplaceUser(ctx, "viewer", models.User{Username: "viewer2", Roles: readRole, AutoLogin: true}))
+	require.NoError(t, s.ReplaceUser(ctx, "viewer", models.User{Username: "viewer2", Role: readRole, AutoLogin: true}))
 	assert.Equal(t, []string{"viewer2"}, autoLoginUsers(t, loadTestUserStore(t, fn)))
 
 	// the mark is only stored for the marked user
@@ -442,14 +442,14 @@ func TestUserStore_AutoLogin(t *testing.T) {
 	assert.Equal(t, []string{"viewer2"}, autoLoginUsers(t, s))
 
 	// clearing the mark
-	require.NoError(t, s.ReplaceUser(ctx, "viewer2", models.User{Username: "viewer2", Roles: readRole}))
+	require.NoError(t, s.ReplaceUser(ctx, "viewer2", models.User{Username: "viewer2", Role: readRole}))
 	assert.Empty(t, autoLoginUsers(t, s))
 	data, err = os.ReadFile(fn)
 	require.NoError(t, err)
 	assert.NotContains(t, string(data), "autologin", "mark is omitted when false")
 
 	// removing the marked user removes the mark
-	require.NoError(t, s.ReplaceUser(ctx, "editor", models.User{Username: "editor", Roles: modifyRole, AutoLogin: true}))
+	require.NoError(t, s.ReplaceUser(ctx, "editor", models.User{Username: "editor", Role: modifyRole, AutoLogin: true}))
 	require.NoError(t, s.DeleteUser(ctx, "editor"))
 	assert.Empty(t, autoLoginUsers(t, s))
 	assert.Empty(t, autoLoginUsers(t, loadTestUserStore(t, fn)))
@@ -459,22 +459,22 @@ func TestUserStore_AutoLogin(t *testing.T) {
 // user must be marked.
 func TestUserStore_AutoLoginConcurrent(t *testing.T) {
 	ctx := context.Background()
-	readRole := models.Roles{models.RoleEnumRead}
+	readRole := models.RoleIDViewer
 
 	for i := 0; i < 20; i++ {
 		s, fn := newTestUserStore(t, "")
-		require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: models.Roles{models.RoleEnumAdmin}}, "pw"))
-		require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer1", Roles: readRole}, "pw"))
+		require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Role: models.RoleIDAdmin}, "pw"))
+		require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer1", Role: readRole}, "pw"))
 
 		var wg sync.WaitGroup
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			_ = s.ReplaceUser(ctx, "viewer1", models.User{Username: "viewer1", Roles: readRole, AutoLogin: true})
+			_ = s.ReplaceUser(ctx, "viewer1", models.User{Username: "viewer1", Role: readRole, AutoLogin: true})
 		}()
 		go func() {
 			defer wg.Done()
-			_ = s.CreateUser(ctx, models.User{Username: "viewer2", Roles: readRole, AutoLogin: true}, "pw")
+			_ = s.CreateUser(ctx, models.User{Username: "viewer2", Role: readRole, AutoLogin: true}, "pw")
 		}()
 		wg.Wait()
 
@@ -499,7 +499,7 @@ func TestUserStore_CreateFirstAdmin(t *testing.T) {
 	u, err := reloaded.GetUser(ctx, FirstAdminUsername)
 	require.NoError(t, err)
 	require.NotNil(t, u)
-	assert.Equal(t, models.Roles{models.RoleEnumAdmin}, u.Roles)
+	assert.Equal(t, models.RoleIDAdmin, u.Role)
 	assert.False(t, u.HasPassword)
 	assert.False(t, reloaded.ValidateCredentials(ctx, FirstAdminUsername, ""))
 
@@ -528,7 +528,7 @@ func TestUserStore_CreateFirstAdminLegacyUser(t *testing.T) {
 	u, err := reloaded.GetUser(ctx, "legacy")
 	require.NoError(t, err)
 	require.NotNil(t, u)
-	assert.Equal(t, models.Roles{models.RoleEnumAdmin}, u.Roles)
+	assert.Equal(t, models.RoleIDAdmin, u.Role)
 	assert.True(t, u.HasPassword)
 	assert.True(t, reloaded.ValidateCredentials(ctx, "legacy", "secret"))
 }
@@ -536,7 +536,7 @@ func TestUserStore_CreateFirstAdminLegacyUser(t *testing.T) {
 func TestUserStore_CreateFirstAdminExistingUsers(t *testing.T) {
 	ctx := context.Background()
 	s, fn := newTestUserStore(t, "")
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "root", Roles: models.Roles{models.RoleEnumAdmin}}, "pw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "root", Role: models.RoleIDAdmin}, "pw"))
 
 	before, err := os.ReadFile(fn)
 	require.NoError(t, err)

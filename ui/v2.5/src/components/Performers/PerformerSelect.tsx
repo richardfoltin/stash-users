@@ -96,9 +96,10 @@ const _PerformerSelect: React.FC<
   const intl = useIntl();
   const maxOptionsShown =
     configuration?.ui.maxOptionsShown ?? defaultMaxOptionsShown;
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
   const defaultCreatable =
-    canModify && !configuration?.interface.disableDropdownCreate.performer;
+    can(GQL.Permission.PerformersEdit) &&
+    !configuration?.interface.disableDropdownCreate.performer;
 
   const exclude = useMemo(() => props.excludeIds ?? [], [props.excludeIds]);
 

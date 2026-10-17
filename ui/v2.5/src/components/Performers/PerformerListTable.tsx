@@ -34,7 +34,8 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
   props: IPerformerListTableProps
 ) => {
   const intl = useIntl();
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
+  const canEdit = can(GQL.Permission.PerformersEdit);
 
   const [updatePerformer] = usePerformerUpdate();
 
@@ -109,7 +110,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     <RatingSystem
       value={performer.rating100}
       onSetRating={(value) => setRating(value, performer.id)}
-      disabled={!canModify}
+      disabled={!canEdit}
       clickToRate
     />
   );
@@ -139,7 +140,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
         performer.favorite ? "favorite" : "not-favorite"
       )}
       onClick={() => setFavorite(!performer.favorite, performer.id)}
-      disabled={!canModify}
+      disabled={!canEdit}
     >
       <Icon icon={faHeart} />
     </Button>

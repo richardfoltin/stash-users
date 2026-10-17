@@ -5,9 +5,11 @@ import { LibraryTasks } from "./LibraryTasks";
 import { DataManagementTasks } from "./DataManagementTasks";
 import { PluginTasks } from "./PluginTasks";
 import { JobTable } from "./JobTable";
+import { usePermissions } from "src/hooks/Permissions";
 
 export const SettingsTasksPanel: React.FC = () => {
   const intl = useIntl();
+  const { isAdmin } = usePermissions();
   const [isBackupRunning, setIsBackupRunning] = useState<boolean>(false);
   const [isAnonymiseRunning, setIsAnonymiseRunning] = useState<boolean>(false);
 
@@ -43,8 +45,12 @@ export const SettingsTasksPanel: React.FC = () => {
           setIsBackupRunning={setIsBackupRunning}
           setIsAnonymiseRunning={setIsAnonymiseRunning}
         />
-        <hr />
-        <PluginTasks />
+        {isAdmin && (
+          <>
+            <hr />
+            <PluginTasks />
+          </>
+        )}
       </div>
     </div>
   );

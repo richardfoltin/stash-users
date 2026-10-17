@@ -1,0 +1,8 @@
+fragment RoleData on Role {
+  id
+  name
+  description
+  permissions
+  builtin
+  userCount
+}

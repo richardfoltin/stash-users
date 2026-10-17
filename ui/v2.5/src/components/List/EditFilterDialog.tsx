@@ -32,6 +32,7 @@ import { useConfigureUI, useSaveFilter } from "src/core/StashService";
 import { usePermissions } from "src/hooks/Permissions";
 import {
   FilterMode,
+  Permission,
   SavedFilterDataFragment,
 } from "src/core/generated-graphql";
 import { useFocusOnce } from "src/utils/focus";
@@ -276,11 +277,11 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
     return getFilterOptions(currentFilter.mode);
   }, [currentFilter.mode]);
 
-  const { isAdmin, canModify } = usePermissions();
+  const { can } = usePermissions();
 
   const criterionOptions = useMemo(() => {
     return [...filterOptions.criterionOptions]
-      .filter((c) => !c.hidden && (isAdmin || !c.adminOnly))
+      .filter((c) => !c.hidden && (!c.permission || can(c.permission)))
       .sort((a, b) => {
         return intl
           .formatMessage({
@@ -294,7 +295,7 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
             })
           );
       });
-  }, [intl, sfwContentMode, filterOptions.criterionOptions, isAdmin]);
+  }, [intl, sfwContentMode, filterOptions.criterionOptions, can]);
 
   const optionSelected = useCallback(
     (option?: CriterionOption) => {
@@ -591,7 +592,11 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
               optionSelected={optionSelected}
               selected={criterion?.criterionOption}
               onRemoveCriterion={(c) => removeCriterionString(c)}
-              onTogglePin={isAdmin ? (c) => onTogglePinFilter(c) : undefined}
+              onTogglePin={
+                can(Permission.ManageSharedListSettings)
+                  ? (c) => onTogglePinFilter(c)
+                  : undefined
+              }
               externallySelected={!!editingCriterion}
             />
             {criteria.length > 0 && (
@@ -615,7 +620,7 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
             >
               <FormattedMessage id="actions.load" />…
             </Button>
-            {canModify && (
+            {can(Permission.SaveFilters) && (
               <Button
                 variant="secondary"
                 onClick={() => setShowSaveDialog(true)}

@@ -26,6 +26,7 @@ import { PatchComponent } from "src/patch";
 import { ExternalLinksButton } from "../Shared/ExternalLinksButton";
 import { useConfigurationContext } from "src/hooks/Config";
 import { OCounterButton } from "../Shared/CountButton";
+import { usePermissions } from "src/hooks/Permissions";
 
 export interface IPerformerCardExtraCriteria {
   scenes?: ModifierCriterion<CriterionValue>[];
@@ -173,6 +174,7 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
     const { configuration } = useConfigurationContext();
     const uiConfig = configuration?.ui;
     const [updatePerformer] = usePerformerUpdate();
+    const { can } = usePermissions();
 
     function onToggleFavorite(v: boolean) {
       if (performer.id) {
@@ -275,6 +277,7 @@ const PerformerCardOverlays: React.FC<IPerformerCardProps> = PatchComponent(
           onToggleFavorite={onToggleFavorite}
           size="2x"
           className="hide-not-favorite"
+          canEdit={can(GQL.Permission.PerformersEdit)}
         />
         {maybeRenderRatingBanner()}
         {maybeRenderLinks()}

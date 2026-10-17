@@ -268,7 +268,9 @@ const StudioPage: React.FC<IProps> = PatchComponent(
     const history = useHistory();
     const Toast = useToast();
     const intl = useIntl();
-    const { canModify, canDelete } = usePermissions();
+    const { can } = usePermissions();
+    const canEdit = can(GQL.Permission.StudiosEdit);
+    const canDelete = can(GQL.Permission.StudiosDelete);
 
     // Configuration settings
     const { configuration } = useConfigurationContext();
@@ -347,7 +349,7 @@ const StudioPage: React.FC<IProps> = PatchComponent(
 
     // set up hotkeys
     useEffect(() => {
-      if (canModify) {
+      if (canEdit) {
         Mousetrap.bind("e", () => toggleEditing());
       }
       if (canDelete) {
@@ -356,7 +358,7 @@ const StudioPage: React.FC<IProps> = PatchComponent(
         });
       }
       Mousetrap.bind(",", () => setCollapsed(!collapsed));
-      if (canModify) {
+      if (canEdit) {
         Mousetrap.bind("f", () => setFavorite(!studio.favorite));
       }
 
@@ -369,7 +371,7 @@ const StudioPage: React.FC<IProps> = PatchComponent(
     });
 
     useRatingKeybinds(
-      canModify,
+      canEdit,
       configuration?.ui.ratingSystemOptions?.type,
       setRating
     );
@@ -501,11 +503,13 @@ const StudioPage: React.FC<IProps> = PatchComponent(
                     <FavoriteIcon
                       favorite={studio.favorite}
                       onToggleFavorite={(v) => setFavorite(v)}
+                      canEdit={canEdit}
                     />
                     <OrganizedButton
                       loading={organizedLoading}
                       organized={studio.organized}
                       onClick={onOrganizedClick}
+                      canEdit={canEdit}
                     />
                     <ExternalLinkButtons urls={studio.urls} />
                   </span>
@@ -516,7 +520,7 @@ const StudioPage: React.FC<IProps> = PatchComponent(
                   <RatingSystem
                     value={studio.rating100}
                     onSetRating={(value) => setRating(value)}
-                    disabled={!canModify}
+                    disabled={!canEdit}
                     clickToRate
                     withoutContext
                   />
@@ -556,6 +560,9 @@ const StudioPage: React.FC<IProps> = PatchComponent(
                     onAutoTag={onAutoTag}
                     autoTagDisabled={studio.ignore_auto_tag}
                     onDelete={onDelete}
+                    canEdit={canEdit}
+                    canDelete={canDelete}
+                    canAutoTag={can(GQL.Permission.RunLibraryTasks)}
                   />
                 )}
               </div>

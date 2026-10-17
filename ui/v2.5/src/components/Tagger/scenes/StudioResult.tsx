@@ -11,6 +11,7 @@ import { getStashboxBase } from "src/utils/stashbox";
 import { ExternalLink } from "src/components/Shared/ExternalLink";
 import { Link } from "react-router-dom";
 import { LinkButton } from "../LinkButton";
+import { usePermissions } from "src/hooks/Permissions";
 
 const StudioLink: React.FC<{
   studio: GQL.ScrapedStudio | GQL.SlimStudioDataFragment;
@@ -49,6 +50,9 @@ const StudioResult: React.FC<IStudioResultProps> = ({
   onLink,
   endpoint,
 }) => {
+  const { can } = usePermissions();
+  const canEditStudios = can(GQL.Permission.StudiosEdit);
+
   const { data: studioData, loading: stashLoading } = GQL.useFindStudioQuery({
     variables: { id: studio.stored_id ?? "" },
     skip: !studio.stored_id,
@@ -135,9 +139,11 @@ const StudioResult: React.FC<IStudioResultProps> = ({
         </b>
       </div>
       <ButtonGroup>
-        <Button variant="secondary" onClick={() => onCreate()}>
-          <FormattedMessage id="actions.create" />
-        </Button>
+        {canEditStudios && (
+          <Button variant="secondary" onClick={() => onCreate()}>
+            <FormattedMessage id="actions.create" />
+          </Button>
+        )}
         <Button
           variant={selectedSource === "skip" ? "primary" : "secondary"}
           onClick={() => handleSkip()}
@@ -152,7 +158,7 @@ const StudioResult: React.FC<IStudioResultProps> = ({
           })}
           isClearable={false}
         />
-        {endpoint && onLink && (
+        {endpoint && onLink && canEditStudios && (
           <LinkButton disabled={selectedID === undefined} onLink={onLink} />
         )}
       </ButtonGroup>

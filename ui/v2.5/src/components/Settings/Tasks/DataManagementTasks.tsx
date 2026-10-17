@@ -33,6 +33,7 @@ import {
   faTrashAlt,
 } from "@fortawesome/free-solid-svg-icons";
 import { CleanGeneratedDialog } from "./CleanGeneratedDialog";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface ICleanDialog {
   pathSelection?: boolean;
@@ -292,6 +293,8 @@ export const DataManagementTasks: React.FC<IDataManagementTasks> = ({
 }) => {
   const intl = useIntl();
   const Toast = useToast();
+  // users who may only run library tasks see only clean and clean generated
+  const { isAdmin } = usePermissions();
   const [dialogOpen, setDialogOpenState] = useState({
     importAlert: false,
     import: false,
@@ -601,13 +604,15 @@ export const DataManagementTasks: React.FC<IDataManagementTasks> = ({
             >
               <FormattedMessage id="actions.clean" />…
             </Button>
-            <Button
-              variant="danger"
-              type="submit"
-              onClick={() => setDialogOpen({ clean: true })}
-            >
-              <FormattedMessage id="actions.selective_clean" />…
-            </Button>
+            {isAdmin && (
+              <Button
+                variant="danger"
+                type="submit"
+                onClick={() => setDialogOpen({ clean: true })}
+              >
+                <FormattedMessage id="actions.selective_clean" />…
+              </Button>
+            )}
           </Setting>
           <CleanOptions
             options={cleanOptions}
@@ -630,212 +635,223 @@ export const DataManagementTasks: React.FC<IDataManagementTasks> = ({
           </Setting>
         </div>
 
-        <Setting
-          headingID="actions.optimise_database"
-          subHeading={
-            <>
-              <FormattedMessage id="config.tasks.optimise_database" />
-              <br />
-              <FormattedMessage id="config.tasks.optimise_database_warning" />
-            </>
-          }
-        >
-          <Button
-            id="optimiseDatabase"
-            variant="danger"
-            onClick={() => onOptimiseDatabase()}
-          >
-            <FormattedMessage id="actions.optimise_database" />
-          </Button>
-        </Setting>
-      </SettingSection>
-
-      <SettingSection headingID="metadata">
-        <Setting
-          headingID="actions.full_export"
-          subHeadingID="config.tasks.export_to_json"
-        >
-          <Button
-            id="export"
-            variant="secondary"
-            type="submit"
-            onClick={() => onExport()}
-          >
-            <FormattedMessage id="actions.full_export" />
-          </Button>
-        </Setting>
-
-        <Setting
-          headingID="actions.full_import"
-          subHeadingID="config.tasks.import_from_exported_json"
-        >
-          <Button
-            id="import"
-            variant="danger"
-            type="submit"
-            onClick={() => setDialogOpen({ importAlert: true })}
-          >
-            <FormattedMessage id="actions.full_import" />
-          </Button>
-        </Setting>
-
-        <Setting
-          headingID="actions.import_from_file"
-          subHeadingID="config.tasks.incremental_import"
-        >
-          <Button
-            id="partial-import"
-            variant="danger"
-            type="submit"
-            onClick={() => setDialogOpen({ import: true })}
-          >
-            <FormattedMessage id="actions.import_from_file" />
-          </Button>
-        </Setting>
-      </SettingSection>
-
-      <SettingSection headingID="actions.backup">
-        <Setting
-          heading={
-            <>
-              <FormattedMessage id="actions.backup" />
-              <ManualLink tab="Tasks">
-                <Icon icon={faQuestionCircle} />
-              </ManualLink>
-            </>
-          }
-          subHeading={intl.formatMessage({
-            id: "config.tasks.backup_database.description",
-          })}
-        >
-          <Button
-            id="backup"
-            variant="secondary"
-            type="submit"
-            onClick={() => setDialogOpen({ backup: true })}
-          >
-            <FormattedMessage id="actions.backup" />…
-          </Button>
-        </Setting>
-      </SettingSection>
-
-      <SettingSection headingID="actions.anonymise">
-        <Setting
-          headingID="actions.anonymise"
-          subHeading={intl.formatMessage(
-            { id: "config.tasks.anonymise_database" },
-            {
-              filename_format: (
-                <code>
-                  [origFilename].anonymous.sqlite.[schemaVersion].[YYYYMMDD_HHMMSS]
-                </code>
-              ),
-            }
-          )}
-        >
-          <Button
-            id="anonymise"
-            variant="secondary"
-            type="submit"
-            onClick={() => onAnonymise()}
-          >
-            <FormattedMessage id="actions.anonymise" />
-          </Button>
-        </Setting>
-
-        <Setting
-          headingID="actions.download_anonymised"
-          subHeadingID="config.tasks.anonymise_and_download"
-        >
-          <Button
-            id="anonymiseDownload"
-            variant="secondary"
-            type="submit"
-            onClick={() => onAnonymise(true)}
-          >
-            <FormattedMessage id="actions.download_anonymised" />
-          </Button>
-        </Setting>
-      </SettingSection>
-
-      <SettingSection headingID="config.tasks.migrations">
-        <Setting
-          advanced
-          headingID="actions.rename_gen_files"
-          subHeadingID="config.tasks.migrate_hash_files"
-        >
-          <Button
-            id="migrateHashNaming"
-            variant="danger"
-            onClick={() => onMigrateHashNaming()}
-          >
-            <FormattedMessage id="actions.rename_gen_files" />
-          </Button>
-        </Setting>
-
-        <div className="setting-group">
+        {isAdmin && (
           <Setting
-            headingID="actions.migrate_blobs"
-            subHeadingID="config.tasks.migrate_blobs.description"
+            headingID="actions.optimise_database"
+            subHeading={
+              <>
+                <FormattedMessage id="config.tasks.optimise_database" />
+                <br />
+                <FormattedMessage id="config.tasks.optimise_database_warning" />
+              </>
+            }
           >
             <Button
-              id="migrateBlobs"
+              id="optimiseDatabase"
               variant="danger"
-              onClick={() => onMigrateBlobs()}
+              onClick={() => onOptimiseDatabase()}
             >
-              <FormattedMessage id="actions.migrate_blobs" />
+              <FormattedMessage id="actions.optimise_database" />
             </Button>
           </Setting>
-
-          <BooleanSetting
-            id="migrate-blobs-delete-old"
-            checked={migrateBlobsOptions.deleteOld ?? false}
-            headingID="config.tasks.migrate_blobs.delete_old"
-            onChange={(v) =>
-              setMigrateBlobsOptions({ ...migrateBlobsOptions, deleteOld: v })
-            }
-          />
-        </div>
-
-        <div className="setting-group">
-          <Setting
-            headingID="actions.migrate_scene_screenshots"
-            subHeadingID="config.tasks.migrate_scene_screenshots.description"
-          >
-            <Button
-              id="migrateSceneScreenshots"
-              variant="danger"
-              onClick={() => onMigrateSceneScreenshots()}
-            >
-              <FormattedMessage id="actions.migrate_scene_screenshots" />
-            </Button>
-          </Setting>
-
-          <BooleanSetting
-            id="migrate-scene-screenshots-overwrite-existing"
-            checked={migrateSceneScreenshotsOptions.overwriteExisting ?? false}
-            headingID="config.tasks.migrate_scene_screenshots.overwrite_existing"
-            onChange={(v) =>
-              setMigrateSceneScreenshotsOptions({
-                ...migrateSceneScreenshotsOptions,
-                overwriteExisting: v,
-              })
-            }
-          />
-
-          <BooleanSetting
-            id="migrate-scene-screenshots-delete-files"
-            checked={migrateSceneScreenshotsOptions.deleteFiles ?? false}
-            headingID="config.tasks.migrate_scene_screenshots.delete_files"
-            onChange={(v) =>
-              setMigrateSceneScreenshotsOptions({
-                ...migrateSceneScreenshotsOptions,
-                deleteFiles: v,
-              })
-            }
-          />
-        </div>
+        )}
       </SettingSection>
+
+      {isAdmin && (
+        <>
+          <SettingSection headingID="metadata">
+            <Setting
+              headingID="actions.full_export"
+              subHeadingID="config.tasks.export_to_json"
+            >
+              <Button
+                id="export"
+                variant="secondary"
+                type="submit"
+                onClick={() => onExport()}
+              >
+                <FormattedMessage id="actions.full_export" />
+              </Button>
+            </Setting>
+
+            <Setting
+              headingID="actions.full_import"
+              subHeadingID="config.tasks.import_from_exported_json"
+            >
+              <Button
+                id="import"
+                variant="danger"
+                type="submit"
+                onClick={() => setDialogOpen({ importAlert: true })}
+              >
+                <FormattedMessage id="actions.full_import" />
+              </Button>
+            </Setting>
+
+            <Setting
+              headingID="actions.import_from_file"
+              subHeadingID="config.tasks.incremental_import"
+            >
+              <Button
+                id="partial-import"
+                variant="danger"
+                type="submit"
+                onClick={() => setDialogOpen({ import: true })}
+              >
+                <FormattedMessage id="actions.import_from_file" />
+              </Button>
+            </Setting>
+          </SettingSection>
+
+          <SettingSection headingID="actions.backup">
+            <Setting
+              heading={
+                <>
+                  <FormattedMessage id="actions.backup" />
+                  <ManualLink tab="Tasks">
+                    <Icon icon={faQuestionCircle} />
+                  </ManualLink>
+                </>
+              }
+              subHeading={intl.formatMessage({
+                id: "config.tasks.backup_database.description",
+              })}
+            >
+              <Button
+                id="backup"
+                variant="secondary"
+                type="submit"
+                onClick={() => setDialogOpen({ backup: true })}
+              >
+                <FormattedMessage id="actions.backup" />…
+              </Button>
+            </Setting>
+          </SettingSection>
+
+          <SettingSection headingID="actions.anonymise">
+            <Setting
+              headingID="actions.anonymise"
+              subHeading={intl.formatMessage(
+                { id: "config.tasks.anonymise_database" },
+                {
+                  filename_format: (
+                    <code>
+                      [origFilename].anonymous.sqlite.[schemaVersion].[YYYYMMDD_HHMMSS]
+                    </code>
+                  ),
+                }
+              )}
+            >
+              <Button
+                id="anonymise"
+                variant="secondary"
+                type="submit"
+                onClick={() => onAnonymise()}
+              >
+                <FormattedMessage id="actions.anonymise" />
+              </Button>
+            </Setting>
+
+            <Setting
+              headingID="actions.download_anonymised"
+              subHeadingID="config.tasks.anonymise_and_download"
+            >
+              <Button
+                id="anonymiseDownload"
+                variant="secondary"
+                type="submit"
+                onClick={() => onAnonymise(true)}
+              >
+                <FormattedMessage id="actions.download_anonymised" />
+              </Button>
+            </Setting>
+          </SettingSection>
+
+          <SettingSection headingID="config.tasks.migrations">
+            <Setting
+              advanced
+              headingID="actions.rename_gen_files"
+              subHeadingID="config.tasks.migrate_hash_files"
+            >
+              <Button
+                id="migrateHashNaming"
+                variant="danger"
+                onClick={() => onMigrateHashNaming()}
+              >
+                <FormattedMessage id="actions.rename_gen_files" />
+              </Button>
+            </Setting>
+
+            <div className="setting-group">
+              <Setting
+                headingID="actions.migrate_blobs"
+                subHeadingID="config.tasks.migrate_blobs.description"
+              >
+                <Button
+                  id="migrateBlobs"
+                  variant="danger"
+                  onClick={() => onMigrateBlobs()}
+                >
+                  <FormattedMessage id="actions.migrate_blobs" />
+                </Button>
+              </Setting>
+
+              <BooleanSetting
+                id="migrate-blobs-delete-old"
+                checked={migrateBlobsOptions.deleteOld ?? false}
+                headingID="config.tasks.migrate_blobs.delete_old"
+                onChange={(v) =>
+                  setMigrateBlobsOptions({
+                    ...migrateBlobsOptions,
+                    deleteOld: v,
+                  })
+                }
+              />
+            </div>
+
+            <div className="setting-group">
+              <Setting
+                headingID="actions.migrate_scene_screenshots"
+                subHeadingID="config.tasks.migrate_scene_screenshots.description"
+              >
+                <Button
+                  id="migrateSceneScreenshots"
+                  variant="danger"
+                  onClick={() => onMigrateSceneScreenshots()}
+                >
+                  <FormattedMessage id="actions.migrate_scene_screenshots" />
+                </Button>
+              </Setting>
+
+              <BooleanSetting
+                id="migrate-scene-screenshots-overwrite-existing"
+                checked={
+                  migrateSceneScreenshotsOptions.overwriteExisting ?? false
+                }
+                headingID="config.tasks.migrate_scene_screenshots.overwrite_existing"
+                onChange={(v) =>
+                  setMigrateSceneScreenshotsOptions({
+                    ...migrateSceneScreenshotsOptions,
+                    overwriteExisting: v,
+                  })
+                }
+              />
+
+              <BooleanSetting
+                id="migrate-scene-screenshots-delete-files"
+                checked={migrateSceneScreenshotsOptions.deleteFiles ?? false}
+                headingID="config.tasks.migrate_scene_screenshots.delete_files"
+                onChange={(v) =>
+                  setMigrateSceneScreenshotsOptions({
+                    ...migrateSceneScreenshotsOptions,
+                    deleteFiles: v,
+                  })
+                }
+              />
+            </div>
+          </SettingSection>
+        </>
+      )}
     </Form.Group>
   );
 };

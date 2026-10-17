@@ -1,53 +1,31 @@
 import React, { useMemo } from "react";
+import { IntlShape } from "react-intl";
 import * as GQL from "src/core/generated-graphql";
 
 interface IPermissions {
   // undefined if authentication is not configured
   user?: GQL.UserDataFragment;
   loadFailed?: boolean;
-  // undefined if the user is locked
-  role?: GQL.RoleEnum;
   isAdmin: boolean;
-  canModify: boolean;
-  canDelete: boolean;
+  // returns true if the user may do what the permission allows
+  can: (p: GQL.Permission) => boolean;
 }
 
-// roles from most to least privileged
-export const roleOrder = [
-  GQL.RoleEnum.Admin,
-  GQL.RoleEnum.Modify,
-  GQL.RoleEnum.Read,
-];
+// returns the name of the role: the localized name of the Admin role, or
+// Locked if the user has no role
+export function roleName(
+  role: GQL.RoleDataFragment | null | undefined,
+  intl: IntlShape
+): string {
+  if (!role) {
+    return intl.formatMessage({ id: "permissions.locked" });
+  }
 
-// returns the most privileged role of the user, or undefined if the user has
-// no roles
-export function getUserRole(
-  user: GQL.UserDataFragment
-): GQL.RoleEnum | undefined {
-  return roleOrder.find((r) => user.roles?.includes(r));
-}
+  if (role.builtin) {
+    return intl.formatMessage({ id: "permissions.roles.admin" });
+  }
 
-// returns the message id of the name of the role
-export function roleMessageID(role: GQL.RoleEnum | undefined) {
-  return role
-    ? `permissions.roles.${role.toLowerCase()}`
-    : "permissions.locked";
-}
-
-function permissionsForRole(
-  role: GQL.RoleEnum | undefined,
-  user?: GQL.UserDataFragment
-): IPermissions {
-  const isAdmin = role === GQL.RoleEnum.Admin;
-  const canModify = isAdmin || role === GQL.RoleEnum.Modify;
-
-  return {
-    user,
-    role,
-    isAdmin,
-    canModify,
-    canDelete: isAdmin,
-  };
+  return role.name;
 }
 
 // Without a user, authentication is not configured and everything is allowed.
@@ -57,14 +35,19 @@ export function getPermissions(
   loadFailed?: boolean
 ): IPermissions {
   if (loadFailed) {
-    return { ...permissionsForRole(GQL.RoleEnum.Read), loadFailed };
+    return { loadFailed, isAdmin: false, can: () => false };
   }
 
   if (!user) {
-    return permissionsForRole(GQL.RoleEnum.Admin);
+    return { isAdmin: true, can: () => true };
   }
 
-  return permissionsForRole(getUserRole(user), user);
+  const permissions = new Set(user.permissions);
+  return {
+    user,
+    isAdmin: user.isAdmin,
+    can: (p) => user.isAdmin || permissions.has(p),
+  };
 }
 
 const PermissionsContext = React.createContext<IPermissions>(

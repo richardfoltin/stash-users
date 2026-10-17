@@ -9,17 +9,13 @@ import {
 import * as GQL from "src/core/generated-graphql";
 import {
   useChangeUserPassword,
+  useRoles,
   useUserCreate,
   useUserDestroy,
   useUserUpdate,
   useUsers,
 } from "src/core/StashService";
-import {
-  getUserRole,
-  roleMessageID,
-  roleOrder,
-  usePermissions,
-} from "src/hooks/Permissions";
+import { roleName, usePermissions } from "src/hooks/Permissions";
 import { useToast } from "src/hooks/Toast";
 import { maxPasswordBytes, passwordTooLong } from "src/utils/password";
 import { ModalComponent } from "../Shared/Modal";
@@ -28,21 +24,35 @@ import { Icon } from "../Shared/Icon";
 import { SettingModal } from "./Inputs";
 import { SettingSection } from "./SettingSection";
 
-const roleBadgeVariants = {
-  [GQL.RoleEnum.Admin]: "primary",
-  [GQL.RoleEnum.Modify]: "success",
-  [GQL.RoleEnum.Read]: "secondary",
-};
+function roleBadgeVariant(role: GQL.RoleDataFragment | null | undefined) {
+  if (!role) return "danger";
+  return role.builtin ? "primary" : "secondary";
+}
+
+// returns the role of new users: the role with the fewest permissions
+function defaultRoleID(roles: GQL.RoleDataFragment[]) {
+  const least = roles
+    .filter((r) => !r.builtin)
+    .reduce<GQL.RoleDataFragment | undefined>(
+      (ret, r) =>
+        !ret || r.permissions.length < ret.permissions.length ? r : ret,
+      undefined
+    );
+
+  return (least ?? roles[0])?.id ?? "";
+}
 
 function validPassword(password: string | undefined) {
   return !!password && !passwordTooLong(password);
 }
 
 const RoleSelect: React.FC<{
-  value: GQL.RoleEnum;
-  onChange: (v: GQL.RoleEnum) => void;
-}> = ({ value, onChange }) => {
+  roles: GQL.RoleDataFragment[];
+  value: string;
+  onChange: (v: string) => void;
+}> = ({ roles, value, onChange }) => {
   const intl = useIntl();
+  const selected = roles.find((r) => r.id === value);
 
   return (
     <Form.Group id="user-role">
@@ -52,20 +62,18 @@ const RoleSelect: React.FC<{
         className="input-control"
         value={value}
         onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-          onChange(e.currentTarget.value as GQL.RoleEnum)
+          onChange(e.currentTarget.value)
         }
       >
-        {roleOrder.map((r) => (
-          <option key={r} value={r}>
-            {intl.formatMessage({ id: roleMessageID(r) })}
+        {roles.map((r) => (
+          <option key={r.id} value={r.id}>
+            {roleName(r, intl)}
           </option>
         ))}
       </Form.Control>
-      <Form.Text className="text-muted">
-        {intl.formatMessage({
-          id: `config.general.auth.users.role_desc.${value.toLowerCase()}`,
-        })}
-      </Form.Text>
+      {selected && (
+        <Form.Text className="text-muted">{selected.description}</Form.Text>
+      )}
     </Form.Group>
   );
 };
@@ -103,10 +111,10 @@ const PasswordInput: React.FC<{
 
 const AutoLoginInput: React.FC<{
   value: boolean;
-  role: GQL.RoleEnum | undefined;
+  isAdmin: boolean;
   disabledReason?: string;
   onChange: (v: boolean) => void;
-}> = ({ value, role, disabledReason, onChange }) => {
+}> = ({ value, isAdmin, disabledReason, onChange }) => {
   const intl = useIntl();
 
   return (
@@ -126,7 +134,7 @@ const AutoLoginInput: React.FC<{
             id: "config.general.auth.users.auto_login_desc",
           })}
       </Form.Text>
-      {value && role === GQL.RoleEnum.Admin && (
+      {value && isAdmin && (
         <Form.Text className="text-warning">
           {intl.formatMessage({
             id: "config.general.auth.users.auto_login_admin_warning",
@@ -140,14 +148,15 @@ const AutoLoginInput: React.FC<{
 interface IUserInput {
   name: string;
   password: string;
-  role: GQL.RoleEnum;
+  roleId: string;
   autoLogin: boolean;
 }
 
 const AddUserModal: React.FC<{
+  roles: GQL.RoleDataFragment[];
   autoLoginDisabledReason?: string;
   close: (v?: IUserInput) => void;
-}> = ({ autoLoginDisabledReason, close }) => {
+}> = ({ roles, autoLoginDisabledReason, close }) => {
   const intl = useIntl();
 
   return (
@@ -156,7 +165,7 @@ const AddUserModal: React.FC<{
       value={{
         name: "",
         password: "",
-        role: GQL.RoleEnum.Read,
+        roleId: defaultRoleID(roles),
         autoLogin: false,
       }}
       validate={(v) => v.name.trim() !== "" && validPassword(v.password)}
@@ -180,12 +189,13 @@ const AddUserModal: React.FC<{
             onChange={(password) => setValue({ ...v!, password })}
           />
           <RoleSelect
-            value={v?.role ?? GQL.RoleEnum.Read}
-            onChange={(role) => setValue({ ...v!, role })}
+            roles={roles}
+            value={v?.roleId ?? ""}
+            onChange={(roleId) => setValue({ ...v!, roleId })}
           />
           <AutoLoginInput
             value={v?.autoLogin ?? false}
-            role={v?.role}
+            isAdmin={!!roles.find((r) => r.id === v?.roleId)?.builtin}
             disabledReason={autoLoginDisabledReason}
             onChange={(autoLogin) => setValue({ ...v!, autoLogin })}
           />
@@ -202,6 +212,7 @@ export const SettingsUsers: React.FC = () => {
   const { user: currentUser } = usePermissions();
 
   const { data, loading, error } = useUsers();
+  const { data: rolesData } = useRoles();
   const [createUser] = useUserCreate();
   const [updateUser] = useUserUpdate();
   const [destroyUser] = useUserDestroy();
@@ -214,6 +225,7 @@ export const SettingsUsers: React.FC = () => {
   const [deleting, setDeleting] = useState<GQL.UserDataFragment>();
 
   const users = data?.users ?? [];
+  const roles = rolesData?.roles ?? [];
 
   // a user without a password can only log in automatically, so auto login
   // cannot move away from that user
@@ -240,7 +252,7 @@ export const SettingsUsers: React.FC = () => {
           input: {
             name: v.name.trim(),
             password: v.password,
-            roles: [v.role],
+            roleId: v.roleId,
             autoLogin: v.autoLogin,
           },
         },
@@ -256,14 +268,14 @@ export const SettingsUsers: React.FC = () => {
     }
   }
 
-  async function onChangeRole(u: GQL.UserDataFragment, role: GQL.RoleEnum) {
+  async function onChangeRole(u: GQL.UserDataFragment, roleId: string) {
     try {
       await updateUser({
         variables: {
           input: {
             existingName: u.name,
             name: u.name,
-            roles: [role],
+            roleId,
           },
         },
       });
@@ -288,7 +300,7 @@ export const SettingsUsers: React.FC = () => {
           input: {
             existingName: u.name,
             name: u.name,
-            roles: u.roles ?? [],
+            roleId: u.role?.id,
             autoLogin,
           },
         },
@@ -356,13 +368,10 @@ export const SettingsUsers: React.FC = () => {
 
     if (loading) return <LoadingIndicator inline small />;
 
-    const adminCount = users.filter(
-      (u) => getUserRole(u) === GQL.RoleEnum.Admin
-    ).length;
+    const adminCount = users.filter((u) => u.isAdmin).length;
 
     return users.map((u, i) => {
-      const role = getUserRole(u);
-      const isLastAdmin = role === GQL.RoleEnum.Admin && adminCount <= 1;
+      const isLastAdmin = u.isAdmin && adminCount <= 1;
       const isCurrentUser = u.name === currentUser?.name;
       const autoLoginDisabled = autoLoginDisabledReason(u);
 
@@ -378,11 +387,8 @@ export const SettingsUsers: React.FC = () => {
               )}
             </h3>
             <div className="user-badges">
-              <Badge
-                className="user-badge"
-                variant={role ? roleBadgeVariants[role] : "danger"}
-              >
-                <FormattedMessage id={roleMessageID(role)} />
+              <Badge className="user-badge" variant={roleBadgeVariant(u.role)}>
+                {roleName(u.role, intl)}
               </Badge>
               {u.autoLogin && (
                 <Badge className="user-badge" variant="info">
@@ -411,7 +417,7 @@ export const SettingsUsers: React.FC = () => {
                 {autoLoginDisabled}
               </div>
             )}
-            {u.autoLogin && role === GQL.RoleEnum.Admin && (
+            {u.autoLogin && u.isAdmin && (
               <div className="user-note text-warning">
                 <Icon icon={faExclamationTriangle} />
                 <FormattedMessage id="config.general.auth.users.auto_login_admin_warning" />
@@ -426,7 +432,7 @@ export const SettingsUsers: React.FC = () => {
           </div>
           <div>
             <Button
-              disabled={isLastAdmin}
+              disabled={isLastAdmin || !roles.length}
               title={
                 isLastAdmin
                   ? intl.formatMessage({
@@ -469,6 +475,7 @@ export const SettingsUsers: React.FC = () => {
     >
       {isCreating && (
         <AddUserModal
+          roles={roles}
           autoLoginDisabledReason={autoLoginDisabledReason()}
           close={(v) => {
             setIsCreating(false);
@@ -478,19 +485,19 @@ export const SettingsUsers: React.FC = () => {
       )}
 
       {editingRole && (
-        <SettingModal<GQL.RoleEnum>
+        <SettingModal<string>
           heading={intl.formatMessage(
             { id: "config.general.auth.users.change_role_for" },
             { name: editingRole.name }
           )}
-          value={getUserRole(editingRole) ?? GQL.RoleEnum.Read}
+          value={editingRole.role?.id ?? defaultRoleID(roles)}
           renderField={(v, setValue) => (
-            <RoleSelect value={v ?? GQL.RoleEnum.Read} onChange={setValue} />
+            <RoleSelect roles={roles} value={v ?? ""} onChange={setValue} />
           )}
           close={(v) => {
             const u = editingRole;
             setEditingRole(undefined);
-            if (v && v !== getUserRole(u)) onChangeRole(u, v);
+            if (v && v !== u.role?.id) onChangeRole(u, v);
           }}
         />
       )}
@@ -551,7 +558,7 @@ export const SettingsUsers: React.FC = () => {
           </div>
         </div>
         <div>
-          <Button onClick={() => setIsCreating(true)}>
+          <Button disabled={!roles.length} onClick={() => setIsCreating(true)}>
             <FormattedMessage id="config.general.auth.users.add_user" />
           </Button>
         </div>

@@ -62,15 +62,15 @@ func (s *fakeActivityStore) AdoptLegacyActivity(ctx context.Context) error {
 }
 
 func TestFirstAdmin(t *testing.T) {
-	read := models.Roles{models.RoleEnumRead}
-	admin := models.Roles{models.RoleEnumAdmin}
+	read := models.RoleIDViewer
+	admin := models.RoleIDAdmin
 
 	assert.Equal(t, "", firstAdmin(context.Background(), &fakeUserSource{}), "no users")
-	assert.Equal(t, "", firstAdmin(context.Background(), &fakeUserSource{users: []*models.User{{Username: "viewer", Roles: read}}}), "no admin")
+	assert.Equal(t, "", firstAdmin(context.Background(), &fakeUserSource{users: []*models.User{{Username: "viewer", Role: read}}}), "no admin")
 	assert.Equal(t, "second", firstAdmin(context.Background(), &fakeUserSource{users: []*models.User{
-		{Username: "viewer", Roles: read},
-		{Username: "second", Roles: admin},
-		{Username: "third", Roles: admin},
+		{Username: "viewer", Role: read},
+		{Username: "second", Role: admin},
+		{Username: "third", Role: admin},
 	}}), "config order")
 	assert.Equal(t, "", firstAdmin(context.Background(), &fakeUserSource{err: errors.New("broken config")}), "error")
 }
@@ -92,7 +92,7 @@ func TestActivityUserSource(t *testing.T) {
 		store := &fakeActivityStore{}
 		s := &activityUserSource{UserSource: &fakeUserSource{}, activity: store}
 
-		assert.NoError(t, s.ReplaceUser(ctx, "alice", models.User{Username: "alice", Roles: models.Roles{models.RoleEnumAdmin}}))
+		assert.NoError(t, s.ReplaceUser(ctx, "alice", models.User{Username: "alice", Role: models.RoleIDAdmin}))
 		assert.Empty(t, store.moves)
 	})
 

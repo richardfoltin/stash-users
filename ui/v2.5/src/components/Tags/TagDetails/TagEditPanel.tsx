@@ -25,6 +25,7 @@ import {
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
 import cloneDeep from "lodash-es/cloneDeep";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface ITagEditPanel {
   tag: Partial<GQL.TagDataFragment>;
@@ -46,6 +47,7 @@ export const TagEditPanel: React.FC<ITagEditPanel> = ({
   const intl = useIntl();
   const Toast = useToast();
   const { configuration: stashConfig } = useConfigurationContext();
+  const { can } = usePermissions();
 
   const isNew = tag.id === undefined;
 
@@ -284,7 +286,10 @@ export const TagEditPanel: React.FC<ITagEditPanel> = ({
               variant="success"
               className="mr-2 py-0"
               onClick={() => setIsStashIDSearchOpen(true)}
-              disabled={!stashConfig?.general.stashBoxes?.length}
+              disabled={
+                !stashConfig?.general.stashBoxes?.length ||
+                !can(GQL.Permission.UseScrapers)
+              }
               title={intl.formatMessage({ id: "actions.add_stash_id" })}
             >
               <Icon icon={faPlus} />
@@ -320,6 +325,9 @@ export const TagEditPanel: React.FC<ITagEditPanel> = ({
           onClearImage={() => onImageLoad(null)}
           onDelete={onDelete}
           acceptSVG
+          canEdit={can(GQL.Permission.TagsEdit)}
+          canDelete={can(GQL.Permission.TagsDelete)}
+          canAutoTag={can(GQL.Permission.RunLibraryTasks)}
         />
       </div>
     </>

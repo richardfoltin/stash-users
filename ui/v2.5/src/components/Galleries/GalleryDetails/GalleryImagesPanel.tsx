@@ -32,7 +32,8 @@ export const GalleryImagesPanel: React.FC<IGalleryDetailsProps> =
     ({ active, gallery, extraOperations = [] }) => {
       const intl = useIntl();
       const Toast = useToast();
-      const { canModify } = usePermissions();
+      const { can } = usePermissions();
+      const canEdit = can(GQL.Permission.GalleriesEdit);
 
       const filterHook = useCallback(
         (filter: ListFilterModel) => {
@@ -134,12 +135,12 @@ export const GalleryImagesPanel: React.FC<IGalleryDetailsProps> =
         {
           text: intl.formatMessage({ id: "actions.set_cover" }),
           onClick: setCover,
-          isDisplayed: canModify ? showWhenSingleSelection : () => false,
+          isDisplayed: canEdit ? showWhenSingleSelection : () => false,
         },
         {
           text: intl.formatMessage({ id: "actions.remove_from_gallery" }),
           onClick: removeImages,
-          isDisplayed: canModify ? showWhenSelected : () => false,
+          isDisplayed: canEdit ? showWhenSelected : () => false,
           postRefetch: true,
           icon: faMinus,
           buttonVariant: "danger",

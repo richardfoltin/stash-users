@@ -25,6 +25,7 @@ import {
   AutoTagWarning,
 } from "src/components/Shared/AutoTagConfirmDialog";
 import { useSettings } from "../context";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IAutoTagOptions {
   options: GQL.AutoTagMetadataInput;
@@ -77,6 +78,9 @@ export const LibraryTasks: React.FC = () => {
   const intl = useIntl();
   const Toast = useToast();
   const { ui, saveUI, loading } = useSettings();
+  // users who may only run library tasks cannot change settings or browse
+  // folders
+  const { isAdmin } = usePermissions();
 
   const { taskDefaults } = ui;
 
@@ -172,7 +176,9 @@ export const LibraryTasks: React.FC = () => {
   }, [configuration, configRead, taskDefaults, loading]);
 
   function configureDefaults(partial: Record<string, object>) {
-    saveUI({ taskDefaults: { ...partial } });
+    if (isAdmin) {
+      saveUI({ taskDefaults: { ...partial } });
+    }
   }
 
   function onSetScanOptions(s: GQL.ScanMetadataInput) {
@@ -381,14 +387,16 @@ export const LibraryTasks: React.FC = () => {
                 <FormattedMessage id="actions.scan" />
               </Button>
 
-              <Button
-                variant="secondary"
-                type="submit"
-                className="mr-2"
-                onClick={() => setDialogOpen({ scan: true })}
-              >
-                <FormattedMessage id="actions.selective_scan" />…
-              </Button>
+              {isAdmin && (
+                <Button
+                  variant="secondary"
+                  type="submit"
+                  className="mr-2"
+                  onClick={() => setDialogOpen({ scan: true })}
+                >
+                  <FormattedMessage id="actions.selective_scan" />…
+                </Button>
+              )}
             </>
           }
           collapsible
@@ -397,7 +405,7 @@ export const LibraryTasks: React.FC = () => {
         </SettingGroup>
       </SettingSection>
 
-      <SettingSection advanced>
+      <SettingSection advanced={isAdmin}>
         <Setting
           heading={
             <>
@@ -419,7 +427,7 @@ export const LibraryTasks: React.FC = () => {
         </Setting>
       </SettingSection>
 
-      <SettingSection advanced>
+      <SettingSection advanced={isAdmin}>
         <SettingGroup
           settingProps={{
             heading: (
@@ -442,13 +450,15 @@ export const LibraryTasks: React.FC = () => {
               >
                 <FormattedMessage id="actions.auto_tag" />…
               </Button>
-              <Button
-                variant="secondary"
-                type="submit"
-                onClick={() => setDialogOpen({ autoTag: true })}
-              >
-                <FormattedMessage id="actions.selective_auto_tag" />…
-              </Button>
+              {isAdmin && (
+                <Button
+                  variant="secondary"
+                  type="submit"
+                  onClick={() => setDialogOpen({ autoTag: true })}
+                >
+                  <FormattedMessage id="actions.selective_auto_tag" />…
+                </Button>
+              )}
             </>
           }
           collapsible
@@ -457,13 +467,15 @@ export const LibraryTasks: React.FC = () => {
             options={autoTagOptions}
             setOptions={onSetAutoTagOptions}
           />
-          <BooleanSetting
-            id="disable_auto_tag_warning"
-            headingID="config.tasks.auto_tag.disable_warning.heading"
-            subHeadingID="config.tasks.auto_tag.disable_warning.description"
-            checked={ui.disableAutoTagWarning ?? undefined}
-            onChange={(v) => saveUI({ disableAutoTagWarning: v })}
-          />
+          {isAdmin && (
+            <BooleanSetting
+              id="disable_auto_tag_warning"
+              headingID="config.tasks.auto_tag.disable_warning.heading"
+              subHeadingID="config.tasks.auto_tag.disable_warning.description"
+              checked={ui.disableAutoTagWarning ?? undefined}
+              onChange={(v) => saveUI({ disableAutoTagWarning: v })}
+            />
+          )}
         </SettingGroup>
       </SettingSection>
 
@@ -489,14 +501,16 @@ export const LibraryTasks: React.FC = () => {
               >
                 <FormattedMessage id="actions.generate" />
               </Button>
-              <Button
-                variant="secondary"
-                type="submit"
-                className="mr-2"
-                onClick={() => setDialogOpen({ generate: true })}
-              >
-                <FormattedMessage id="actions.selective_generate" />…
-              </Button>
+              {isAdmin && (
+                <Button
+                  variant="secondary"
+                  type="submit"
+                  className="mr-2"
+                  onClick={() => setDialogOpen({ generate: true })}
+                >
+                  <FormattedMessage id="actions.selective_generate" />…
+                </Button>
+              )}
             </>
           }
           collapsible

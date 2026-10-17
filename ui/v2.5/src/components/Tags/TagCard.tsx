@@ -89,7 +89,7 @@ const TagCardOverlays: React.FC<IProps> = PatchComponent(
   "TagCard.Overlays",
   ({ tag }) => {
     const [updateTag] = useTagUpdate();
-    const { canModify } = usePermissions();
+    const { can } = usePermissions();
 
     function renderFavoriteIcon() {
       return (
@@ -102,7 +102,7 @@ const TagCardOverlays: React.FC<IProps> = PatchComponent(
               tag.favorite ? "favorite" : "not-favorite"
             )}
             onClick={() => onToggleFavorite!(!tag.favorite)}
-            disabled={!canModify}
+            disabled={!can(GQL.Permission.TagsEdit)}
           >
             <Icon icon={faHeart} size="2x" />
           </Button>

@@ -152,7 +152,9 @@ const GroupPage: React.FC<IProps> = PatchComponent(
   "GroupPage",
   ({ group, tabKey }) => {
     const intl = useIntl();
-    const { canModify, canDelete } = usePermissions();
+    const { can } = usePermissions();
+    const canEdit = can(GQL.Permission.GroupsEdit);
+    const canDelete = can(GQL.Permission.GroupsDelete);
     const history = useHistory();
     const Toast = useToast();
 
@@ -243,7 +245,7 @@ const GroupPage: React.FC<IProps> = PatchComponent(
 
     // set up hotkeys
     useEffect(() => {
-      if (canModify) {
+      if (canEdit) {
         Mousetrap.bind("e", () => toggleEditing());
       }
       if (canDelete) {
@@ -261,7 +263,7 @@ const GroupPage: React.FC<IProps> = PatchComponent(
     });
 
     useRatingKeybinds(
-      canModify,
+      canEdit,
       configuration?.ui.ratingSystemOptions?.type,
       setRating
     );
@@ -419,7 +421,7 @@ const GroupPage: React.FC<IProps> = PatchComponent(
                 <RatingSystem
                   value={group.rating100}
                   onSetRating={(value) => setRating(value)}
-                  disabled={!canModify}
+                  disabled={!canEdit}
                   clickToRate
                   withoutContext
                 />
@@ -449,6 +451,9 @@ const GroupPage: React.FC<IProps> = PatchComponent(
                     onSave={() => {}}
                     onImageChange={() => {}}
                     onDelete={onDelete}
+                    canEdit={canEdit}
+                    canDelete={canDelete}
+                    canAutoTag={can(GQL.Permission.RunLibraryTasks)}
                   />
                 )}
               </div>

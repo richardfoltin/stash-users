@@ -1,27 +1,114 @@
-enum RoleEnum {
-  "Everything, including deleting, merging, configuration and tasks"
-  ADMIN
-  "Browse and play content, and record their own viewing activity"
-  READ
-  "READ, plus create and edit library metadata"
-  MODIFY
+"A right that a role can grant. The Admin role has every permission."
+enum Permission {
+  "Create and edit scenes"
+  SCENES_EDIT
+  "Delete scenes"
+  SCENES_DELETE
+  "Merge scenes"
+  SCENES_MERGE
+  "Create and edit scene markers"
+  MARKERS_EDIT
+  "Delete scene markers"
+  MARKERS_DELETE
+  "Edit images"
+  IMAGES_EDIT
+  "Delete images"
+  IMAGES_DELETE
+  "Create and edit galleries, add and remove their images, and set their covers"
+  GALLERIES_EDIT
+  "Delete galleries"
+  GALLERIES_DELETE
+  "Create and edit gallery chapters"
+  CHAPTERS_EDIT
+  "Delete gallery chapters"
+  CHAPTERS_DELETE
+  "Create and edit performers"
+  PERFORMERS_EDIT
+  "Delete performers"
+  PERFORMERS_DELETE
+  "Merge performers"
+  PERFORMERS_MERGE
+  "Create and edit studios"
+  STUDIOS_EDIT
+  "Delete studios"
+  STUDIOS_DELETE
+  "Create and edit tags"
+  TAGS_EDIT
+  "Delete tags"
+  TAGS_DELETE
+  "Merge tags"
+  TAGS_MERGE
+  "Create and edit groups"
+  GROUPS_EDIT
+  "Delete groups"
+  GROUPS_DELETE
+  "Record and edit their own plays, O counts and resume times"
+  RECORD_ACTIVITY
+  "Use scrapers in the edit forms and the tagger"
+  USE_SCRAPERS
+  "Save filters"
+  SAVE_FILTERS
+  "Delete saved filters"
+  DELETE_SAVED_FILTERS
+  """
+  Move, delete and assign files and set their fingerprints, and delete the
+  files of deleted scenes, images and galleries
+  """
+  MANAGE_FILES
+  "See scenes with RESTRICTED visibility"
+  VIEW_RESTRICTED_SCENES
+  "See scenes with PRIVATE visibility"
+  VIEW_PRIVATE_SCENES
+  "Change the visibility of scenes"
+  CHANGE_SCENE_VISIBILITY
+  "Run and stop the library tasks: scan, generate, auto tag, identify and clean"
+  RUN_LIBRARY_TASKS
+  """
+  Change the list settings and the front page shared by every user: default
+  filters, table columns and the tagger settings
+  """
+  MANAGE_SHARED_LIST_SETTINGS
 }
 
 """
-Restricts the field to users with the given role. On an input field, sending
-the field requires the role.
-Mutations without this directive are restricted to the ADMIN role.
+Restricts the field to users whose role has the permission. On an input
+field, setting the field to a value other than false or null requires the
+permission.
+Mutations without @hasPermission, @adminOnly or @signedIn are restricted to
+the Admin role.
 """
-directive @hasRole(role: RoleEnum!) on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+directive @hasPermission(
+  permission: Permission!
+) on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+"Restricts the field to users with the Admin role."
+directive @adminOnly on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+"Allows the field to every signed in user."
+directive @signedIn on FIELD_DEFINITION
 directive @isUserOwner on FIELD_DEFINITION
+
+"A named set of permissions"
+type Role {
+  id: ID!
+  name: String!
+  description: String!
+  "Every permission for the Admin role"
+  permissions: [Permission!]!
+  "True for the Admin role, which cannot be changed or deleted"
+  builtin: Boolean!
+  "The number of users with the role"
+  userCount: Int!
+}
 
 type User {
   name: String!
   """
-  If the user has no roles, they are considered locked and cannot log in.
+  If the user has no role, they are considered locked and cannot log in.
   Should not be visible to other users
   """
-  roles: [RoleEnum!] @isUserOwner
+  role: Role @isUserOwner
+  "The permissions of the role of the user: every permission for an admin"
+  permissions: [Permission!]! @isUserOwner
+  isAdmin: Boolean! @isUserOwner
   """
   If true, requests from the local network without a session are logged in as
   this user. At most one user has auto login.
@@ -40,7 +127,8 @@ input UserCreateInput {
   Password in plain text
   """
   password: String!
-  roles: [RoleEnum!]!
+  "The ID of the role of the user. A user without a role is locked"
+  roleId: ID
   "Setting auto login for this user clears it for every other user"
   autoLogin: Boolean
 }
@@ -48,7 +136,8 @@ input UserCreateInput {
 input UserUpdateInput {
   existingName: String!
   name: String!
-  roles: [RoleEnum!]!
+  "The ID of the role of the user. A user without a role is locked"
+  roleId: ID
   """
   Setting auto login for this user clears it for every other user.
   Left unchanged if not set.
@@ -71,4 +160,21 @@ input UserChangePasswordInput {
 input ChangeUserPasswordInput {
   name: String!
   newPassword: String!
+}
+
+input RoleCreateInput {
+  name: String!
+  description: String
+  permissions: [Permission!]!
+}
+
+input RoleUpdateInput {
+  id: ID!
+  name: String!
+  description: String
+  permissions: [Permission!]!
+}
+
+input RoleDestroyInput {
+  id: ID!
 }

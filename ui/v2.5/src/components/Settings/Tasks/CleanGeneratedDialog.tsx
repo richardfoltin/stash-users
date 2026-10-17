@@ -6,6 +6,7 @@ import { BooleanSetting } from "../Inputs";
 import { faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 import { SettingSection } from "../SettingSection";
 import { useSettings } from "../context";
+import { usePermissions } from "src/hooks/Permissions";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 
 const CleanGeneratedOptions: React.FC<{
@@ -72,6 +73,7 @@ export const CleanGeneratedDialog: React.FC<{
   const intl = useIntl();
 
   const { ui, saveUI, loading } = useSettings();
+  const { isAdmin } = usePermissions();
 
   const [options, setOptions] = useState<GQL.CleanGeneratedInput>({
     blobFiles: true,
@@ -91,12 +93,15 @@ export const CleanGeneratedDialog: React.FC<{
   }, [ui?.taskDefaults?.cleanGenerated]);
 
   function confirm() {
-    saveUI({
-      taskDefaults: {
-        ...ui.taskDefaults,
-        cleanGenerated: options,
-      },
-    });
+    // task defaults are settings
+    if (isAdmin) {
+      saveUI({
+        taskDefaults: {
+          ...ui.taskDefaults,
+          cleanGenerated: options,
+        },
+      });
+    }
     onClose(options);
   }
 

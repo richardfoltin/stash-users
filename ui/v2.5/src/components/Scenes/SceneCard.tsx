@@ -302,7 +302,7 @@ const SceneCardPopovers = React.memo(
           props.scene?.o_counter ||
           props.scene.galleries.length > 0 ||
           props.scene.organized ||
-          props.scene.visibility !== GQL.RoleEnum.Read ||
+          props.scene.visibility !== GQL.SceneVisibility.Everyone ||
           sceneNumber !== undefined)
       ) {
         return (

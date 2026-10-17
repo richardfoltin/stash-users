@@ -10,6 +10,7 @@ import { Icon } from "src/components/Shared/Icon";
 import { ModalComponent } from "src/components/Shared/Modal";
 import { OperationButton } from "src/components/Shared/OperationButton";
 import { useToast } from "src/hooks/Toast";
+import { usePermissions } from "src/hooks/Permissions";
 import * as GQL from "src/core/generated-graphql";
 import { FormattedMessage, useIntl } from "react-intl";
 import { withoutTypename } from "src/utils/data";
@@ -90,6 +91,8 @@ export const IdentifyDialog: React.FC<IIdentifyDialogProps> = ({
 
   const intl = useIntl();
   const Toast = useToast();
+  // the task defaults and the folders of the server are admin only
+  const { isAdmin } = usePermissions();
 
   const { data: configData, error: configError } = useConfiguration();
   const { data: scraperData, error: scraperError } = useListSceneScrapers();
@@ -188,18 +191,20 @@ export const IdentifyDialog: React.FC<IIdentifyDialogProps> = ({
       <Form.Group className="dialog-selected-folders">
         <div>
           {message}
-          <div>
-            <Button
-              title={intl.formatMessage({ id: "actions.select_folders" })}
-              onClick={() => onClick()}
-            >
-              <Icon icon={faFolderOpen} />
-            </Button>
-          </div>
+          {isAdmin && (
+            <div>
+              <Button
+                title={intl.formatMessage({ id: "actions.select_folders" })}
+                onClick={() => onClick()}
+              >
+                <Icon icon={faFolderOpen} />
+              </Button>
+            </div>
+          )}
         </div>
       </Form.Group>
     );
-  }, [selectedIds, intl, paths]);
+  }, [selectedIds, intl, paths, isAdmin]);
 
   useEffect(() => {
     if (!configData || !allSources) return;
@@ -442,13 +447,15 @@ export const IdentifyDialog: React.FC<IIdentifyDialogProps> = ({
       }}
       disabled={editingField || savingDefaults || sources.length === 0}
       footerButtons={
-        <OperationButton
-          variant="secondary"
-          disabled={editingField || savingDefaults}
-          operation={setAsDefault}
-        >
-          <FormattedMessage id="actions.set_as_default" />
-        </OperationButton>
+        isAdmin && (
+          <OperationButton
+            variant="secondary"
+            disabled={editingField || savingDefaults}
+            operation={setAsDefault}
+          >
+            <FormattedMessage id="actions.set_as_default" />
+          </OperationButton>
+        )
       }
       leftFooterButtons={
         <Button

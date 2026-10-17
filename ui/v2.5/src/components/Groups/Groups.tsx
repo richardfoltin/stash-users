@@ -7,6 +7,7 @@ import GroupCreate from "./GroupDetails/GroupCreate";
 import { FilteredGroupList } from "./GroupList";
 import { View } from "../List/views";
 import { usePermissions } from "src/hooks/Permissions";
+import * as GQL from "src/core/generated-graphql";
 import { PermissionDenied } from "../PermissionDenied";
 
 const Groups: React.FC = () => {
@@ -14,7 +15,7 @@ const Groups: React.FC = () => {
 };
 
 const GroupRoutes: React.FC = () => {
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
   const titleProps = useTitleProps({ id: "groups" });
   return (
     <>
@@ -24,7 +25,9 @@ const GroupRoutes: React.FC = () => {
         <Route
           exact
           path="/groups/new"
-          component={canModify ? GroupCreate : PermissionDenied}
+          component={
+            can(GQL.Permission.GroupsEdit) ? GroupCreate : PermissionDenied
+          }
         />
         <Route path="/groups/:id/:tab?" component={Group} />
       </Switch>

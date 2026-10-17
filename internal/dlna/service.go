@@ -44,7 +44,7 @@ func NewRepository(repo models.Repository, loginRequired func(ctx context.Contex
 
 func (r *Repository) WithReadTxn(ctx context.Context, fn txn.TxnFunc) error {
 	if r.LoginRequired(ctx) {
-		ctx = models.SetViewerRole(ctx, models.RoleEnumRead)
+		ctx = models.SetPublicScenesOnly(ctx)
 	}
 
 	return txn.WithReadTxn(ctx, r.TxnManager, fn)

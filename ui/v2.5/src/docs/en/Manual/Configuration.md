@@ -153,9 +153,9 @@ Some scrapers require a Chrome instance to function correctly. If left empty, st
 
 Stash always has at least one user, and only signed-in users can use it. When Stash starts without any users, it creates the user `admin` with the `Admin` role, no password and automatic login from the local network. Roles, signing in, automatic login, scene visibility, personal viewing activity and recovering access are described in [Users and Permissions](/help/Users.md).
 
-Users are managed in the `Users` section of `Settings > Security`, and are stored in the `users` section of `config.yml`. Passwords are stored as hashes. A `username` and `password` set in `config.yml` by an earlier version of stash are treated as a user with the `Admin` role, and are moved into the `users` section the first time users are changed.
+Users are managed in the `Users` section of `Settings > Security`, and are stored in the `users` section of `config.yml`. Roles are managed in the `Roles` section, and are stored in the `roles` section of `config.yml` once they are first changed. Passwords are stored as hashes. A `username` and `password` set in `config.yml` by an earlier version of stash are treated as a user with the `Admin` role, and are moved into the `users` section the first time users are changed.
 
-`default_scene_visibility` in `config.yml` holds the `Default visibility of new scenes` setting: `READ` (`Everyone`, the default), `MODIFY` (`Editors and admins`) or `ADMIN` (`Admins only`).
+`default_scene_visibility` in `config.yml` holds the `Default visibility of new scenes` setting: `EVERYONE` (`Everyone`, the default), `RESTRICTED` (`Restricted`) or `PRIVATE` (`Private`). The values `READ`, `MODIFY` and `ADMIN` of earlier versions are still read, as `EVERYONE`, `RESTRICTED` and `PRIVATE`.
 
 ## API key
 

@@ -78,9 +78,10 @@ const _GallerySelect: React.FC<
   const intl = useIntl();
   const maxOptionsShown =
     configuration?.ui.maxOptionsShown ?? defaultMaxOptionsShown;
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
   const defaultCreatable =
-    canModify && !configuration?.interface.disableDropdownCreate.gallery;
+    can(GQL.Permission.GalleriesEdit) &&
+    !configuration?.interface.disableDropdownCreate.gallery;
 
   const exclude = useMemo(() => props.excludeIds ?? [], [props.excludeIds]);
 

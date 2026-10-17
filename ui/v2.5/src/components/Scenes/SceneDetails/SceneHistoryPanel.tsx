@@ -22,6 +22,7 @@ import {
 } from "src/core/StashService";
 import * as GQL from "src/core/generated-graphql";
 import { useConfigurationContext } from "src/hooks/Config";
+import { usePermissions } from "src/hooks/Permissions";
 import { useToast } from "src/hooks/Toast";
 import { TextField } from "src/utils/field";
 import TextUtils from "src/utils/text";
@@ -30,7 +31,7 @@ const History: React.FC<{
   className?: string;
   history: string[];
   unknownDate?: string;
-  onRemove: (date: string) => void;
+  onRemove?: (date: string) => void;
   noneID: string;
 }> = ({ className, history, unknownDate, noneID, onRemove }) => {
   const intl = useIntl();
@@ -57,15 +58,17 @@ const History: React.FC<{
         {history.map((playdate, index) => (
           <li key={index}>
             <span>{renderDate(playdate)}</span>
-            <Button
-              className="remove-date-button"
-              size="sm"
-              variant="minimal"
-              onClick={() => onRemove(playdate)}
-              title={intl.formatMessage({ id: "actions.remove_date" })}
-            >
-              <Icon icon={faTrash} />
-            </Button>
+            {onRemove && (
+              <Button
+                className="remove-date-button"
+                size="sm"
+                variant="minimal"
+                onClick={() => onRemove(playdate)}
+                title={intl.formatMessage({ id: "actions.remove_date" })}
+              >
+                <Icon icon={faTrash} />
+              </Button>
+            )}
           </li>
         ))}
       </ul>
@@ -175,6 +178,8 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
 
   const { configuration } = useConfigurationContext();
   const { sfwContentMode } = configuration.interface;
+  const { can } = usePermissions();
+  const canRecordActivity = can(GQL.Permission.RecordActivity);
 
   const [dialogs, setDialogs] = React.useState({
     playHistory: false,
@@ -373,25 +378,27 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
               <FormattedMessage id="play_history" />
               <Counter count={playHistory.length} hideZero />
             </span>
-            <span>
-              <Button
-                size="sm"
-                variant="minimal"
-                className="add-date-button"
-                title={intl.formatMessage({ id: "actions.add_play" })}
-                onClick={() => handleAddPlayDate()}
-              >
-                <Icon icon={faPlus} />
-              </Button>
-              <HistoryMenu
-                hasHistory={playHistory.length > 0}
-                showResetResumeDuration={true}
-                onAddDate={() => setDialogPartial({ addPlay: true })}
-                onClearDates={() => setDialogPartial({ playHistory: true })}
-                resetResume={() => handleResetResume()}
-                resetDuration={() => handleResetDuration()}
-              />
-            </span>
+            {canRecordActivity && (
+              <span>
+                <Button
+                  size="sm"
+                  variant="minimal"
+                  className="add-date-button"
+                  title={intl.formatMessage({ id: "actions.add_play" })}
+                  onClick={() => handleAddPlayDate()}
+                >
+                  <Icon icon={faPlus} />
+                </Button>
+                <HistoryMenu
+                  hasHistory={playHistory.length > 0}
+                  showResetResumeDuration={true}
+                  onAddDate={() => setDialogPartial({ addPlay: true })}
+                  onClearDates={() => setDialogPartial({ playHistory: true })}
+                  resetResume={() => handleResetResume()}
+                  resetDuration={() => handleResetDuration()}
+                />
+              </span>
+            )}
           </h5>
         </div>
 
@@ -399,7 +406,9 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
           history={playHistory ?? []}
           noneID="playdate_recorded_no"
           unknownDate={scene.created_at}
-          onRemove={(t) => handleDeletePlayDate(t)}
+          onRemove={
+            canRecordActivity ? (t) => handleDeletePlayDate(t) : undefined
+          }
         />
         <dl className="details-list">
           <TextField
@@ -416,32 +425,34 @@ export const SceneHistoryPanel: React.FC<ISceneHistoryProps> = ({ scene }) => {
               <FormattedMessage id={oHistoryMessageID} />
               <Counter count={oHistory.length} hideZero />
             </span>
-            <span>
-              <Button
-                size="sm"
-                variant="minimal"
-                className="add-date-button"
-                title={intl.formatMessage({ id: "actions.add_o" })}
-                onClick={() => handleAddODate()}
-              >
-                <Icon icon={faPlus} />
-              </Button>
-              <HistoryMenu
-                hasHistory={oHistory.length > 0}
-                showResetResumeDuration={false}
-                onAddDate={() => setDialogPartial({ addO: true })}
-                onClearDates={() => setDialogPartial({ oHistory: true })}
-                resetResume={() => handleResetResume()}
-                resetDuration={() => handleResetDuration()}
-              />
-            </span>
+            {canRecordActivity && (
+              <span>
+                <Button
+                  size="sm"
+                  variant="minimal"
+                  className="add-date-button"
+                  title={intl.formatMessage({ id: "actions.add_o" })}
+                  onClick={() => handleAddODate()}
+                >
+                  <Icon icon={faPlus} />
+                </Button>
+                <HistoryMenu
+                  hasHistory={oHistory.length > 0}
+                  showResetResumeDuration={false}
+                  onAddDate={() => setDialogPartial({ addO: true })}
+                  onClearDates={() => setDialogPartial({ oHistory: true })}
+                  resetResume={() => handleResetResume()}
+                  resetDuration={() => handleResetDuration()}
+                />
+              </span>
+            )}
           </h5>
         </div>
         <History
           history={oHistory}
           noneID={noneMessageID}
           unknownDate={scene.created_at}
-          onRemove={(t) => handleDeleteODate(t)}
+          onRemove={canRecordActivity ? (t) => handleDeleteODate(t) : undefined}
         />
       </div>
     </div>

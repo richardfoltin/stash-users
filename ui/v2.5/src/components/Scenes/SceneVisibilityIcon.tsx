@@ -8,17 +8,19 @@ import { Icon } from "../Shared/Icon";
 
 // shows a lock on scenes that are hidden from some users
 export const SceneVisibilityIcon: React.FC<{
-  visibility?: GQL.RoleEnum;
+  visibility?: GQL.SceneVisibility;
 }> = ({ visibility }) => {
   const intl = useIntl();
 
-  if (!visibility || visibility === GQL.RoleEnum.Read) return null;
+  if (!visibility || visibility === GQL.SceneVisibility.Everyone) return null;
 
   return (
     <OverlayTrigger
       overlay={
         <Tooltip id="scene-visibility-tooltip">
-          {intl.formatMessage({ id: sceneVisibilityMessageID(visibility) })}
+          {intl.formatMessage({
+            id: `${sceneVisibilityMessageID(visibility)}_tooltip`,
+          })}
         </Tooltip>
       }
       placement="bottom"

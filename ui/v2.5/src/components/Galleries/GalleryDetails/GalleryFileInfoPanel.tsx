@@ -24,7 +24,9 @@ interface IFileInfoPanelProps {
 const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
   props: IFileInfoPanelProps
 ) => {
-  const { canModify, canDelete } = usePermissions();
+  const { can } = usePermissions();
+  const canEdit = can(GQL.Permission.GalleriesEdit);
+  const canManageFiles = can(GQL.Permission.ManageFiles);
   const checksum = props.file?.fingerprints.find((f) => f.type === "md5");
   const path = props.folder ? props.folder.path : (props.file?.path ?? "");
   const id = props.folder ? "folder" : "path";
@@ -63,16 +65,18 @@ const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
       {props.ofMany &&
         props.onSetPrimaryFile &&
         !props.primary &&
-        canModify && (
+        (canEdit || canManageFiles) && (
           <div>
-            <Button
-              className="edit-button"
-              disabled={props.loading}
-              onClick={props.onSetPrimaryFile}
-            >
-              <FormattedMessage id="actions.make_primary" />
-            </Button>
-            {canDelete && (
+            {canEdit && (
+              <Button
+                className="edit-button"
+                disabled={props.loading}
+                onClick={props.onSetPrimaryFile}
+              >
+                <FormattedMessage id="actions.make_primary" />
+              </Button>
+            )}
+            {canManageFiles && (
               <Button
                 variant="danger"
                 disabled={props.loading}

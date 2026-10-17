@@ -603,12 +603,64 @@ func (r *mutationResolver) SceneAssignFile(ctx context.Context, input AssignScen
 	}
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
+		if err := r.findFile(ctx, models.FileID(fileID)); err != nil {
+			return err
+		}
+
+		scenes, err := r.repository.Scene.FindByFileID(ctx, models.FileID(fileID))
+		if err != nil {
+			return err
+		}
+
+		ids := make([]int, len(scenes))
+		for i, s := range scenes {
+			ids[i] = s.ID
+		}
+
+		if err := r.checkMoveFiles(ctx, sceneID, ids); err != nil {
+			return err
+		}
+
 		return r.Resolver.sceneService.AssignFile(ctx, sceneID, models.FileID(fileID))
 	}); err != nil {
+		if isPermissionDenied(err) {
+			return false, err
+		}
 		return false, fmt.Errorf("assigning file to scene: %w", err)
 	}
 
 	return true, nil
+}
+
+// checkMoveFiles returns an error unless files can move from the scenes to the
+// destination: a scene hidden from the user is not found, and unless the user
+// can change the visibility of scenes, the scenes must have the visibility of
+// the destination, since moving files between scenes of different visibility
+// changes who sees them.
+func (r *mutationResolver) checkMoveFiles(ctx context.Context, destination int, scenes []int) error {
+	ids := sliceutil.AppendUniques([]int{destination}, scenes)
+
+	if _, err := r.repository.Scene.FindMany(ctx, ids); err != nil {
+		return err
+	}
+
+	req := requirement{permission: models.PermissionChangeSceneVisibility}
+	if checkRequirement(ctx, req) == nil {
+		return nil
+	}
+
+	visibilities, err := r.repository.Scene.GetManyVisibility(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	for _, v := range visibilities[1:] {
+		if v != visibilities[0] {
+			return newPermissionDeniedError(req)
+		}
+	}
+
+	return nil
 }
 
 func (r *mutationResolver) SceneMerge(ctx context.Context, input SceneMergeInput) (*models.Scene, error) {
@@ -620,6 +672,12 @@ func (r *mutationResolver) SceneMerge(ctx context.Context, input SceneMergeInput
 	destID, err := strconv.Atoi(input.Destination)
 	if err != nil {
 		return nil, fmt.Errorf("converting destination id: %w", err)
+	}
+
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		return r.checkMoveFiles(ctx, destID, srcIDs)
+	}); err != nil {
+		return nil, err
 	}
 
 	var values *models.ScenePartial

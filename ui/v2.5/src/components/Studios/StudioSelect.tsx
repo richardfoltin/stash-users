@@ -73,9 +73,10 @@ const _StudioSelect: React.FC<
   const intl = useIntl();
   const maxOptionsShown =
     (configuration?.ui as IUIConfig).maxOptionsShown ?? defaultMaxOptionsShown;
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
   const defaultCreatable =
-    canModify && !configuration?.interface.disableDropdownCreate.studio;
+    can(GQL.Permission.StudiosEdit) &&
+    !configuration?.interface.disableDropdownCreate.studio;
 
   const exclude = useMemo(() => props.excludeIds ?? [], [props.excludeIds]);
 

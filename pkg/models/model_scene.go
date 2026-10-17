@@ -93,8 +93,7 @@ type ScenePartial struct {
 	GroupIDs      *UpdateGroupIDs
 	StashIDs      *UpdateStashIDs
 	PrimaryFileID *FileID
-	// Visibility is the minimum role that can see the scene
-	Visibility *RoleEnum
+	Visibility    *SceneVisibility
 }
 
 func NewScenePartial() ScenePartial {

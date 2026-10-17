@@ -9,6 +9,7 @@ import {
 } from "src/core/StashService";
 import { getPlatformURL } from "src/core/createClient";
 import { usePermissions } from "src/hooks/Permissions";
+import * as GQL from "src/core/generated-graphql";
 
 interface IRevealInFilesystemButtonProps {
   fileId?: string;
@@ -26,9 +27,9 @@ export const RevealInFilesystemButton: React.FC<
   IRevealInFilesystemButtonProps
 > = ({ fileId, folderId }) => {
   const intl = useIntl();
-  const { isAdmin } = usePermissions();
+  const { can } = usePermissions();
 
-  if (!isLocalhost() || !isAdmin) return null;
+  if (!isLocalhost() || !can(GQL.Permission.ManageFiles)) return null;
 
   function onClick() {
     if (folderId) {

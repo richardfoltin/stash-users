@@ -141,8 +141,8 @@ type SceneFilterType struct {
 	CreatedAt *TimestampCriterionInput `json:"created_at"`
 	// Filter by updated at
 	UpdatedAt *TimestampCriterionInput `json:"updated_at"`
-	// Filter by visibility: the minimum role that can see the scene
-	Visibility *RoleCriterionInput `json:"visibility"`
+	// Filter by visibility
+	Visibility *SceneVisibilityCriterionInput `json:"visibility"`
 
 	// Filter by custom fields
 	CustomFields []CustomFieldCriterionInput `json:"custom_fields"`
@@ -232,8 +232,7 @@ type SceneUpdateInput struct {
 	PlayCount     *int           `json:"play_count"`
 	PrimaryFileID *string        `json:"primary_file_id"`
 	CustomFields  *CustomFieldsInput
-	// The minimum role that can see the scene
-	Visibility *RoleEnum `json:"visibility"`
+	Visibility    *SceneVisibility `json:"visibility"`
 }
 
 type SceneDestroyInput struct {

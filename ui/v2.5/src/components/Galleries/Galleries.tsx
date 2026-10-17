@@ -11,6 +11,7 @@ import { ErrorMessage } from "../Shared/ErrorMessage";
 import { useFindGalleryImageID } from "src/core/StashService";
 import { usePermissions } from "src/hooks/Permissions";
 import { PermissionDenied } from "../PermissionDenied";
+import * as GQL from "src/core/generated-graphql";
 
 interface IGalleryImageParams {
   id: string;
@@ -46,7 +47,7 @@ const Galleries: React.FC = () => {
 };
 
 const GalleryRoutes: React.FC = () => {
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
   const titleProps = useTitleProps({ id: "galleries" });
   return (
     <>
@@ -56,7 +57,9 @@ const GalleryRoutes: React.FC = () => {
         <Route
           exact
           path="/galleries/new"
-          component={canModify ? GalleryCreate : PermissionDenied}
+          component={
+            can(GQL.Permission.GalleriesEdit) ? GalleryCreate : PermissionDenied
+          }
         />
         <Route
           exact

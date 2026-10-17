@@ -15,6 +15,7 @@ import { Badge, Button } from "react-bootstrap";
 import { Icon } from "../Icon";
 import { faLink, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { useIntl } from "react-intl";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface INewScrapedObjects<T> {
   newValues: T[];
@@ -98,6 +99,8 @@ export const ScrapedStudioRow: React.FC<IScrapedStudioRow> = ({
   onCreateNew,
   onLinkExisting,
 }) => {
+  const { can } = usePermissions();
+
   function renderScrapedStudio(
     scrapeResult: ObjectScrapeResult<GQL.ScrapedStudio>,
     isNew?: boolean,
@@ -149,7 +152,7 @@ export const ScrapedStudioRow: React.FC<IScrapedStudioRow> = ({
       )}
       onChange={onChange}
       newValues={
-        newStudio && onCreateNew ? (
+        newStudio && onCreateNew && can(GQL.Permission.StudiosEdit) ? (
           <NewScrapedObjects
             newValues={[newStudio]}
             onCreateNew={onCreateNew}
@@ -232,6 +235,7 @@ export const ScrapedPerformersRow: React.FC<
   ageFromDate,
   onLinkExisting,
 }) => {
+  const { can } = usePermissions();
   const performersCopy = useMemo(() => {
     return (
       newObjects?.map((p) => {
@@ -286,7 +290,7 @@ export const ScrapedPerformersRow: React.FC<
       renderObjects={renderScrapedPerformers}
       onChange={onChange}
       newObjects={performersCopy}
-      onCreateNew={onCreateNew}
+      onCreateNew={can(GQL.Permission.PerformersEdit) ? onCreateNew : undefined}
       getName={(value) => value.name ?? ""}
       onLinkExisting={onLinkExisting}
     />
@@ -304,6 +308,7 @@ export const ScrapedGroupsRow: React.FC<
   onCreateNew,
   onLinkExisting,
 }) => {
+  const { can } = usePermissions();
   const groupsCopy = useMemo(() => {
     return (
       newObjects?.map((p) => {
@@ -356,7 +361,7 @@ export const ScrapedGroupsRow: React.FC<
       renderObjects={renderScrapedGroups}
       onChange={onChange}
       newObjects={groupsCopy}
-      onCreateNew={onCreateNew}
+      onCreateNew={can(GQL.Permission.GroupsEdit) ? onCreateNew : undefined}
       getName={(value) => value.name ?? ""}
       onLinkExisting={onLinkExisting}
     />
@@ -374,6 +379,8 @@ export const ScrapedTagsRow: React.FC<
   onCreateNew,
   onLinkExisting,
 }) => {
+  const { can } = usePermissions();
+
   function renderScrapedTags(
     scrapeResult: ScrapeResult<GQL.ScrapedTag[]>,
     isNew?: boolean,
@@ -418,7 +425,7 @@ export const ScrapedTagsRow: React.FC<
       renderObjects={renderScrapedTags}
       onChange={onChange}
       newObjects={newObjects}
-      onCreateNew={onCreateNew}
+      onCreateNew={can(GQL.Permission.TagsEdit) ? onCreateNew : undefined}
       onLinkExisting={onLinkExisting}
       getName={getObjectName}
     />

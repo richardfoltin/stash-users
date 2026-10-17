@@ -36,6 +36,7 @@ import {
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
 import cloneDeep from "lodash-es/cloneDeep";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IProps {
   gallery: Partial<GQL.GalleryDataFragment>;
@@ -52,6 +53,8 @@ export const GalleryEditPanel: React.FC<IProps> = ({
 }) => {
   const intl = useIntl();
   const Toast = useToast();
+  const { can } = usePermissions();
+  const canScrape = can(GQL.Permission.UseScrapers);
   const [scenes, setScenes] = useState<Scene[]>([]);
 
   const [performers, setPerformers] = useState<Performer[]>([]);
@@ -514,7 +517,7 @@ export const GalleryEditPanel: React.FC<IProps> = ({
             )}
           </div>
           <div className="ml-auto text-right d-flex">
-            {!isNew && (
+            {!isNew && canScrape && (
               <ScraperMenu
                 toggle={intl.formatMessage({ id: "actions.scrape_with" })}
                 scrapers={fragmentScrapers}
@@ -531,7 +534,7 @@ export const GalleryEditPanel: React.FC<IProps> = ({
 
             {renderURLListField(
               "urls",
-              onScrapeGalleryURL,
+              canScrape ? onScrapeGalleryURL : undefined,
               urlScrapable,
               "urls",
               urlProps

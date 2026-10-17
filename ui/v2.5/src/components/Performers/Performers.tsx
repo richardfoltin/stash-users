@@ -7,6 +7,7 @@ import PerformerCreate from "./PerformerDetails/PerformerCreate";
 import { FilteredPerformerList } from "./PerformerList";
 import { View } from "../List/views";
 import { usePermissions } from "src/hooks/Permissions";
+import * as GQL from "src/core/generated-graphql";
 import { PermissionDenied } from "../PermissionDenied";
 
 const Performers: React.FC = () => {
@@ -14,7 +15,7 @@ const Performers: React.FC = () => {
 };
 
 const PerformerRoutes: React.FC = () => {
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
   const titleProps = useTitleProps({ id: "performers" });
   return (
     <>
@@ -23,7 +24,11 @@ const PerformerRoutes: React.FC = () => {
         <Route exact path="/performers" component={Performers} />
         <Route
           path="/performers/new"
-          component={canModify ? PerformerCreate : PermissionDenied}
+          component={
+            can(GQL.Permission.PerformersEdit)
+              ? PerformerCreate
+              : PermissionDenied
+          }
         />
         <Route path="/performers/:id/:tab?" component={Performer} />
       </Switch>

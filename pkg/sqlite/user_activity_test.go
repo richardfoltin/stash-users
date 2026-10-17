@@ -148,8 +148,8 @@ func (d *activityDB) populate(t *testing.T) {
 	})
 }
 
-func asUser(name string, role models.RoleEnum) context.Context {
-	return models.SetCurrentUser(context.Background(), models.User{Username: name, Roles: models.Roles{role}})
+func asUser(name string, roleID string) context.Context {
+	return models.SetCurrentUser(context.Background(), userOfRole(name, roleID))
 }
 
 // activityDates returns n distinct dates, starting at the hour.
@@ -334,9 +334,9 @@ func TestUserActivitySeparate(t *testing.T) {
 	d.admin = "admin"
 	require.NoError(t, d.AdoptLegacyActivity(context.Background()))
 
-	alice := asUser("alice", models.RoleEnumModify)
+	alice := asUser("alice", models.RoleIDEditor)
 	// a viewer records their own activity
-	bob := asUser("bob", models.RoleEnumRead)
+	bob := asUser("bob", models.RoleIDViewer)
 
 	d.record(t, alice, 0, 2, 1, 10, 100, 0, 2)
 	d.record(t, alice, 1, 1, 0, 0, 0, 0, 0)
@@ -378,7 +378,7 @@ func TestUserActivitySeparate(t *testing.T) {
 	}, d.activityOf(t, bob), "bob")
 
 	// the admin recorded nothing
-	admin := d.activityOf(t, asUser("admin", models.RoleEnumAdmin))
+	admin := d.activityOf(t, asUser("admin", models.RoleIDAdmin))
 	assert.Equal(t, []int{0, 0, 0}, admin.views, "admin")
 	assert.Equal(t, 0, admin.totalImageO, "admin")
 
@@ -443,9 +443,9 @@ func TestUserActivityQuotedUserName(t *testing.T) {
 	d.admin = "admin"
 	require.NoError(t, d.AdoptLegacyActivity(context.Background()))
 
-	quoted := asUser("o'brien\\", models.RoleEnumModify)
+	quoted := asUser("o'brien\\", models.RoleIDEditor)
 	d.record(t, quoted, 1, 2, 1, 10, 100, 1, 2)
-	d.record(t, asUser("alice", models.RoleEnumModify), 0, 3, 2, 20, 200, 0, 3)
+	d.record(t, asUser("alice", models.RoleIDEditor), 0, 3, 2, 20, 200, 0, 3)
 
 	a := d.activityOf(t, quoted)
 	assert.Equal(t, []int{0, 2, 0}, a.views, "views")
@@ -487,14 +487,14 @@ func TestUserActivityVisibility(t *testing.T) {
 	d.admin = "admin"
 	require.NoError(t, d.AdoptLegacyActivity(context.Background()))
 
-	bob := asUser("bob", models.RoleEnumRead)
+	bob := asUser("bob", models.RoleIDViewer)
 	d.record(t, bob, 1, 4, 0, 0, 0, 1, 3)
 	d.record(t, bob, 2, 1, 2, 0, 0, 0, 0)
 
 	// hide scene 2 from viewers
 	d.do(t, context.Background(), func(ctx context.Context) error {
-		role := models.RoleEnumModify
-		_, err := d.Scene.UpdatePartial(ctx, d.scenes[2], models.ScenePartial{Visibility: &role})
+		restricted := models.SceneVisibilityRestricted
+		_, err := d.Scene.UpdatePartial(ctx, d.scenes[2], models.ScenePartial{Visibility: &restricted})
 		return err
 	})
 
@@ -538,16 +538,16 @@ func TestUserActivityNoUser(t *testing.T) {
 	d.admin = "admin"
 	require.NoError(t, d.AdoptLegacyActivity(context.Background()))
 
-	admin := asUser("admin", models.RoleEnumAdmin)
-	alice := asUser("alice", models.RoleEnumModify)
+	admin := asUser("admin", models.RoleIDAdmin)
+	alice := asUser("alice", models.RoleIDEditor)
 
 	// a background task, and a DLNA request
 	d.record(t, context.Background(), 0, 1, 1, 5, 5, 0, 1)
-	d.record(t, models.SetViewerRole(context.Background(), models.RoleEnumRead), 0, 1, 0, 0, 0, 0, 0)
+	d.record(t, models.SetPublicScenesOnly(context.Background()), 0, 1, 0, 0, 0, 0, 0)
 	// export and import use the activity of the first admin
 	d.record(t, models.WithFirstAdminActivity(alice), 0, 1, 0, 0, 0, 0, 0)
 	// a plugin hook that no user triggered
-	d.record(t, asUser("", models.RoleEnumAdmin), 0, 1, 0, 0, 0, 0, 0)
+	d.record(t, asUser("", models.RoleIDAdmin), 0, 1, 0, 0, 0, 0, 0)
 
 	a := d.activityOf(t, admin)
 	assert.Equal(t, []int{4, 0, 0}, a.views, "admin views")
@@ -618,12 +618,12 @@ func TestUserActivityAdoption(t *testing.T) {
 	// an admin exists, but did not adopt the activity yet: the admin uses the
 	// legacy activity, other users have their own
 	d.admin = "admin"
-	assert.Equal(t, legacy, d.activityOf(t, asUser("admin", models.RoleEnumAdmin)), "admin before adoption")
-	assert.Equal(t, none, d.activityOf(t, asUser("bob", models.RoleEnumRead)), "bob before adoption")
+	assert.Equal(t, legacy, d.activityOf(t, asUser("admin", models.RoleIDAdmin)), "admin before adoption")
+	assert.Equal(t, none, d.activityOf(t, asUser("bob", models.RoleIDViewer)), "bob before adoption")
 
 	require.NoError(t, d.AdoptLegacyActivity(context.Background()))
-	assert.Equal(t, legacy, d.activityOf(t, asUser("admin", models.RoleEnumAdmin)), "admin after adoption")
-	assert.Equal(t, none, d.activityOf(t, asUser("bob", models.RoleEnumRead)), "bob after adoption")
+	assert.Equal(t, legacy, d.activityOf(t, asUser("admin", models.RoleIDAdmin)), "admin after adoption")
+	assert.Equal(t, none, d.activityOf(t, asUser("bob", models.RoleIDViewer)), "bob after adoption")
 	assert.Equal(t, 1, d.queryInt(t, "SELECT COUNT(*) FROM user_activity_adoption WHERE user_name = 'admin'"), "adoption record")
 	assert.Equal(t, 0, d.queryInt(t, "SELECT (SELECT COUNT(*) FROM user_scene_views WHERE user_name = '') + (SELECT COUNT(*) FROM user_image_o_counters WHERE user_name = '')"), "unowned activity")
 
@@ -631,10 +631,10 @@ func TestUserActivityAdoption(t *testing.T) {
 	require.NoError(t, d.AdoptLegacyActivity(context.Background()))
 	d.exec(t, fmt.Sprintf("INSERT INTO scenes_view_dates (scene_id, view_date) VALUES (%d, '2024-01-02T00:00:00Z')", s[2]))
 	d.reopen(t)
-	assert.Equal(t, legacy, d.activityOf(t, asUser("admin", models.RoleEnumAdmin)), "admin after restart")
+	assert.Equal(t, legacy, d.activityOf(t, asUser("admin", models.RoleIDAdmin)), "admin after restart")
 
 	// the legacy tables and columns are not written
-	d.record(t, asUser("admin", models.RoleEnumAdmin), 0, 1, 1, 1, 1, 0, 1)
+	d.record(t, asUser("admin", models.RoleIDAdmin), 0, 1, 1, 1, 1, 0, 1)
 	assert.Equal(t, 4, d.queryInt(t, "SELECT COUNT(*) FROM scenes_view_dates"), "legacy views")
 	assert.Equal(t, 1, d.queryInt(t, "SELECT COUNT(*) FROM scenes_o_dates"), "legacy o dates")
 	assert.Equal(t, 0, d.queryInt(t, fmt.Sprintf("SELECT CAST(resume_time AS INTEGER) FROM scenes WHERE id = %d", s[0])), "legacy resume time")
@@ -645,7 +645,7 @@ func TestUserActivityAnonymise(t *testing.T) {
 	d := newActivityDB(t)
 	d.admin = "admin"
 	require.NoError(t, d.AdoptLegacyActivity(context.Background()))
-	d.record(t, asUser("alice", models.RoleEnumModify), 0, 1, 1, 10, 10, 0, 1)
+	d.record(t, asUser("alice", models.RoleIDEditor), 0, 1, 1, 10, 10, 0, 1)
 
 	out := filepath.Join(t.TempDir(), "anonymised.sqlite")
 	anonymiser, err := sqlite.NewAnonymiser(d.Database, out)
@@ -685,8 +685,8 @@ func TestUserActivityRecordedWithoutAdmin(t *testing.T) {
 	require.NoError(t, d.AdoptLegacyActivity(context.Background()))
 
 	assert.Equal(t, []int{2, 0, 0}, d.activityOf(t, context.Background()).views, "no user")
-	assert.Equal(t, []int{1, 0}, d.activityOf(t, asUser("admin", models.RoleEnumAdmin)).imageOCounts, "admin")
-	assert.Equal(t, []int{0, 0, 0}, d.activityOf(t, asUser("bob", models.RoleEnumRead)).views, "bob")
+	assert.Equal(t, []int{1, 0}, d.activityOf(t, asUser("admin", models.RoleIDAdmin)).imageOCounts, "admin")
+	assert.Equal(t, []int{0, 0, 0}, d.activityOf(t, asUser("bob", models.RoleIDViewer)).views, "bob")
 }
 
 // TestUserActivityRenameAndRemove tests that the activity of a renamed user
@@ -696,8 +696,8 @@ func TestUserActivityRenameAndRemove(t *testing.T) {
 	d.admin = "admin"
 	require.NoError(t, d.AdoptLegacyActivity(context.Background()))
 
-	alice := asUser("alice", models.RoleEnumModify)
-	bob := asUser("bob", models.RoleEnumRead)
+	alice := asUser("alice", models.RoleIDEditor)
+	bob := asUser("bob", models.RoleIDViewer)
 	d.record(t, alice, 0, 2, 1, 10, 100, 0, 2)
 	d.record(t, bob, 1, 1, 1, 20, 50, 1, 1)
 	d.record(t, context.Background(), 2, 1, 0, 0, 0, 0, 0)
@@ -708,7 +708,7 @@ func TestUserActivityRenameAndRemove(t *testing.T) {
 
 	newName := "alicia"
 	require.NoError(t, d.MoveUserActivity(context.Background(), "alice", &newName))
-	assert.Equal(t, aliceBefore, d.activityOf(t, asUser("alicia", models.RoleEnumModify)), "renamed")
+	assert.Equal(t, aliceBefore, d.activityOf(t, asUser("alicia", models.RoleIDEditor)), "renamed")
 	assert.Equal(t, []int{0, 0, 0}, d.activityOf(t, alice).views, "old name")
 
 	require.NoError(t, d.MoveUserActivity(context.Background(), "bob", nil))
@@ -718,7 +718,7 @@ func TestUserActivityRenameAndRemove(t *testing.T) {
 
 	// the other users keep their activity
 	assert.Equal(t, adminBefore, d.activityOf(t, context.Background()), "admin")
-	assert.Equal(t, aliceBefore, d.activityOf(t, asUser("alicia", models.RoleEnumModify)), "alicia")
+	assert.Equal(t, aliceBefore, d.activityOf(t, asUser("alicia", models.RoleIDEditor)), "alicia")
 }
 
 type mergeConfig struct{}
@@ -749,7 +749,7 @@ func TestUserActivityFullUpdate(t *testing.T) {
 	d := newActivityDB(t)
 	d.admin = "admin"
 	require.NoError(t, d.AdoptLegacyActivity(context.Background()))
-	alice := asUser("alice", models.RoleEnumModify)
+	alice := asUser("alice", models.RoleIDEditor)
 
 	update := func(resumeTime float64, imageO int) {
 		d.do(t, alice, func(ctx context.Context) error {
@@ -794,9 +794,9 @@ func TestUserActivitySceneMerge(t *testing.T) {
 	d.admin = "admin"
 	require.NoError(t, d.AdoptLegacyActivity(context.Background()))
 
-	admin := asUser("admin", models.RoleEnumAdmin)
-	alice := asUser("alice", models.RoleEnumModify)
-	bob := asUser("bob", models.RoleEnumRead)
+	admin := asUser("admin", models.RoleIDAdmin)
+	alice := asUser("alice", models.RoleIDEditor)
+	bob := asUser("bob", models.RoleIDViewer)
 	s := d.scenes
 
 	// scene 0 is the destination, scenes 1 and 2 are merged into it

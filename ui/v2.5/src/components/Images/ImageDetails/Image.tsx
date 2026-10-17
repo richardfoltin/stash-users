@@ -52,7 +52,11 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   const history = useHistory();
   const Toast = useToast();
   const intl = useIntl();
-  const { isAdmin, canModify, canDelete } = usePermissions();
+  const { can } = usePermissions();
+  const canEdit = can(GQL.Permission.ImagesEdit);
+  const canDeleteImage = can(GQL.Permission.ImagesDelete);
+  const canRunTasks = can(GQL.Permission.RunLibraryTasks);
+  const canRecordActivity = can(GQL.Permission.RecordActivity);
   const { configuration } = useConfigurationContext();
   const { showStudioText } = configuration?.ui ?? {};
 
@@ -156,7 +160,7 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   }
 
   useRatingKeybinds(
-    canModify,
+    canEdit,
     configuration?.ui.ratingSystemOptions?.type,
     setRating
   );
@@ -191,7 +195,7 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   }
 
   function renderOperations() {
-    if (!isAdmin) return;
+    if (!canRunTasks && !canDeleteImage) return;
 
     return (
       <Dropdown>
@@ -204,30 +208,36 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
           <Icon icon={faEllipsisV} />
         </Dropdown.Toggle>
         <Dropdown.Menu className="bg-secondary text-white">
-          <Dropdown.Item
-            key="rescan"
-            className="bg-secondary text-white"
-            onClick={() => onRescan()}
-          >
-            <FormattedMessage id="actions.rescan" />
-          </Dropdown.Item>
-          <Dropdown.Item
-            key="generate"
-            className="bg-secondary text-white"
-            onClick={() => setIsGenerateDialogOpen(true)}
-          >
-            <FormattedMessage id="actions.generate" />…
-          </Dropdown.Item>
-          <Dropdown.Item
-            key="delete-image"
-            className="bg-secondary text-white"
-            onClick={() => setIsDeleteAlertOpen(true)}
-          >
-            <FormattedMessage
-              id="actions.delete"
-              values={{ entityType: intl.formatMessage({ id: "image" }) }}
-            />
-          </Dropdown.Item>
+          {canRunTasks && (
+            <Dropdown.Item
+              key="rescan"
+              className="bg-secondary text-white"
+              onClick={() => onRescan()}
+            >
+              <FormattedMessage id="actions.rescan" />
+            </Dropdown.Item>
+          )}
+          {canRunTasks && (
+            <Dropdown.Item
+              key="generate"
+              className="bg-secondary text-white"
+              onClick={() => setIsGenerateDialogOpen(true)}
+            >
+              <FormattedMessage id="actions.generate" />…
+            </Dropdown.Item>
+          )}
+          {canDeleteImage && (
+            <Dropdown.Item
+              key="delete-image"
+              className="bg-secondary text-white"
+              onClick={() => setIsDeleteAlertOpen(true)}
+            >
+              <FormattedMessage
+                id="actions.delete"
+                values={{ entityType: intl.formatMessage({ id: "image" }) }}
+              />
+            </Dropdown.Item>
+          )}
         </Dropdown.Menu>
       </Dropdown>
     );
@@ -256,7 +266,7 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
                 <Counter count={image.visual_files.length} hideZero hideOne />
               </Nav.Link>
             </Nav.Item>
-            {canModify && (
+            {canEdit && (
               <Nav.Item>
                 <Nav.Link eventKey="image-edit-panel">
                   <FormattedMessage id="actions.edit" />
@@ -276,14 +286,14 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
           >
             <ImageFileInfoPanel image={image} />
           </Tab.Pane>
-          {canModify && (
+          {canEdit && (
             <Tab.Pane eventKey="image-edit-panel" mountOnEnter>
               <ImageEditPanel
                 isVisible={activeTabKey === "image-edit-panel"}
                 image={image}
                 onSubmit={onSave}
                 onDelete={
-                  canDelete ? () => setIsDeleteAlertOpen(true) : undefined
+                  canDeleteImage ? () => setIsDeleteAlertOpen(true) : undefined
                 }
               />
             </Tab.Pane>
@@ -297,11 +307,14 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   useEffect(() => {
     Mousetrap.bind("a", () => setActiveTabKey("image-details-panel"));
     Mousetrap.bind("f", () => setActiveTabKey("image-file-info-panel"));
-    // every user records their own o-counter
-    Mousetrap.bind("o", () => {
-      onIncrementClick();
-    });
-    if (canModify) {
+    // the users whose role records their viewing activity record their own
+    // o-counter
+    if (canRecordActivity) {
+      Mousetrap.bind("o", () => {
+        onIncrementClick();
+      });
+    }
+    if (canEdit) {
       Mousetrap.bind("e", () => setActiveTabKey("image-edit-panel"));
     }
 
@@ -364,25 +377,28 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
             <RatingSystem
               value={image.rating100}
               onSetRating={setRating}
-              disabled={!canModify}
+              disabled={!canEdit}
               clickToRate
               withoutContext
             />
           </span>
           <span className="image-toolbar-group">
-            <span>
-              <OCounterButton
-                value={image.o_counter || 0}
-                onIncrement={onIncrementClick}
-                onDecrement={onDecrementClick}
-                onReset={onResetClick}
-              />
-            </span>
+            {canRecordActivity && (
+              <span>
+                <OCounterButton
+                  value={image.o_counter || 0}
+                  onIncrement={onIncrementClick}
+                  onDecrement={onDecrementClick}
+                  onReset={onResetClick}
+                />
+              </span>
+            )}
             <span>
               <OrganizedButton
                 loading={organizedLoading}
                 organized={image.organized}
                 onClick={onOrganizedClick}
+                canEdit={canEdit}
               />
             </span>
             <span>{renderOperations()}</span>

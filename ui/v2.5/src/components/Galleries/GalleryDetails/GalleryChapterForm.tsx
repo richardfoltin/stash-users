@@ -27,7 +27,7 @@ export const GalleryChapterForm: React.FC<IGalleryChapterForm> = ({
   onClose,
 }) => {
   const intl = useIntl();
-  const { canDelete } = usePermissions();
+  const { can } = usePermissions();
 
   const [galleryChapterCreate] = useGalleryChapterCreate();
   const [galleryChapterUpdate] = useGalleryChapterUpdate();
@@ -130,7 +130,7 @@ export const GalleryChapterForm: React.FC<IGalleryChapterForm> = ({
           >
             <FormattedMessage id="actions.cancel" />
           </Button>
-          {!isNew && canDelete && (
+          {!isNew && can(GQL.Permission.ChaptersDelete) && (
             <Button
               variant="danger"
               className="ml-auto"

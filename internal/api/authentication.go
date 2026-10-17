@@ -10,6 +10,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/99designs/gqlgen/graphql"
+	"github.com/gorilla/websocket"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
@@ -88,46 +90,81 @@ func httpError(w http.ResponseWriter, r *http.Request, text string, status int) 
 	}
 }
 
+// reauthenticateFunc authenticates the user of a request again, with the
+// credentials of the request.
+type reauthenticateFunc func(ctx context.Context) (*models.User, error)
+
+// reauthenticateKey holds the reauthenticateFunc of a request that opens a
+// websocket connection.
+type reauthenticateKey struct{}
+
+// reauthenticateOperation authenticates the user of an operation on a
+// websocket connection again. The connection keeps the context of the request
+// that opened it, and a changed role, a removed or locked user and an ended
+// session must apply to its next operation, as they do to the next request.
+func reauthenticateOperation(ctx context.Context, next graphql.OperationHandler) graphql.ResponseHandler {
+	reauthenticate, ok := ctx.Value(reauthenticateKey{}).(reauthenticateFunc)
+	if !ok {
+		return next(ctx)
+	}
+
+	u, err := reauthenticate(ctx)
+	if err != nil || u == nil {
+		return graphql.OneShot(graphql.ErrorResponse(ctx, "unauthorized"))
+	}
+
+	return next(models.SetCurrentUser(ctx, *u))
+}
+
 // authenticateRequest returns the user of the API key or the session cookie, or
-// nil. Returns an error if the API key is invalid.
-func authenticateRequest(w http.ResponseWriter, r *http.Request, g UserAuthenticator, store *session.Store, loginRequired bool) (*models.User, error) {
+// nil, and the function that authenticates the user again with the same
+// credentials, which is nil for sessions issued to plugins. Returns an error if
+// the API key is invalid.
+func authenticateRequest(w http.ResponseWriter, r *http.Request, g UserAuthenticator, store *session.Store, loginRequired bool) (*models.User, reauthenticateFunc, error) {
 	ctx := r.Context()
 
 	// try to authenticate using api key first
 	if apiKey := session.GetRequestApiKey(r); apiKey != "" {
-		return g.AuthenticateByAPIKey(ctx, apiKey)
+		reauthenticate := func(ctx context.Context) (*models.User, error) {
+			return g.AuthenticateByAPIKey(ctx, apiKey)
+		}
+		u, err := reauthenticate(ctx)
+		return u, reauthenticate, err
 	}
 
 	su, err := store.GetSessionUser(w, r)
 	if err != nil {
-		return nil, fmt.Errorf("%w: getting session user: %v", user.ErrInternalError, err)
+		return nil, nil, fmt.Errorf("%w: getting session user: %v", user.ErrInternalError, err)
 	}
 
-	// sessions issued to plugins by the server have the ADMIN role
+	// sessions issued to plugins by the server have the Admin role
 	if su.Plugin {
 		return &models.User{
 			Username: su.UserID,
-			Roles:    models.Roles{models.RoleEnumAdmin},
-		}, nil
+			Role:     models.RoleIDAdmin,
+		}, nil, nil
 	}
 
 	// session user IDs are only meaningful if users are configured
 	if su.UserID == "" || !loginRequired {
-		return nil, nil
+		return nil, nil, nil
 	}
 
-	u, err := g.AuthenticateSession(ctx, su.UserID, su.Token)
+	reauthenticate := func(ctx context.Context) (*models.User, error) {
+		return g.AuthenticateSession(ctx, su.UserID, su.Token)
+	}
+	u, err := reauthenticate(ctx)
 	if err != nil {
 		if errors.Is(err, user.ErrInternalError) {
-			return nil, err
+			return nil, nil, err
 		}
 
 		// user was deleted or locked, or the session token does not match -
 		// treat the session as logged out
-		return nil, nil
+		return nil, nil, nil
 	}
 
-	return u, nil
+	return u, reauthenticate, nil
 }
 
 // autoLoginUser returns the user that a local request without a session is
@@ -184,7 +221,7 @@ func authenticateHandler(g UserAuthenticator, getStore func() *session.Store) fu
 				return
 			}
 
-			u, err := authenticateRequest(w, r, g, store, loginRequired)
+			u, reauthenticate, err := authenticateRequest(w, r, g, store, loginRequired)
 			if err != nil {
 				if errors.Is(err, user.ErrInternalError) {
 					logger.Errorf("error authenticating request: %v", err)
@@ -223,6 +260,10 @@ func authenticateHandler(g UserAuthenticator, getStore func() *session.Store) fu
 					http.Error(w, "internal server error", http.StatusInternalServerError)
 					return
 				}
+				reauthenticate = func(ctx context.Context) (*models.User, error) {
+					u, _, err := autoLoginUser(ctx, g)
+					return u, err
+				}
 			}
 
 			if loginRequired {
@@ -257,6 +298,12 @@ func authenticateHandler(g UserAuthenticator, getStore func() *session.Store) fu
 			if u != nil {
 				// set the user object in the context
 				ctx = models.SetCurrentUser(ctx, *u)
+
+				// the operations of a websocket connection authenticate its
+				// user again - see reauthenticateOperation
+				if reauthenticate != nil && websocket.IsWebSocketUpgrade(r) {
+					ctx = context.WithValue(ctx, reauthenticateKey{}, reauthenticate)
+				}
 			}
 
 			r = r.WithContext(ctx)

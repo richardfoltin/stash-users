@@ -1246,14 +1246,14 @@ func (i *Config) GetMaxSessionAge() int {
 	return ret
 }
 
-// GetDefaultSceneVisibility returns the minimum role that can see new scenes.
-func (i *Config) GetDefaultSceneVisibility() models.RoleEnum {
-	ret := models.RoleEnum(i.getString(DefaultSceneVisibility))
-	if !ret.IsValid() {
-		return models.RoleEnumRead
+// GetDefaultSceneVisibility returns the visibility of new scenes. It also reads
+// the values stored before the visibilities were named.
+func (i *Config) GetDefaultSceneVisibility() models.SceneVisibility {
+	if ret, ok := models.ParseSceneVisibility(i.getString(DefaultSceneVisibility)); ok {
+		return ret
 	}
 
-	return ret
+	return models.SceneVisibilityEveryone
 }
 
 // GetSignedURLExpiry gets the expiry time for signed URLs, in seconds.

@@ -194,7 +194,12 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const Toast = useToast();
   const intl = useIntl();
   const history = useHistory();
-  const { isAdmin, canModify, canDelete } = usePermissions();
+  const { isAdmin, can } = usePermissions();
+  const canModify = can(GQL.Permission.ScenesEdit);
+  const canDelete = can(GQL.Permission.ScenesDelete);
+  const canMerge = can(GQL.Permission.ScenesMerge);
+  const canRecordActivity = can(GQL.Permission.RecordActivity);
+  const canRunTasks = can(GQL.Permission.RunLibraryTasks);
   const [updateScene] = useSceneUpdate();
   const [generateScreenshot] = useSceneGenerateScreenshot();
   const [screenshotJobID, setScreenshotJobID] = useState<string>();
@@ -277,10 +282,13 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     Mousetrap.bind("k", () => setActiveTabKey("scene-markers-panel"));
     Mousetrap.bind("i", () => setActiveTabKey("scene-file-info-panel"));
     Mousetrap.bind("h", () => setActiveTabKey("scene-history-panel"));
-    // every user records their own o-counter
-    Mousetrap.bind("o", () => {
-      onIncrementOClick();
-    });
+    // the users whose role records their viewing activity record their own
+    // o-counter
+    if (canRecordActivity) {
+      Mousetrap.bind("o", () => {
+        onIncrementOClick();
+      });
+    }
     if (canModify) {
       Mousetrap.bind("e", () => setActiveTabKey("scene-edit-panel"));
       Mousetrap.bind("c c", () => {
@@ -484,7 +492,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   }
 
   const renderOperations = () =>
-    isAdmin && (
+    (canRunTasks || (isAdmin && boxes.length > 0) || canMerge || canDelete) && (
       <Dropdown>
         <Dropdown.Toggle
           variant="secondary"
@@ -495,7 +503,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
           <Icon icon={faEllipsisV} />
         </Dropdown.Toggle>
         <Dropdown.Menu className="bg-secondary text-white">
-          {!!scene.files.length && (
+          {canRunTasks && !!scene.files.length && (
             <Dropdown.Item
               key="rescan"
               className="bg-secondary text-white"
@@ -504,14 +512,16 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               <FormattedMessage id="actions.rescan" />
             </Dropdown.Item>
           )}
-          <Dropdown.Item
-            key="generate"
-            className="bg-secondary text-white"
-            onClick={() => setIsGenerateDialogOpen(true)}
-          >
-            <FormattedMessage id="actions.generate" />…
-          </Dropdown.Item>
-          {boxes.length > 0 && (
+          {canRunTasks && (
+            <Dropdown.Item
+              key="generate"
+              className="bg-secondary text-white"
+              onClick={() => setIsGenerateDialogOpen(true)}
+            >
+              <FormattedMessage id="actions.generate" />…
+            </Dropdown.Item>
+          )}
+          {isAdmin && boxes.length > 0 && (
             <Dropdown.Item
               key="submit"
               className="bg-secondary text-white"
@@ -520,24 +530,28 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               <FormattedMessage id="actions.submit_stash_box" />
             </Dropdown.Item>
           )}
-          <Dropdown.Item
-            key="merge-scene"
-            className="bg-secondary text-white"
-            onClick={() => setIsMerging(true)}
-          >
-            <FormattedMessage id="actions.merge" />
-            ...
-          </Dropdown.Item>
-          <Dropdown.Item
-            key="delete-scene"
-            className="bg-secondary text-white"
-            onClick={() => setIsDeleteAlertOpen(true)}
-          >
-            <FormattedMessage
-              id="actions.delete"
-              values={{ entityType: intl.formatMessage({ id: "scene" }) }}
-            />
-          </Dropdown.Item>
+          {canMerge && (
+            <Dropdown.Item
+              key="merge-scene"
+              className="bg-secondary text-white"
+              onClick={() => setIsMerging(true)}
+            >
+              <FormattedMessage id="actions.merge" />
+              ...
+            </Dropdown.Item>
+          )}
+          {canDelete && (
+            <Dropdown.Item
+              key="delete-scene"
+              className="bg-secondary text-white"
+              onClick={() => setIsDeleteAlertOpen(true)}
+            >
+              <FormattedMessage
+                id="actions.delete"
+                values={{ entityType: intl.formatMessage({ id: "scene" }) }}
+              />
+            </Dropdown.Item>
+          )}
         </Dropdown.Menu>
       </Dropdown>
     );
@@ -748,23 +762,28 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               <span>
                 <ExternalPlayerButton scene={scene} />
               </span>
-              <span>
-                <ViewCountButton
-                  value={scene.play_count ?? 0}
-                  onIncrement={() => incrementPlayCount()}
-                />
-              </span>
-              <span>
-                <OCounterButton
-                  value={scene.o_counter ?? 0}
-                  onIncrement={() => onIncrementOClick()}
-                />
-              </span>
+              {canRecordActivity && (
+                <>
+                  <span>
+                    <ViewCountButton
+                      value={scene.play_count ?? 0}
+                      onIncrement={() => incrementPlayCount()}
+                    />
+                  </span>
+                  <span>
+                    <OCounterButton
+                      value={scene.o_counter ?? 0}
+                      onIncrement={() => onIncrementOClick()}
+                    />
+                  </span>
+                </>
+              )}
               <span>
                 <OrganizedButton
                   loading={organizedLoading}
                   organized={scene.organized}
                   onClick={onOrganizedClick}
+                  canEdit={canModify}
                 />
               </span>
               <span>

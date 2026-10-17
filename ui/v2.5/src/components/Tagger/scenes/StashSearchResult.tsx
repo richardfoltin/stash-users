@@ -34,6 +34,7 @@ import { useInitialState } from "src/hooks/state";
 import { ExternalLink } from "src/components/Shared/ExternalLink";
 import { compareScenesForSort } from "./utils";
 import { StashIDPill } from "src/components/Shared/StashID";
+import { usePermissions } from "src/hooks/Permissions";
 
 const getDurationIcon = (matchPercentage: number) => {
   if (matchPercentage > 65)
@@ -250,6 +251,7 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
   isActive,
 }) => {
   const intl = useIntl();
+  const { can } = usePermissions();
 
   const {
     config,
@@ -830,7 +832,9 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
   function maybeRenderTagsField() {
     if (!config.setTags) return;
 
-    const createTags = scene.tags?.filter((t) => !t.stored_id);
+    const createTags = can(GQL.Permission.TagsEdit)
+      ? scene.tags?.filter((t) => !t.stored_id)
+      : [];
 
     return (
       <div className="mt-2">

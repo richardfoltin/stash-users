@@ -379,7 +379,10 @@ export const FilteredSceneList = PatchComponent(
   "FilteredSceneList",
   (props: IFilteredScenes) => {
     const intl = useIntl();
-    const { isAdmin, canModify, canDelete } = usePermissions();
+    const { isAdmin, can } = usePermissions();
+    const canModify = can(GQL.Permission.ScenesEdit);
+    const canDelete = can(GQL.Permission.ScenesDelete);
+    const canRunTasks = can(GQL.Permission.RunLibraryTasks);
     const history = useHistory();
     const location = useLocation();
 
@@ -617,7 +620,7 @@ export const FilteredSceneList = PatchComponent(
               onClose={() => closeModal()}
             />
           ),
-        isDisplayed: () => isAdmin && hasSelection,
+        isDisplayed: () => canRunTasks && hasSelection,
       },
       {
         text: `${intl.formatMessage({ id: "actions.identify" })}…`,
@@ -628,12 +631,12 @@ export const FilteredSceneList = PatchComponent(
               onClose={() => closeModal()}
             />
           ),
-        isDisplayed: () => isAdmin && hasSelection,
+        isDisplayed: () => canRunTasks && hasSelection,
       },
       {
         text: `${intl.formatMessage({ id: "actions.merge" })}…`,
         onClick: () => onMerge(),
-        isDisplayed: () => isAdmin && hasSelection,
+        isDisplayed: () => can(GQL.Permission.ScenesMerge) && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export" }),

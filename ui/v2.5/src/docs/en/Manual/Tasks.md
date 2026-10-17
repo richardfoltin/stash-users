@@ -2,6 +2,8 @@
 
 This page allows you to direct the stash server to perform a variety of tasks.
 
+Administrators can run every task. Users whose role has `Run library tasks` see this page with the scan, generate, auto tag, identify and clean tasks only, and can stop running tasks. See [Users and Permissions](/help/Users.md).
+
 ## Scanning
 
 The scan function walks through the stash directories you have configured for new and moved files. 

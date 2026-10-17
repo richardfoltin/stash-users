@@ -33,6 +33,7 @@ import {
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
 import cloneDeep from "lodash-es/cloneDeep";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IGroupEditPanel {
   group: Partial<GQL.GroupDataFragment>;
@@ -55,6 +56,7 @@ export const GroupEditPanel: React.FC<IGroupEditPanel> = ({
 }) => {
   const intl = useIntl();
   const Toast = useToast();
+  const { can } = usePermissions();
 
   const isNew = group.id === undefined;
 
@@ -478,7 +480,11 @@ export const GroupEditPanel: React.FC<IGroupEditPanel> = ({
         {renderContainingGroupsField()}
         {renderStudioField()}
         {renderInputField("director")}
-        {renderURLListField("urls", onScrapeGroupURL, urlScrapable)}
+        {renderURLListField(
+          "urls",
+          can(GQL.Permission.UseScrapers) ? onScrapeGroupURL : undefined,
+          urlScrapable
+        )}
         {renderInputField("synopsis", "textarea")}
         {renderTagsField()}
 
@@ -510,6 +516,9 @@ export const GroupEditPanel: React.FC<IGroupEditPanel> = ({
         onBackImageChangeURL={onBackImageLoad}
         onClearBackImage={() => onBackImageLoad(null)}
         onDelete={onDelete}
+        canEdit={can(GQL.Permission.GroupsEdit)}
+        canDelete={can(GQL.Permission.GroupsDelete)}
+        canAutoTag={can(GQL.Permission.RunLibraryTasks)}
       />
 
       {maybeRenderScrapeDialog()}

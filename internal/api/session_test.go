@@ -49,8 +49,8 @@ func TestSameOriginURL(t *testing.T) {
 // authentication middleware.
 func loginAutoTest(t *testing.T) (*autoLoginTest, func(remoteAddr string, cookie *http.Cookie) *httptest.ResponseRecorder) {
 	a := newAutoLoginTest(t)
-	a.createUser("admin", models.Roles{models.RoleEnumAdmin}, false)
-	a.createUser("editor", models.Roles{models.RoleEnumModify}, true)
+	a.createUser("admin", models.RoleIDAdmin, false)
+	a.createUser("editor", models.RoleIDEditor, true)
 
 	getStore := func() *session.Store { return a.store }
 	handler := RequestIPMiddleware(authenticateHandler(a.users, getStore)(handleLoginAuto(a.users, getStore)))
@@ -113,7 +113,7 @@ func TestHandleLoginAuto_RefusedFromPublicAddress(t *testing.T) {
 func TestHandleLoginAuto_NoAutoLoginUser(t *testing.T) {
 	a, post := loginAutoTest(t)
 	admin := a.loginCookie("admin", "adminpw")
-	require.NoError(t, a.users.UpdateUser(context.Background(), "editor", models.User{Username: "editor", Roles: models.Roles{models.RoleEnumModify}}))
+	require.NoError(t, a.users.UpdateUser(context.Background(), "editor", models.User{Username: "editor", Role: models.RoleIDEditor}))
 
 	rec := post(localAddr, admin)
 	assert.Equal(t, http.StatusForbidden, rec.Code)
@@ -127,8 +127,8 @@ func TestHandleLoginAuto_NoAutoLoginUser(t *testing.T) {
 
 func TestHandleLogin_SwitchMode(t *testing.T) {
 	a := newAutoLoginTest(t)
-	a.createUser("admin", models.Roles{models.RoleEnumAdmin}, false)
-	a.createUser("editor", models.Roles{models.RoleEnumModify}, true)
+	a.createUser("admin", models.RoleIDAdmin, false)
+	a.createUser("editor", models.RoleIDEditor, true)
 
 	handler := RequestIPMiddleware(authenticateHandler(a.users, func() *session.Store {
 		return a.store
@@ -175,8 +175,8 @@ func TestHandleLogin_SwitchMode(t *testing.T) {
 
 func TestHandleLogin_ReturnURLSameOrigin(t *testing.T) {
 	a := newAutoLoginTest(t)
-	a.createUser("admin", models.Roles{models.RoleEnumAdmin}, false)
-	a.createUser("editor", models.Roles{models.RoleEnumModify}, true)
+	a.createUser("admin", models.RoleIDAdmin, false)
+	a.createUser("editor", models.RoleIDEditor, true)
 
 	handler := RequestIPMiddleware(authenticateHandler(a.users, func() *session.Store {
 		return a.store
@@ -196,7 +196,7 @@ func TestHandleLogin_ReturnURLSameOrigin(t *testing.T) {
 
 func TestHandleLogin_Stylesheets(t *testing.T) {
 	a := newAutoLoginTest(t)
-	a.createUser("admin", models.Roles{models.RoleEnumAdmin}, false)
+	a.createUser("admin", models.RoleIDAdmin, false)
 
 	handler := RequestIPMiddleware(authenticateHandler(a.users, func() *session.Store {
 		return a.store

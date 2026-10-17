@@ -518,7 +518,9 @@ export const FilteredImageList = PatchComponent(
   "FilteredImageList",
   (props: IImageList) => {
     const intl = useIntl();
-    const { isAdmin, canModify, canDelete } = usePermissions();
+    const { isAdmin, can } = usePermissions();
+    const canEdit = can(GQL.Permission.ImagesEdit);
+    const canDeleteImages = can(GQL.Permission.ImagesDelete);
 
     const [slideshowRunning, setSlideshowRunning] = useState<boolean>(false);
 
@@ -623,7 +625,7 @@ export const FilteredImageList = PatchComponent(
     }
 
     const onEdit = useMemo(() => {
-      if (!canModify) return;
+      if (!canEdit) return;
       return () => {
         showModal(
           <EditImagesDialog
@@ -632,10 +634,10 @@ export const FilteredImageList = PatchComponent(
           />
         );
       };
-    }, [canModify, showModal, selectedItems, onCloseEditDelete]);
+    }, [canEdit, showModal, selectedItems, onCloseEditDelete]);
 
     const onDelete = useMemo(() => {
-      if (!canDelete) return;
+      if (!canDeleteImages) return;
       return () => {
         showModal(
           <DeleteImagesDialog
@@ -644,7 +646,7 @@ export const FilteredImageList = PatchComponent(
           />
         );
       };
-    }, [canDelete, showModal, selectedItems, onCloseEditDelete]);
+    }, [canDeleteImages, showModal, selectedItems, onCloseEditDelete]);
 
     useEffect(() => {
       Mousetrap.bind("e", () => {
@@ -708,7 +710,7 @@ export const FilteredImageList = PatchComponent(
             />
           );
         },
-        isDisplayed: () => isAdmin && hasSelection,
+        isDisplayed: () => can(GQL.Permission.RunLibraryTasks) && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export" }),

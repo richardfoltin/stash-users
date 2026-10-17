@@ -9,6 +9,7 @@ import { useToast } from "src/hooks/Toast";
 import { useGenerateAPIKey } from "src/core/StashService";
 import { usePermissions } from "src/hooks/Permissions";
 import { SettingsUsers } from "./SettingsUsers";
+import { SettingsRoles } from "./SettingsRoles";
 import * as GQL from "src/core/generated-graphql";
 import {
   sceneVisibilities,
@@ -59,6 +60,7 @@ export const SettingsSecurityPanel: React.FC = () => {
   return (
     <>
       <SettingsUsers />
+      <SettingsRoles />
       <SettingSection headingID="config.general.auth.authentication">
         <div className="setting" id="apikey">
           <div>
@@ -98,9 +100,9 @@ export const SettingsSecurityPanel: React.FC = () => {
           id="default-scene-visibility"
           headingID="config.general.auth.default_scene_visibility"
           subHeadingID="config.general.auth.default_scene_visibility_desc"
-          value={general.defaultSceneVisibility ?? GQL.RoleEnum.Read}
+          value={general.defaultSceneVisibility ?? GQL.SceneVisibility.Everyone}
           onChange={(v) =>
-            saveGeneral({ defaultSceneVisibility: v as GQL.RoleEnum })
+            saveGeneral({ defaultSceneVisibility: v as GQL.SceneVisibility })
           }
         >
           {sceneVisibilities.map((v) => (

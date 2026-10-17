@@ -22,6 +22,8 @@ import cx from "classnames";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useConfigureUI } from "src/core/StashService";
 import { usePermissions } from "src/hooks/Permissions";
+import * as GQL from "src/core/generated-graphql";
+import { editPermissions } from "src/utils/permissions";
 import { DisplayMode } from "src/models/list-filter/types";
 import { useToast } from "src/hooks/Toast";
 
@@ -110,7 +112,7 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
   const Toast = useToast();
 
   const [saveUI] = useConfigureUI();
-  const { isAdmin, canModify } = usePermissions();
+  const { can } = usePermissions();
 
   const pinnedOptions = useMemo(
     () => (view ? (pinnedSortBy[view] ?? []) : []),
@@ -225,7 +227,11 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
               sortDirection={filter.sortDirection}
               options={filterOptions.sortByOptions}
               pinnedOptions={pinnedOptions}
-              togglePinSortBy={isAdmin ? togglePinSortBy : undefined}
+              togglePinSortBy={
+                can(GQL.Permission.ManageSharedListSettings)
+                  ? togglePinSortBy
+                  : undefined
+              }
               onChangeSortBy={(e) =>
                 setFilter(filter.setSortBy(e ?? undefined))
               }
@@ -250,7 +256,7 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
       <ListViewButtonGroup
         displayMode={displayMode}
         displayModeOptions={
-          canModify
+          can(GQL.Permission.UseScrapers) && can(editPermissions[filter.mode])
             ? filterOptions.displayModeOptions
             : filterOptions.displayModeOptions.filter(
                 (o) => o !== DisplayMode.Tagger

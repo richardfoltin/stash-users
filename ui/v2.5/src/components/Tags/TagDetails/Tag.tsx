@@ -290,7 +290,9 @@ const TagPage: React.FC<IProps> = PatchComponent(
     const history = useHistory();
     const Toast = useToast();
     const intl = useIntl();
-    const { isAdmin, canModify, canDelete } = usePermissions();
+    const { can } = usePermissions();
+    const canEdit = can(GQL.Permission.TagsEdit);
+    const canDelete = can(GQL.Permission.TagsDelete);
 
     // Configuration settings
     const { configuration } = useConfigurationContext();
@@ -347,7 +349,7 @@ const TagPage: React.FC<IProps> = PatchComponent(
 
     // set up hotkeys
     useEffect(() => {
-      if (canModify) {
+      if (canEdit) {
         Mousetrap.bind("e", () => toggleEditing());
       }
       if (canDelete) {
@@ -356,7 +358,7 @@ const TagPage: React.FC<IProps> = PatchComponent(
         });
       }
       Mousetrap.bind(",", () => setCollapsed(!collapsed));
-      if (canModify) {
+      if (canEdit) {
         Mousetrap.bind("f", () => setFavorite(!tag.favorite));
       }
 
@@ -528,6 +530,7 @@ const TagPage: React.FC<IProps> = PatchComponent(
                     <FavoriteIcon
                       favorite={tag.favorite}
                       onToggleFavorite={(v) => setFavorite(v)}
+                      canEdit={canEdit}
                     />
                   </span>
                 </DetailTitle>
@@ -561,7 +564,14 @@ const TagPage: React.FC<IProps> = PatchComponent(
                     autoTagDisabled={tag.ignore_auto_tag}
                     onDelete={onDelete}
                     classNames="mb-2"
-                    customButtons={isAdmin ? renderMergeButton() : undefined}
+                    canEdit={canEdit}
+                    canDelete={canDelete}
+                    canAutoTag={can(GQL.Permission.RunLibraryTasks)}
+                    customButtons={
+                      can(GQL.Permission.TagsMerge)
+                        ? renderMergeButton()
+                        : undefined
+                    }
                   />
                 )}
               </div>

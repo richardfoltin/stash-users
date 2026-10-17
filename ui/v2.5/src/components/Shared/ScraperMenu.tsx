@@ -3,7 +3,11 @@ import { Dropdown, Button } from "react-bootstrap";
 import { useIntl } from "react-intl";
 import { Icon } from "./Icon";
 import { stashboxDisplayName } from "src/utils/stashbox";
-import { ScraperSourceInput, StashBox } from "src/core/generated-graphql";
+import {
+  Permission,
+  ScraperSourceInput,
+  StashBox,
+} from "src/core/generated-graphql";
 import { faSyncAlt } from "@fortawesome/free-solid-svg-icons";
 import { ClearableInput } from "./ClearableInput";
 import useFocus from "src/utils/focus";
@@ -26,7 +30,7 @@ export const ScraperMenu: React.FC<{
   onReloadScrapers,
 }) => {
   const intl = useIntl();
-  const { isAdmin } = usePermissions();
+  const { isAdmin, can } = usePermissions();
   const [filter, setFilter] = useState("");
 
   const focusOnOpen = !ScreenUtils.isTouch();
@@ -51,6 +55,8 @@ export const ScraperMenu: React.FC<{
         s.id.toLowerCase().includes(filter.toLowerCase())
     );
   }, [scrapers, filter]);
+
+  if (!can(Permission.UseScrapers)) return null;
 
   return (
     <Dropdown

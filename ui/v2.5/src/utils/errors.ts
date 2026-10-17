@@ -1,5 +1,5 @@
 import { ApolloError } from "@apollo/client";
-import { RoleEnum } from "src/core/generated-graphql";
+import { Permission } from "src/core/generated-graphql";
 
 export const apolloError = (error: unknown) =>
   error instanceof ApolloError ? error.message : "";
@@ -20,12 +20,20 @@ export function errorToString(error: unknown) {
 }
 
 // error code returned by the server when the current user does not have the
-// role required for an operation
+// permission or the role required for an operation
 const permissionDeniedCode = "PERMISSION_DENIED";
 
-// returns the role required for the operation if the error is a permission
-// denied error that names it, or undefined otherwise
-export function permissionDeniedRole(error: unknown): RoleEnum | undefined {
+interface IPermissionDenied {
+  // the permission that the operation requires, or undefined if it requires
+  // the Admin role
+  permission?: Permission;
+}
+
+// returns what the operation requires if the error is a permission denied
+// error, or undefined otherwise
+export function permissionDenied(
+  error: unknown
+): IPermissionDenied | undefined {
   if (!(error instanceof ApolloError)) {
     return undefined;
   }
@@ -33,6 +41,12 @@ export function permissionDeniedRole(error: unknown): RoleEnum | undefined {
   const denied = error.graphQLErrors.find(
     (e) => e.extensions?.code === permissionDeniedCode
   );
-  const role = denied?.extensions?.requiredRole;
-  return typeof role === "string" && role ? (role as RoleEnum) : undefined;
+  if (!denied) {
+    return undefined;
+  }
+
+  const permission = denied.extensions?.requiredPermission;
+  return typeof permission === "string" && permission
+    ? { permission: permission as Permission }
+    : {};
 }

@@ -51,10 +51,10 @@ func TestConfigResultPlugins(t *testing.T) {
 		want    int
 	}{
 		{"no current user", context.Background(), nil, 1},
-		{"admin", withRoles(models.RoleEnumAdmin), nil, 1},
-		{"admin included", withRoles(models.RoleEnumAdmin), []string{"plugin"}, 1},
-		{"editor", withRoles(models.RoleEnumModify), nil, 0},
-		{"viewer included", withRoles(models.RoleEnumRead), []string{"plugin"}, 0},
+		{"admin", withRole(models.RoleIDAdmin), nil, 1},
+		{"admin included", withRole(models.RoleIDAdmin), []string{"plugin"}, 1},
+		{"editor", withRole(models.RoleIDEditor), nil, 0},
+		{"viewer included", withRole(models.RoleIDViewer), []string{"plugin"}, 0},
 	}
 
 	for _, tt := range tests {

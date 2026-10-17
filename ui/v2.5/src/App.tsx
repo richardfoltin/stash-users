@@ -148,7 +148,7 @@ export const App: React.FC = () => {
   const currentUser = me.data?.me;
   // if the current user cannot be loaded, fail closed with viewer permissions
   const loadFailed = !!me.error;
-  const { isAdmin } = getPermissions(currentUser, loadFailed);
+  const { isAdmin, can } = getPermissions(currentUser, loadFailed);
 
   const { data: systemStatusData } = useSystemStatus();
 
@@ -285,7 +285,11 @@ export const App: React.FC = () => {
             <Route path="/stats" component={Stats} />
             <Route
               path="/settings"
-              component={isAdmin ? Settings : PermissionDenied}
+              component={
+                isAdmin || can(GQL.Permission.RunLibraryTasks)
+                  ? Settings
+                  : PermissionDenied
+              }
             />
             <Route
               path="/sceneFilenameParser"

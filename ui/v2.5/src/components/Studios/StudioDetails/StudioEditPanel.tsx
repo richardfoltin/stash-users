@@ -26,6 +26,7 @@ import {
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
 import cloneDeep from "lodash-es/cloneDeep";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IStudioEditPanel {
   studio: Partial<GQL.StudioDataFragment>;
@@ -47,6 +48,7 @@ export const StudioEditPanel: React.FC<IStudioEditPanel> = ({
   const intl = useIntl();
   const Toast = useToast();
   const { configuration: stashConfig } = useConfigurationContext();
+  const { can } = usePermissions();
 
   const isNew = studio.id === undefined;
 
@@ -322,7 +324,10 @@ export const StudioEditPanel: React.FC<IStudioEditPanel> = ({
             variant="success"
             className="mr-2 py-0"
             onClick={() => setIsStashIDSearchOpen(true)}
-            disabled={!stashConfig?.general.stashBoxes?.length}
+            disabled={
+              !stashConfig?.general.stashBoxes?.length ||
+              !can(GQL.Permission.UseScrapers)
+            }
             title={intl.formatMessage({ id: "actions.add_stash_id" })}
           >
             <Icon icon={faPlus} />
@@ -358,6 +363,9 @@ export const StudioEditPanel: React.FC<IStudioEditPanel> = ({
         onClearImage={() => onImageLoad(null)}
         onDelete={onDelete}
         acceptSVG
+        canEdit={can(GQL.Permission.StudiosEdit)}
+        canDelete={can(GQL.Permission.StudiosDelete)}
+        canAutoTag={can(GQL.Permission.RunLibraryTasks)}
       />
     </>
   );

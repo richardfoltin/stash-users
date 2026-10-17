@@ -16,6 +16,7 @@ import { useStudioUpdate } from "src/core/StashService";
 import { useConfigurationContext } from "src/hooks/Config";
 import { faTag, faBox } from "@fortawesome/free-solid-svg-icons";
 import { OCounterButton } from "../Shared/CountButton";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IProps {
   studio: GQL.StudioDataFragment;
@@ -85,6 +86,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
   }) => {
     const [updateStudio] = useStudioUpdate();
     const { configuration } = useConfigurationContext();
+    const { can } = usePermissions();
     const showChildContent = configuration?.ui?.showChildStudioContent ?? false;
 
     const sceneCount = showChildContent
@@ -274,6 +276,7 @@ export const StudioCard: React.FC<IProps> = PatchComponent(
             onToggleFavorite={(v) => onToggleFavorite(v)}
             size="2x"
             className="hide-not-favorite"
+            canEdit={can(GQL.Permission.StudiosEdit)}
           />
         }
         popovers={maybeRenderPopoverButtonGroup()}

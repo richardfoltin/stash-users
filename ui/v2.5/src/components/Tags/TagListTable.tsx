@@ -26,7 +26,7 @@ export const TagListTable: React.FC<ITagListTableProps> = (
   props: ITagListTableProps
 ) => {
   const intl = useIntl();
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
 
   const [updateTag] = useTagUpdate();
 
@@ -75,7 +75,7 @@ export const TagListTable: React.FC<ITagListTableProps> = (
     <Button
       className={cx("minimal", tag.favorite ? "favorite" : "not-favorite")}
       onClick={() => setFavorite(!tag.favorite, tag.id)}
-      disabled={!canModify}
+      disabled={!can(GQL.Permission.TagsEdit)}
     >
       <Icon icon={faHeart} />
     </Button>

@@ -7,8 +7,8 @@ import { Button, Toast } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Icon } from "src/components/Shared/Icon";
 import { ModalComponent } from "src/components/Shared/Modal";
-import { errorToString, permissionDeniedRole } from "src/utils";
-import { roleMessageID } from "src/hooks/Permissions";
+import { errorToString, permissionDenied } from "src/utils";
+import { permissionMessageID } from "src/utils/permissions";
 import cx from "classnames";
 
 export interface IToast {
@@ -139,16 +139,21 @@ export const useToast = () => {
         let message = errorToString(error);
 
         // show a clear message if the user is not allowed to do this
-        const requiredRole = permissionDeniedRole(error);
-        if (requiredRole) {
+        const denied = permissionDenied(error);
+        if (denied?.permission) {
           message = intl.formatMessage(
-            { id: "permissions.denied" },
+            { id: "permissions.denied_permission" },
             {
-              role: intl.formatMessage({
-                id: roleMessageID(requiredRole),
-                defaultMessage: requiredRole,
+              permission: intl.formatMessage({
+                id: permissionMessageID(denied.permission),
+                defaultMessage: denied.permission,
               }),
             }
+          );
+        } else if (denied) {
+          message = intl.formatMessage(
+            { id: "permissions.denied" },
+            { role: intl.formatMessage({ id: "permissions.roles.admin" }) }
           );
         }
 

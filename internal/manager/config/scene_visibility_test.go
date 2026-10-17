@@ -11,12 +11,13 @@ func TestGetDefaultSceneVisibility(t *testing.T) {
 	tests := []struct {
 		name     string
 		contents string
-		want     models.RoleEnum
+		want     models.SceneVisibility
 	}{
-		{"not set", "", models.RoleEnumRead},
-		{"modify", "default_scene_visibility: MODIFY\n", models.RoleEnumModify},
-		{"admin", "default_scene_visibility: ADMIN\n", models.RoleEnumAdmin},
-		{"invalid", "default_scene_visibility: UNKNOWN\n", models.RoleEnumRead},
+		{"not set", "", models.SceneVisibilityEveryone},
+		{"restricted", "default_scene_visibility: RESTRICTED\n", models.SceneVisibilityRestricted},
+		{"legacy modify", "default_scene_visibility: MODIFY\n", models.SceneVisibilityRestricted},
+		{"legacy admin", "default_scene_visibility: ADMIN\n", models.SceneVisibilityPrivate},
+		{"invalid", "default_scene_visibility: UNKNOWN\n", models.SceneVisibilityEveryone},
 	}
 
 	for _, tt := range tests {
@@ -28,7 +29,7 @@ func TestGetDefaultSceneVisibility(t *testing.T) {
 
 	t.Run("set", func(t *testing.T) {
 		s, _ := newTestUserStore(t, "")
-		s.Config.SetString(DefaultSceneVisibility, models.RoleEnumModify.String())
-		assert.Equal(t, models.RoleEnumModify, s.Config.GetDefaultSceneVisibility())
+		s.Config.SetString(DefaultSceneVisibility, models.SceneVisibilityRestricted.String())
+		assert.Equal(t, models.SceneVisibilityRestricted, s.Config.GetDefaultSceneVisibility())
 	})
 }

@@ -12,6 +12,8 @@ interface IPrimaryTags {
   onLoopMarker: (marker: GQL.SceneMarkerDataFragment) => void;
   // editing is not available if undefined
   onEdit?: (marker: GQL.SceneMarkerDataFragment) => void;
+  // for users who may delete markers but not edit them
+  onDelete?: (marker: GQL.SceneMarkerDataFragment) => void;
 }
 
 export const PrimaryTags: React.FC<IPrimaryTags> = ({
@@ -19,6 +21,7 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
   onClickMarker,
   onLoopMarker,
   onEdit,
+  onDelete,
 }) => {
   const { configuration } = useConfigurationContext();
   const showAbLoopControls = configuration?.ui?.showAbLoopControls;
@@ -58,6 +61,15 @@ export const PrimaryTags: React.FC<IPrimaryTags> = ({
                 onClick={() => onEdit(marker)}
               >
                 <FormattedMessage id="actions.edit" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                variant="link"
+                className="ml-auto"
+                onClick={() => onDelete(marker)}
+              >
+                <FormattedMessage id="actions.delete" />
               </Button>
             )}
           </div>

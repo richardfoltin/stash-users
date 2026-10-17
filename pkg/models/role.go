@@ -1,70 +1,73 @@
 package models
 
-import (
-	"fmt"
-	"io"
-	"strconv"
-)
+import "slices"
 
-type RoleEnum string
-
+// The IDs of the built-in Admin role and the default roles. They are the
+// role values that users were stored with before roles were configurable.
 const (
-	RoleEnumAdmin  RoleEnum = "ADMIN"
-	RoleEnumRead   RoleEnum = "READ"
-	RoleEnumModify RoleEnum = "MODIFY"
+	RoleIDAdmin  = "ADMIN"
+	RoleIDEditor = "MODIFY"
+	RoleIDViewer = "READ"
 )
 
-func (e RoleEnum) Implies(other RoleEnum) bool {
-	// admin has all roles
-	if e == RoleEnumAdmin {
-		return true
-	}
-
-	// until we add a NONE value, all values imply read
-	if e.IsValid() && other == RoleEnumRead {
-		return true
-	}
-
-	// all others only imply themselves
-	return e == other
+// Role is a named set of permissions.
+type Role struct {
+	ID          string
+	Name        string
+	Description string
+	Permissions Permissions
 }
 
-func (e RoleEnum) IsValid() bool {
-	switch e {
-	case RoleEnumRead, RoleEnumModify, RoleEnumAdmin:
-		return true
-	}
-	return false
+// IsBuiltin returns true for the Admin role, which has every permission and
+// cannot be changed.
+func (r Role) IsBuiltin() bool {
+	return r.ID == RoleIDAdmin
 }
 
-func (e RoleEnum) String() string {
-	return string(e)
+func (r Role) HasPermission(p Permission) bool {
+	return r.IsBuiltin() || r.Permissions.Has(p)
 }
 
-func (e *RoleEnum) UnmarshalGQL(v interface{}) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
+// AdminRole returns the built-in Admin role.
+func AdminRole() Role {
+	return Role{
+		ID:          RoleIDAdmin,
+		Name:        "Admin",
+		Description: "Full access, including settings, tasks, deleting and merging objects, and managing users.",
+		Permissions: slices.Clone(AllPermissions),
 	}
-
-	*e = RoleEnum(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid RoleEnum", str)
-	}
-	return nil
 }
 
-func (e RoleEnum) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-type Roles []RoleEnum
-
-func (r Roles) HasRole(role RoleEnum) bool {
-	for _, r := range r {
-		if r.Implies(role) {
-			return true
-		}
+// DefaultRoles returns the roles that exist until roles are changed. They
+// have the rights of the Editor and Viewer roles before roles were
+// configurable.
+func DefaultRoles() []Role {
+	return []Role{
+		{
+			ID:          RoleIDEditor,
+			Name:        "Editor",
+			Description: "Everything a viewer can do, plus creating and editing library metadata and ratings. Cannot delete or merge objects, change settings or run tasks.",
+			Permissions: Permissions{
+				PermissionScenesEdit,
+				PermissionMarkersEdit,
+				PermissionImagesEdit,
+				PermissionGalleriesEdit,
+				PermissionChaptersEdit,
+				PermissionPerformersEdit,
+				PermissionStudiosEdit,
+				PermissionTagsEdit,
+				PermissionGroupsEdit,
+				PermissionRecordActivity,
+				PermissionUseScrapers,
+				PermissionSaveFilters,
+				PermissionViewRestrictedScenes,
+			},
+		},
+		{
+			ID:          RoleIDViewer,
+			Name:        "Viewer",
+			Description: "Can browse and play content, and record their own plays, O counts and resume times. Cannot change library data or settings.",
+			Permissions: Permissions{PermissionRecordActivity},
+		},
 	}
-	return false
 }

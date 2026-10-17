@@ -115,6 +115,9 @@ func (r *Resolver) ConfigResult() ConfigResultResolver {
 func (r *Resolver) User() UserResolver {
 	return &userResolver{r}
 }
+func (r *Resolver) Role() RoleResolver {
+	return &roleResolver{r}
+}
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
@@ -142,6 +145,7 @@ type savedFilterResolver struct{ *Resolver }
 type pluginResolver struct{ *Resolver }
 type configResultResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
+type roleResolver struct{ *Resolver }
 
 func (r *Resolver) withTxn(ctx context.Context, fn func(ctx context.Context) error) error {
 	return r.repository.WithTxn(ctx, fn)

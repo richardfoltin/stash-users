@@ -44,7 +44,8 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { baseURL } from "src/core/createClient";
 import { PatchComponent } from "src/patch";
-import { roleMessageID, usePermissions } from "src/hooks/Permissions";
+import { roleName, usePermissions } from "src/hooks/Permissions";
+import * as GQL from "src/core/generated-graphql";
 import { ChangePasswordDialog } from "./Dialogs/ChangePasswordDialog";
 
 interface IMenuItem {
@@ -53,7 +54,8 @@ interface IMenuItem {
   href: string;
   icon: IconDefinition;
   hotkey: string;
-  userCreatable?: boolean;
+  // the permission to create the objects of the page
+  createPermission?: GQL.Permission;
 }
 
 interface IAccountAction {
@@ -119,7 +121,7 @@ const allMenuItems: IMenuItem[] = [
     href: "/scenes",
     icon: faPlayCircle,
     hotkey: "g s",
-    userCreatable: true,
+    createPermission: GQL.Permission.ScenesEdit,
   },
   {
     name: "images",
@@ -134,7 +136,7 @@ const allMenuItems: IMenuItem[] = [
     href: "/groups",
     icon: faFilm,
     hotkey: "g v",
-    userCreatable: true,
+    createPermission: GQL.Permission.GroupsEdit,
   },
   {
     name: "markers",
@@ -149,7 +151,7 @@ const allMenuItems: IMenuItem[] = [
     href: "/galleries",
     icon: faImages,
     hotkey: "g l",
-    userCreatable: true,
+    createPermission: GQL.Permission.GalleriesEdit,
   },
   {
     name: "performers",
@@ -157,7 +159,7 @@ const allMenuItems: IMenuItem[] = [
     href: "/performers",
     icon: faUser,
     hotkey: "g p",
-    userCreatable: true,
+    createPermission: GQL.Permission.PerformersEdit,
   },
   {
     name: "studios",
@@ -165,7 +167,7 @@ const allMenuItems: IMenuItem[] = [
     href: "/studios",
     icon: faVideo,
     hotkey: "g u",
-    userCreatable: true,
+    createPermission: GQL.Permission.StudiosEdit,
   },
   {
     name: "tags",
@@ -173,13 +175,9 @@ const allMenuItems: IMenuItem[] = [
     href: "/tags",
     icon: faTag,
     hotkey: "g t",
-    userCreatable: true,
+    createPermission: GQL.Permission.TagsEdit,
   },
 ];
-
-const newPathsList = allMenuItems
-  .filter((item) => item.userCreatable)
-  .map((item) => item.href);
 
 const MainNavbarMenuItems = PatchComponent(
   "MainNavBar.MenuItems",
@@ -200,7 +198,8 @@ export const MainNavbar: React.FC = () => {
   const location = useLocation();
   const { configuration } = useConfigurationContext();
   const { openManual } = React.useContext(ManualStateContext);
-  const { user, role, isAdmin, canModify } = usePermissions();
+  const { user, isAdmin, can } = usePermissions();
+  const canOpenSettings = isAdmin || can(GQL.Permission.RunLibraryTasks);
 
   // the drawer replaces the collapsed menu on phones and tablets
   const [showDrawer, setShowDrawer] = useState(false);
@@ -248,8 +247,11 @@ export const MainNavbar: React.FC = () => {
   );
 
   const pathname = location.pathname.replace(/\/$/, "");
+  const createPermission = allMenuItems.find(
+    (item) => item.href === pathname
+  )?.createPermission;
   let newPath =
-    canModify && newPathsList.includes(pathname) ? `${pathname}/new` : null;
+    createPermission && can(createPermission) ? `${pathname}/new` : null;
   if (newPath !== null) {
     const queryParam = new URLSearchParams(location.search).get("q");
     if (queryParam) {
@@ -260,7 +262,7 @@ export const MainNavbar: React.FC = () => {
   // set up hotkeys
   useEffect(() => {
     Mousetrap.bind("?", () => openManual());
-    if (isAdmin) {
+    if (canOpenSettings) {
       Mousetrap.bind("g z", () => goto("/settings"));
     }
 
@@ -296,7 +298,7 @@ export const MainNavbar: React.FC = () => {
 
   // without users there is no login, so no account
   const hasAccount = !!user || SessionUtils.isLoggedIn();
-  const roleName = intl.formatMessage({ id: roleMessageID(role) });
+  const userRoleName = roleName(user?.role, intl);
   // the sign-in page in switch mode, which returns here on cancel
   const switchAccountURL = `${baseURL}login?${new URLSearchParams({
     switch: "1",
@@ -426,7 +428,7 @@ export const MainNavbar: React.FC = () => {
         <Icon icon={faCircleUser} className="account-menu-avatar" />
         <div className="account-menu-user">
           <div className="account-menu-name">{user.name}</div>
-          <div className="account-menu-role">{roleName}</div>
+          <div className="account-menu-role">{userRoleName}</div>
         </div>
       </>
     );
@@ -444,7 +446,7 @@ export const MainNavbar: React.FC = () => {
             user
               ? intl.formatMessage(
                   { id: "permissions.logged_in_as" },
-                  { name: user.name, role: roleName }
+                  { name: user.name, role: userRoleName }
                 )
               : intl.formatMessage({ id: "permissions.account" })
           }
@@ -513,7 +515,7 @@ export const MainNavbar: React.FC = () => {
             <Icon icon={faChartColumn} />
           </Button>
         </NavLink>
-        {isAdmin && (
+        {canOpenSettings && (
           <NavLink
             className="nav-utility"
             exact

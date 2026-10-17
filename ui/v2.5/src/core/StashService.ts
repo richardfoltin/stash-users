@@ -2763,7 +2763,11 @@ export const useMe = () => GQL.useMeQuery();
 
 export const useUsers = () => GQL.useUsersQuery();
 
-const userMutationImpactedQueries = [GQL.UsersDocument, GQL.MeDocument];
+const userMutationImpactedQueries = [
+  GQL.UsersDocument,
+  GQL.MeDocument,
+  GQL.RolesDocument,
+];
 
 export const useUserCreate = () =>
   GQL.useUserCreateMutation({
@@ -2794,6 +2798,8 @@ export const useUserUpdate = () =>
       cache.updateQuery({ query: GQL.MeDocument }, (data) =>
         data?.me ? { me: replace(data.me) } : data
       );
+      // the user counts of the roles
+      evictQueries(cache, [GQL.RolesDocument]);
     },
   });
 
@@ -2814,6 +2820,39 @@ export const useChangeUserPassword = () =>
   });
 
 export const useChangePassword = () => GQL.useChangePasswordMutation();
+
+export const useRoles = () => GQL.useRolesQuery();
+
+// the users and the current user show the names and permissions of their roles
+const roleMutationImpactedQueries = [
+  GQL.RolesDocument,
+  GQL.UsersDocument,
+  GQL.MeDocument,
+];
+
+export const useRoleCreate = () =>
+  GQL.useRoleCreateMutation({
+    update(cache, result) {
+      if (!result.data?.roleCreate) return;
+      evictQueries(cache, roleMutationImpactedQueries);
+    },
+  });
+
+export const useRoleUpdate = () =>
+  GQL.useRoleUpdateMutation({
+    update(cache, result) {
+      if (!result.data?.roleUpdate) return;
+      evictQueries(cache, roleMutationImpactedQueries);
+    },
+  });
+
+export const useRoleDestroy = () =>
+  GQL.useRoleDestroyMutation({
+    update(cache, result) {
+      if (!result.data?.roleDestroy) return;
+      evictQueries(cache, roleMutationImpactedQueries);
+    },
+  });
 
 export const useConfigureDefaults = () =>
   GQL.useConfigureDefaultsMutation({

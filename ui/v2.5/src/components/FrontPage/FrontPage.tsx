@@ -15,11 +15,13 @@ import {
 import { useScrollToTopOnMount } from "src/hooks/scrollToTop";
 import { PatchComponent } from "src/patch";
 import { usePermissions } from "src/hooks/Permissions";
+import * as GQL from "src/core/generated-graphql";
 
 const FrontPage: React.FC = PatchComponent("FrontPage", () => {
   const intl = useIntl();
   const Toast = useToast();
-  const { isAdmin } = usePermissions();
+  const { can } = usePermissions();
+  const canEdit = can(GQL.Permission.ManageSharedListSettings);
 
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -67,7 +69,7 @@ const FrontPage: React.FC = PatchComponent("FrontPage", () => {
 
   if (!ui.frontPageContent) {
     const defaultContent = generateDefaultFrontPageContent(intl);
-    if (isAdmin) {
+    if (canEdit) {
       onUpdateConfig(defaultContent);
     } else {
       frontPageContent = defaultContent;
@@ -81,7 +83,7 @@ const FrontPage: React.FC = PatchComponent("FrontPage", () => {
           <Control key={i} content={content} />
         ))}
       </div>
-      {isAdmin && (
+      {canEdit && (
         <div className="recommendations-footer">
           <Button onClick={() => setIsEditing(true)}>
             <FormattedMessage id={"actions.customise"} />

@@ -210,8 +210,8 @@ type OrientationCriterionInput struct {
 	Value []OrientationEnum `json:"value"`
 }
 
-type RoleCriterionInput struct {
-	Value    []RoleEnum        `json:"value"`
+type SceneVisibilityCriterionInput struct {
+	Value    []SceneVisibility `json:"value"`
 	Modifier CriterionModifier `json:"modifier"`
 }
 

@@ -27,7 +27,7 @@ export const SceneListTable: React.FC<ISceneListTableProps> = (
   props: ISceneListTableProps
 ) => {
   const intl = useIntl();
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
 
   const [updateScene] = useSceneUpdate();
 
@@ -81,7 +81,7 @@ export const SceneListTable: React.FC<ISceneListTableProps> = (
     <RatingSystem
       value={scene.rating100}
       onSetRating={(value) => setRating(value, scene.id)}
-      disabled={!canModify}
+      disabled={!can(GQL.Permission.ScenesEdit)}
       clickToRate
     />
   );

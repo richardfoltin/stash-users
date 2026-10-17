@@ -189,15 +189,18 @@ func Initialize() (*Server, error) {
 	gqlCfg := Config{
 		Resolvers: resolver,
 		Directives: DirectiveRoot{
-			HasRole:     HasRoleDirective,
-			IsUserOwner: IsUserOwnerDirective,
+			HasPermission: HasPermissionDirective,
+			AdminOnly:     AdminOnlyDirective,
+			SignedIn:      SignedInDirective,
+			IsUserOwner:   IsUserOwnerDirective,
 		},
 	}
 
 	gqlSrv := gqlHandler.New(NewExecutableSchema(gqlCfg))
 	gqlSrv.SetRecoverFunc(recoverFunc)
-	// mutations without a @hasRole directive require the ADMIN role
-	gqlSrv.AroundRootFields(mutationRoleMiddleware)
+	// mutations without a directive require the Admin role
+	gqlSrv.AroundRootFields(mutationRequirementMiddleware)
+	gqlSrv.AroundOperations(reauthenticateOperation)
 	gqlSrv.AddTransport(gqlTransport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {

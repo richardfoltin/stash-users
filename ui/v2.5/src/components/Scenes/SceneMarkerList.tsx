@@ -203,7 +203,9 @@ export const FilteredSceneMarkerList = PatchComponent(
   "FilteredSceneMarkerList",
   (props: ISceneMarkerList) => {
     const intl = useIntl();
-    const { canModify, canDelete } = usePermissions();
+    const { can } = usePermissions();
+    const canModify = can(GQL.Permission.MarkersEdit);
+    const canDelete = can(GQL.Permission.MarkersDelete);
 
     const searchFocus = useFocus();
 

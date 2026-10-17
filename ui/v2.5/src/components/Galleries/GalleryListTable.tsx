@@ -23,7 +23,7 @@ export const GalleryListTable: React.FC<IGalleryListTableProps> = (
   props: IGalleryListTableProps
 ) => {
   const intl = useIntl();
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
 
   const [updateGallery] = useGalleryUpdate();
 
@@ -73,7 +73,7 @@ export const GalleryListTable: React.FC<IGalleryListTableProps> = (
     <RatingSystem
       value={gallery.rating100}
       onSetRating={(value) => setRating(value, gallery.id)}
-      disabled={!canModify}
+      disabled={!can(GQL.Permission.GalleriesEdit)}
       clickToRate
     />
   );

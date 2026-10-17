@@ -44,7 +44,7 @@ func resolveCredentialID(ctx context.Context, c *config.Config, cid string) (*mo
 
 	for _, u := range users {
 		// locked users cannot authenticate
-		if len(u.Roles) == 0 {
+		if u.IsLocked() {
 			continue
 		}
 

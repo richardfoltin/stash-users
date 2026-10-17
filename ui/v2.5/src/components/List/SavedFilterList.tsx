@@ -30,6 +30,7 @@ import { useToast } from "src/hooks/Toast";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import {
   FilterMode,
+  Permission,
   SavedFilterDataFragment,
 } from "src/core/generated-graphql";
 import { View } from "./views";
@@ -333,7 +334,9 @@ const SavedFilterOperations: React.FC<{
   onDelete,
 }) => {
   const intl = useIntl();
-  const { isAdmin, canModify } = usePermissions();
+  const { can } = usePermissions();
+  const canSave = can(Permission.SaveFilters);
+  const canDelete = can(Permission.DeleteSavedFilters);
 
   function operation(action: () => void) {
     return () => {
@@ -342,7 +345,7 @@ const SavedFilterOperations: React.FC<{
     };
   }
 
-  if (!canModify) return null;
+  if (!canSave && !onSetDefault && !canDelete) return null;
 
   return (
     <OperationDropdown
@@ -356,21 +359,25 @@ const SavedFilterOperations: React.FC<{
       // don't load the filter when interacting with its operations
       onClick={(e) => e.stopPropagation()}
     >
-      <OperationDropdownItem
-        text={intl.formatMessage({ id: "actions.overwrite" })}
-        onClick={operation(onOverwrite)}
-      />
-      <OperationDropdownItem
-        text={intl.formatMessage({ id: "actions.rename" })}
-        onClick={operation(onRename)}
-      />
+      {canSave && (
+        <OperationDropdownItem
+          text={intl.formatMessage({ id: "actions.overwrite" })}
+          onClick={operation(onOverwrite)}
+        />
+      )}
+      {canSave && (
+        <OperationDropdownItem
+          text={intl.formatMessage({ id: "actions.rename" })}
+          onClick={operation(onRename)}
+        />
+      )}
       {onSetDefault && (
         <OperationDropdownItem
           text={intl.formatMessage({ id: "actions.set_as_default" })}
           onClick={operation(onSetDefault)}
         />
       )}
-      {isAdmin && (
+      {canDelete && (
         <OperationDropdownItem
           // text-danger rather than a rule of our own - the menu items carry
           // bootstrap's text-white, which is !important and so cannot be
@@ -514,7 +521,7 @@ export const SavedFilterList: React.FC<ISavedFilterListProps> = ({
   const intl = useIntl();
 
   const { data, error, loading, refetch } = useFindSavedFilters(filter.mode);
-  const { isAdmin, canModify } = usePermissions();
+  const { can } = usePermissions();
 
   const [filterName, setFilterName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -654,7 +661,9 @@ export const SavedFilterList: React.FC<ISavedFilterListProps> = ({
           onOverwrite={() => setOverwritingFilter(item)}
           onRename={() => setRenamingFilter(item)}
           onSetDefault={
-            view && isAdmin ? () => setDefaultingFilter(item) : undefined
+            view && can(Permission.ManageSharedListSettings)
+              ? () => setDefaultingFilter(item)
+              : undefined
           }
           onDelete={() => setDeletingFilter(item)}
         />
@@ -723,7 +732,7 @@ export const SavedFilterList: React.FC<ISavedFilterListProps> = ({
           value={filterName}
           onChange={(e) => setFilterName(e.target.value)}
         />
-        {canModify && (
+        {can(Permission.SaveFilters) && (
           <InputGroup.Append>
             <OverlayTrigger
               placement="top"
@@ -907,7 +916,7 @@ export const SidebarSavedFilterList: React.FC<ISavedFilterListProps> = ({
   >();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [settingDefault, setSettingDefault] = useState(false);
-  const { isAdmin, canModify } = usePermissions();
+  const { can } = usePermissions();
 
   const saveFilter = useSaveFilter();
   const [destroyFilter] = useSavedFilterDestroy();
@@ -1110,7 +1119,7 @@ export const SidebarSavedFilterList: React.FC<ISavedFilterListProps> = ({
       />
 
       <div className="toolbar">
-        {canModify && (
+        {can(Permission.SaveFilters) && (
           <Button
             className="minimal save-filter-button"
             size="sm"
@@ -1121,7 +1130,7 @@ export const SidebarSavedFilterList: React.FC<ISavedFilterListProps> = ({
             </span>
           </Button>
         )}
-        {isAdmin && (
+        {can(Permission.ManageSharedListSettings) && (
           <Button
             className="minimal set-as-default-button"
             variant="secondary"
@@ -1147,7 +1156,11 @@ export const SidebarSavedFilterList: React.FC<ISavedFilterListProps> = ({
         onFilterClicked={filterClicked}
         onOverwriteClicked={setOverwritingFilter}
         onRenameClicked={setRenamingFilter}
-        onSetDefaultClicked={view ? setDefaultingFilter : undefined}
+        onSetDefaultClicked={
+          view && can(Permission.ManageSharedListSettings)
+            ? setDefaultingFilter
+            : undefined
+        }
         onDeleteClicked={setDeletingFilter}
         onRenameCommitted={async (f, name) => {
           if (await renameSavedFilter(f, name)) {

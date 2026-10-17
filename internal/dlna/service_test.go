@@ -19,16 +19,16 @@ func TestRepositoryWithReadTxnVisibility(t *testing.T) {
 			LoginRequired: func(ctx context.Context) bool { return loginRequired },
 		}
 
-		var role models.RoleEnum
-		var restricted bool
+		var hidden []models.SceneVisibility
 		require.NoError(t, r.WithReadTxn(context.Background(), func(ctx context.Context) error {
-			role, restricted = models.ViewerRole(ctx)
+			hidden = models.HiddenSceneVisibilities(ctx)
 			return nil
 		}))
 
-		assert.Equal(t, loginRequired, restricted, "restricted when login required is %v", loginRequired)
 		if loginRequired {
-			assert.Equal(t, models.RoleEnumRead, role)
+			assert.Equal(t, []models.SceneVisibility{models.SceneVisibilityRestricted, models.SceneVisibilityPrivate}, hidden)
+		} else {
+			assert.Empty(t, hidden, "hidden scenes when login is not required")
 		}
 	}
 }

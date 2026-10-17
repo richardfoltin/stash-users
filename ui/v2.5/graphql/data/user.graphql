@@ -1,6 +1,10 @@
 fragment UserData on User {
   name
-  roles
+  role {
+    ...RoleData
+  }
+  permissions
+  isAdmin
   autoLogin
   hasPassword
 }

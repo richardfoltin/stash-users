@@ -7,6 +7,7 @@ import StudioCreate from "./StudioDetails/StudioCreate";
 import { FilteredStudioList } from "./StudioList";
 import { View } from "../List/views";
 import { usePermissions } from "src/hooks/Permissions";
+import * as GQL from "src/core/generated-graphql";
 import { PermissionDenied } from "../PermissionDenied";
 
 const Studios: React.FC = () => {
@@ -14,7 +15,7 @@ const Studios: React.FC = () => {
 };
 
 const StudioRoutes: React.FC = () => {
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
   const titleProps = useTitleProps({ id: "studios" });
   return (
     <>
@@ -24,7 +25,9 @@ const StudioRoutes: React.FC = () => {
         <Route
           exact
           path="/studios/new"
-          component={canModify ? StudioCreate : PermissionDenied}
+          component={
+            can(GQL.Permission.StudiosEdit) ? StudioCreate : PermissionDenied
+          }
         />
         <Route path="/studios/:id/:tab?" component={Studio} />
       </Switch>

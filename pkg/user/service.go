@@ -23,7 +23,6 @@ var (
 	ErrUsernameHasWhitespace    = errors.New("username has leading or trailing whitespace")
 	ErrEmptyPassword            = errors.New("password cannot be empty")
 	ErrPasswordTooLong          = errors.New("password cannot be longer than 72 bytes")
-	ErrInvalidRole              = errors.New("invalid role")
 	ErrFirstUserNotAdmin        = errors.New("the first user must be an admin")
 	ErrDeleteLastAdminUser      = errors.New("final admin user cannot be deleted")
 	ErrRemoveLastAdminRole      = errors.New("final admin role cannot be removed")
@@ -33,6 +32,12 @@ var (
 	ErrUserAlreadyExists        = errors.New("user with that username already exists")
 	ErrAutoLoginNoPassword      = errors.New("auto login cannot be turned off for a user without a password: set a password first")
 	ErrAutoLoginUserNoPassword  = errors.New("auto login cannot be given to another user while the auto login user has no password: set a password for that user first")
+	ErrRoleNotExist             = errors.New("role does not exist")
+	ErrRoleInUse                = errors.New("the role is assigned to users: give them another role first")
+	ErrBuiltinRole              = errors.New("the Admin role cannot be changed or removed")
+	ErrRoleNameExists           = errors.New("a role with that name already exists")
+	ErrEmptyRoleName            = errors.New("role name cannot be empty")
+	ErrInvalidPermission        = errors.New("invalid permission")
 )
 
 // UserSource stores the users. It keeps the usernames unique, the first and
@@ -52,6 +57,19 @@ type UserSource interface {
 	ReplaceUser(ctx context.Context, username string, updated models.User) error
 	ChangeUserPassword(ctx context.Context, username string, newPassword string) error
 	DeleteUser(ctx context.Context, username string) error
+
+	// AllRoles returns the built-in Admin role, followed by the other roles.
+	AllRoles(ctx context.Context) ([]*models.Role, error)
+	// GetRole returns the role with the ID, or nil if it does not exist.
+	GetRole(ctx context.Context, id string) (*models.Role, error)
+	// CreateRole adds the role with a new ID, and returns it. Role names are
+	// unique, ignoring case.
+	CreateRole(ctx context.Context, r models.Role) (*models.Role, error)
+	UpdateRole(ctx context.Context, r models.Role) error
+	// DeleteRole removes the role, unless a user has it.
+	DeleteRole(ctx context.Context, id string) error
+	// RoleUserCounts returns the number of users of each role that has users.
+	RoleUserCounts(ctx context.Context) (map[string]int, error)
 
 	// GetAPIKey returns the global API key.
 	GetAPIKey() string
@@ -77,7 +95,7 @@ func (s *Service) AllUsers(ctx context.Context) ([]*models.User, error) {
 }
 
 func userIsLocked(u *models.User) bool {
-	return len(u.Roles) == 0
+	return u.IsLocked()
 }
 
 func (s *Service) ValidateCredentials(ctx context.Context, username string, password string) error {
@@ -206,7 +224,7 @@ func (s *Service) AuthenticateByAPIKey(ctx context.Context, apiKey string) (*mod
 	if !s.LoginRequired(ctx) {
 		return &models.User{
 			Username: username,
-			Roles:    models.Roles{models.RoleEnumAdmin},
+			Role:     models.RoleIDAdmin,
 		}, nil
 	}
 
@@ -216,7 +234,7 @@ func (s *Service) AuthenticateByAPIKey(ctx context.Context, apiKey string) (*mod
 		return nil, ErrInternalError
 	}
 
-	if u == nil || !u.Roles.HasRole(models.RoleEnumAdmin) {
+	if u == nil || !u.IsAdmin() {
 		logger.Infof("[apikey authentication] api key user %q does not exist or is not an admin", username)
 		return nil, ErrAccessDenied
 	}
@@ -252,24 +270,10 @@ func ValidatePassword(password string) error {
 	return nil
 }
 
-func (s *Service) validateRoles(roles models.Roles) error {
-	for _, r := range roles {
-		if !r.IsValid() {
-			return fmt.Errorf("%w: %q", ErrInvalidRole, r)
-		}
-	}
-
-	return nil
-}
-
 func (s *Service) CreateUser(ctx context.Context, u models.User, password string) error {
 	// validate input
 	// ensure username is valid
 	if err := s.validateUsername(u.Username); err != nil {
-		return err
-	}
-
-	if err := s.validateRoles(u.Roles); err != nil {
 		return err
 	}
 
@@ -278,8 +282,8 @@ func (s *Service) CreateUser(ctx context.Context, u models.User, password string
 		return err
 	}
 
-	// create user in store - the store checks that the username is unique and
-	// that the first user is an admin
+	// create user in store - the store checks that the username is unique,
+	// that the role exists and that the first user is an admin
 	if err := s.Store.CreateUser(ctx, u, password); err != nil {
 		return err
 	}
@@ -301,10 +305,6 @@ func (s *Service) UpdateUser(ctx context.Context, username string, updated model
 		return ErrUserNotExist
 	}
 
-	if err := s.validateRoles(updated.Roles); err != nil {
-		return err
-	}
-
 	// ensure username is valid
 	if username != updated.Username {
 		if err := s.validateUsername(updated.Username); err != nil {
@@ -313,7 +313,8 @@ func (s *Service) UpdateUser(ctx context.Context, username string, updated model
 	}
 
 	// update user in store - the store checks that the new username is
-	// unique and that the admin role is not removed from the last admin
+	// unique, that the role exists and that the admin role is not removed
+	// from the last admin
 	if err := s.Store.ReplaceUser(ctx, username, updated); err != nil {
 		return err
 	}
@@ -322,8 +323,8 @@ func (s *Service) UpdateUser(ctx context.Context, username string, updated model
 		logger.Infof("[user] updated name %q -> %q", username, updated.Username)
 	}
 
-	if !slices.Equal(existingUser.Roles, updated.Roles) {
-		logger.Infof("[user] updated roles for user %q", updated.Username)
+	if existingUser.Role != updated.Role {
+		logger.Infof("[user] updated role for user %q", updated.Username)
 	}
 
 	if existingUser.AutoLogin != updated.AutoLogin {

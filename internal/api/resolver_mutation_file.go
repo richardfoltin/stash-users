@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -15,6 +17,17 @@ import (
 	"github.com/stashapp/stash/pkg/session"
 	"github.com/stashapp/stash/pkg/sliceutil/stringslice"
 )
+
+// findFile returns an error unless the file with the id exists, and the user
+// can see it: the files of hidden scenes are not found.
+func (r *mutationResolver) findFile(ctx context.Context, id models.FileID) error {
+	files, err := r.repository.File.Find(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && len(files) == 0) {
+		return fmt.Errorf("file with id %d not found", id)
+	}
+
+	return err
+}
 
 func (r *mutationResolver) MoveFiles(ctx context.Context, input MoveFilesInput) (bool, error) {
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
@@ -310,6 +323,10 @@ func (r *mutationResolver) FileSetFingerprints(ctx context.Context, input FileSe
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
 		qb := r.repository.File
+
+		if err := r.findFile(ctx, fileID); err != nil {
+			return err
+		}
 
 		if len(fingerprints) > 0 {
 			if err := qb.ModifyFingerprints(ctx, fileID, fingerprints); err != nil {

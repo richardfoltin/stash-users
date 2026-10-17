@@ -22,20 +22,20 @@ import (
 )
 
 // visibility of the scenes that are restricted in the visibility tests
-var restrictedScenes = map[int]models.RoleEnum{
-	sceneIdx2WithPerformer: models.RoleEnumModify,
-	sceneIdxWithGroup:      models.RoleEnumModify,
-	sceneIdxWithGallery:    models.RoleEnumModify,
-	sceneIdx2WithStudio:    models.RoleEnumAdmin,
-	sceneIdxWithTwoTags:    models.RoleEnumAdmin,
-	sceneIdxWithMarkers:    models.RoleEnumAdmin,
+var restrictedScenes = map[int]models.SceneVisibility{
+	sceneIdx2WithPerformer: models.SceneVisibilityRestricted,
+	sceneIdxWithGroup:      models.SceneVisibilityRestricted,
+	sceneIdxWithGallery:    models.SceneVisibilityRestricted,
+	sceneIdx2WithStudio:    models.SceneVisibilityPrivate,
+	sceneIdxWithTwoTags:    models.SceneVisibilityPrivate,
+	sceneIdxWithMarkers:    models.SceneVisibilityPrivate,
 }
 
 func restrictScenes(t *testing.T, ctx context.Context) {
 	t.Helper()
 
-	for idx, role := range restrictedScenes {
-		_, err := db.Scene.UpdatePartial(ctx, sceneIDs[idx], models.ScenePartial{Visibility: &role})
+	for idx, visibility := range restrictedScenes {
+		_, err := db.Scene.UpdatePartial(ctx, sceneIDs[idx], models.ScenePartial{Visibility: &visibility})
 		require.NoError(t, err)
 	}
 }
@@ -43,30 +43,40 @@ func restrictScenes(t *testing.T, ctx context.Context) {
 type visibilityContext struct {
 	name string
 	ctx  func(ctx context.Context) context.Context
-	// role is the role that the context sees as, empty if it sees all scenes
-	role models.RoleEnum
+	// hides are the visibilities of the scenes that the context does not see
+	hides []models.SceneVisibility
 }
 
-func withRole(role models.RoleEnum) func(ctx context.Context) context.Context {
+// userOfRole returns a user with the role with the ID: Admin, or one of the
+// default roles.
+func userOfRole(name string, roleID string) models.User {
+	u := models.User{Username: name, Role: roleID}
+	for _, r := range models.DefaultRoles() {
+		if r.ID == roleID {
+			u.Permissions = r.Permissions
+		}
+	}
+	return u
+}
+
+func withRole(roleID string) func(ctx context.Context) context.Context {
 	return func(ctx context.Context) context.Context {
-		return models.SetCurrentUser(ctx, models.User{Username: string(role), Roles: models.Roles{role}})
+		return models.SetCurrentUser(ctx, userOfRole(roleID, roleID))
 	}
 }
 
 var visibilityContexts = []visibilityContext{
-	{"no user", func(ctx context.Context) context.Context { return ctx }, ""},
-	{"viewer", withRole(models.RoleEnumRead), models.RoleEnumRead},
-	{"editor", withRole(models.RoleEnumModify), models.RoleEnumModify},
-	{"admin", withRole(models.RoleEnumAdmin), ""},
-	{"viewer role", func(ctx context.Context) context.Context {
-		return models.SetViewerRole(ctx, models.RoleEnumRead)
-	}, models.RoleEnumRead},
+	{"no user", func(ctx context.Context) context.Context { return ctx }, nil},
+	{"viewer", withRole(models.RoleIDViewer), []models.SceneVisibility{models.SceneVisibilityRestricted, models.SceneVisibilityPrivate}},
+	{"editor", withRole(models.RoleIDEditor), []models.SceneVisibility{models.SceneVisibilityPrivate}},
+	{"admin", withRole(models.RoleIDAdmin), nil},
+	{"public scenes only", models.SetPublicScenesOnly, []models.SceneVisibility{models.SceneVisibilityRestricted, models.SceneVisibilityPrivate}},
 }
 
 // hidden returns true if the restricted scene is hidden in the context.
 func (c visibilityContext) hidden(sceneIdx int) bool {
-	role, restricted := restrictedScenes[sceneIdx]
-	return restricted && c.role != "" && !c.role.Implies(role)
+	visibility, restricted := restrictedScenes[sceneIdx]
+	return restricted && slices.Contains(c.hides, visibility)
 }
 
 // hiddenCount returns the number of the given scenes that are hidden.
@@ -332,7 +342,7 @@ func containsPerformer(performers []*models.Performer, id int) bool {
 func TestSceneVisibilityQueries(t *testing.T) {
 	withRollbackTxn(func(ctx context.Context) error {
 		restrictScenes(t, ctx)
-		ctx = withRole(models.RoleEnumRead)(ctx)
+		ctx = withRole(models.RoleIDViewer)(ctx)
 
 		sortBy := func(sort string) *models.FindFilterType {
 			ret := perPageAll()
@@ -615,53 +625,53 @@ func TestSceneVisibilityGalleries(t *testing.T) {
 
 // stripUser returns a context that sees all scenes.
 func stripUser(ctx context.Context) context.Context {
-	return models.SetViewerRole(ctx, models.RoleEnumAdmin)
+	return models.SetAllScenesVisible(ctx)
 }
 
 func TestSceneVisibilityFilter(t *testing.T) {
 	withRollbackTxn(func(ctx context.Context) error {
 		restrictScenes(t, ctx)
 
-		count := func(modifier models.CriterionModifier, roles ...models.RoleEnum) int {
+		count := func(modifier models.CriterionModifier, visibilities ...models.SceneVisibility) int {
 			n, err := db.Scene.QueryCount(ctx, &models.SceneFilterType{
-				Visibility: &models.RoleCriterionInput{Value: roles, Modifier: modifier},
+				Visibility: &models.SceneVisibilityCriterionInput{Value: visibilities, Modifier: modifier},
 			}, nil)
 			require.NoError(t, err)
 			return n
 		}
 
-		assert.Equal(t, 3, count(models.CriterionModifierIncludes, models.RoleEnumAdmin))
-		assert.Equal(t, 3, count(models.CriterionModifierEquals, models.RoleEnumModify))
-		assert.Equal(t, 6, count(models.CriterionModifierIncludes, models.RoleEnumModify, models.RoleEnumAdmin))
+		assert.Equal(t, 3, count(models.CriterionModifierIncludes, models.SceneVisibilityPrivate))
+		assert.Equal(t, 3, count(models.CriterionModifierEquals, models.SceneVisibilityRestricted))
+		assert.Equal(t, 6, count(models.CriterionModifierIncludes, models.SceneVisibilityRestricted, models.SceneVisibilityPrivate))
 		nScenes, err := db.Scene.Count(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, nScenes-6, count(models.CriterionModifierIncludes, models.RoleEnumRead))
-		assert.Equal(t, 6, count(models.CriterionModifierExcludes, models.RoleEnumRead))
+		assert.Equal(t, nScenes-6, count(models.CriterionModifierIncludes, models.SceneVisibilityEveryone))
+		assert.Equal(t, 6, count(models.CriterionModifierExcludes, models.SceneVisibilityEveryone))
 
 		visibility, err := db.Scene.GetVisibility(ctx, sceneIDs[sceneIdxWithMarkers])
 		require.NoError(t, err)
-		assert.Equal(t, models.RoleEnumAdmin, visibility)
+		assert.Equal(t, models.SceneVisibilityPrivate, visibility)
 
 		visibility, err = db.Scene.GetVisibility(ctx, sceneIDs[sceneIdxWithTag])
 		require.NoError(t, err)
-		assert.Equal(t, models.RoleEnumRead, visibility)
+		assert.Equal(t, models.SceneVisibilityEveryone, visibility)
 
 		visibilities, err := db.Scene.GetManyVisibility(ctx, []int{sceneIDs[sceneIdxWithTag], sceneIDs[sceneIdxWithMarkers], sceneIDs[sceneIdx2WithPerformer]})
 		require.NoError(t, err)
-		assert.Equal(t, []models.RoleEnum{models.RoleEnumRead, models.RoleEnumAdmin, models.RoleEnumModify}, visibilities)
+		assert.Equal(t, []models.SceneVisibility{models.SceneVisibilityEveryone, models.SceneVisibilityPrivate, models.SceneVisibilityRestricted}, visibilities)
 
-		// setting READ removes the restriction
-		read := models.RoleEnumRead
-		_, err = db.Scene.UpdatePartial(ctx, sceneIDs[sceneIdxWithMarkers], models.ScenePartial{Visibility: &read})
+		// setting EVERYONE removes the restriction
+		everyone := models.SceneVisibilityEveryone
+		_, err = db.Scene.UpdatePartial(ctx, sceneIDs[sceneIdxWithMarkers], models.ScenePartial{Visibility: &everyone})
 		require.NoError(t, err)
-		assert.Equal(t, 2, count(models.CriterionModifierIncludes, models.RoleEnumAdmin))
+		assert.Equal(t, 2, count(models.CriterionModifierIncludes, models.SceneVisibilityPrivate))
 
 		return nil
 	})
 }
 
 func TestSceneVisibilityDefault(t *testing.T) {
-	db.SetDefaultSceneVisibility(func() models.RoleEnum { return models.RoleEnumAdmin })
+	db.SetDefaultSceneVisibility(func() models.SceneVisibility { return models.SceneVisibilityPrivate })
 	t.Cleanup(func() { db.SetDefaultSceneVisibility(nil) })
 
 	withRollbackTxn(func(ctx context.Context) error {
@@ -670,9 +680,9 @@ func TestSceneVisibilityDefault(t *testing.T) {
 
 		visibility, err := db.Scene.GetVisibility(ctx, s.ID)
 		require.NoError(t, err)
-		assert.Equal(t, models.RoleEnumAdmin, visibility)
+		assert.Equal(t, models.SceneVisibilityPrivate, visibility)
 
-		found, err := db.Scene.Find(withRole(models.RoleEnumModify)(ctx), s.ID)
+		found, err := db.Scene.Find(withRole(models.RoleIDEditor)(ctx), s.ID)
 		require.NoError(t, err)
 		assert.Nil(t, found, "editor sees the new scene")
 
@@ -703,8 +713,8 @@ func TestSceneVisibilitySurvivesScenesRebuild(t *testing.T) {
 		}
 		sceneID = s.ID
 
-		admin := models.RoleEnumAdmin
-		_, err := testDB.Scene.UpdatePartial(ctx, s.ID, models.ScenePartial{Visibility: &admin})
+		private := models.SceneVisibilityPrivate
+		_, err := testDB.Scene.UpdatePartial(ctx, s.ID, models.ScenePartial{Visibility: &private})
 		return err
 	}))
 	require.NoError(t, testDB.Close())
@@ -735,9 +745,9 @@ func TestSceneVisibilitySurvivesScenesRebuild(t *testing.T) {
 	require.NoError(t, txn.WithTxn(context.Background(), testDB, func(ctx context.Context) error {
 		visibility, err := testDB.Scene.GetVisibility(ctx, sceneID)
 		require.NoError(t, err)
-		assert.Equal(t, models.RoleEnumAdmin, visibility, "visibility after rebuild")
+		assert.Equal(t, models.SceneVisibilityPrivate, visibility, "visibility after rebuild")
 
-		found, err := testDB.Scene.Find(withRole(models.RoleEnumRead)(ctx), sceneID)
+		found, err := testDB.Scene.Find(withRole(models.RoleIDViewer)(ctx), sceneID)
 		require.NoError(t, err)
 		assert.Nil(t, found, "viewer sees the scene after rebuild")
 
@@ -749,4 +759,47 @@ func TestSceneVisibilitySurvivesScenesRebuild(t *testing.T) {
 
 		return nil
 	}))
+}
+
+// TestSceneVisibility_CustomRole checks that the two permissions decide
+// independently: a role can see private scenes without seeing restricted ones.
+func TestSceneVisibility_CustomRole(t *testing.T) {
+	withRollbackTxn(func(ctx context.Context) error {
+		restrictScenes(t, ctx)
+		ctx = models.SetCurrentUser(ctx, models.User{Username: "custom", Role: "custom", Permissions: models.Permissions{models.PermissionViewPrivateScenes}})
+
+		for idx, visible := range map[int]bool{
+			sceneIdxWithTag:        true,  // everyone
+			sceneIdxWithMarkers:    true,  // private
+			sceneIdx2WithPerformer: false, // restricted
+		} {
+			s, err := db.Scene.Find(ctx, sceneIDs[idx])
+			require.NoError(t, err)
+			assert.Equal(t, visible, s != nil, "scene %d visible", idx)
+		}
+
+		return nil
+	})
+}
+
+// TestSceneVisibilityCriterion_LegacyValue filters by MODIFY, a value of
+// filters saved before the visibilities were named.
+func TestSceneVisibilityCriterion_LegacyValue(t *testing.T) {
+	withRollbackTxn(func(ctx context.Context) error {
+		restrictScenes(t, ctx)
+
+		visibility, ok := models.ParseSceneVisibility("MODIFY")
+		require.True(t, ok)
+
+		result, err := db.Scene.Query(ctx, models.SceneQueryOptions{
+			QueryOptions: models.QueryOptions{FindFilter: perPageAll()},
+			SceneFilter: &models.SceneFilterType{
+				Visibility: &models.SceneVisibilityCriterionInput{Value: []models.SceneVisibility{visibility}, Modifier: models.CriterionModifierIncludes},
+			},
+		})
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []int{sceneIDs[sceneIdx2WithPerformer], sceneIDs[sceneIdxWithGroup], sceneIDs[sceneIdxWithGallery]}, result.IDs)
+
+		return nil
+	})
 }

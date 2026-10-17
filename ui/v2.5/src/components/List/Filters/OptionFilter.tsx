@@ -114,7 +114,7 @@ export const SidebarOptionFilter: React.FC<ISidebarFilter> = ({
   sectionID,
 }) => {
   const intl = useIntl();
-  const { isAdmin } = usePermissions();
+  const { can } = usePermissions();
 
   const criteria = filter.criteriaFor(
     option.type
@@ -225,7 +225,7 @@ export const SidebarOptionFilter: React.FC<ISidebarFilter> = ({
     setFilter(filter.removeCriterion(option.type));
   }
 
-  if (option.adminOnly && !isAdmin) return null;
+  if (option.permission && !can(option.permission)) return null;
 
   return (
     <SidebarListFilter

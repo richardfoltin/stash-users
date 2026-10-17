@@ -217,7 +217,7 @@ type SceneStore struct {
 	repo *storeRepository
 
 	// defaultVisibility returns the visibility of new scenes
-	defaultVisibility func() models.RoleEnum
+	defaultVisibility func() models.SceneVisibility
 }
 
 func NewSceneStore(r *storeRepository, blobStore *BlobStore) *SceneStore {
@@ -298,7 +298,7 @@ func (qb *SceneStore) Create(ctx context.Context, newObject *models.Scene, fileI
 		}
 	}
 
-	if visibility := qb.newSceneVisibility(); visibility != models.RoleEnumRead {
+	if visibility := qb.newSceneVisibility(); visibility != models.SceneVisibilityEveryone {
 		if err := qb.setVisibility(ctx, id, visibility); err != nil {
 			return err
 		}

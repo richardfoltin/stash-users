@@ -62,7 +62,10 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
   const history = useHistory();
   const Toast = useToast();
   const intl = useIntl();
-  const { isAdmin, canModify, canDelete } = usePermissions();
+  const { can } = usePermissions();
+  const canEdit = can(GQL.Permission.GalleriesEdit);
+  const canDeleteGallery = can(GQL.Permission.GalleriesDelete);
+  const canRunTasks = can(GQL.Permission.RunLibraryTasks);
   const { configuration } = useConfigurationContext();
   const { showStudioText } = configuration?.ui ?? {};
   const showLightbox = useGalleryLightbox(gallery.id, gallery.chapters);
@@ -202,7 +205,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
   }
 
   function renderOperations() {
-    if (!canModify) return;
+    if (!canEdit && !canRunTasks && !canDeleteGallery) return;
 
     return (
       <Dropdown>
@@ -215,7 +218,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
           <Icon icon={faEllipsisV} />
         </Dropdown.Toggle>
         <Dropdown.Menu className="bg-secondary text-white">
-          {path && isAdmin ? (
+          {path && canRunTasks ? (
             <Dropdown.Item
               className="bg-secondary text-white"
               onClick={() => onRescan()}
@@ -223,13 +226,15 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
               <FormattedMessage id="actions.rescan" />
             </Dropdown.Item>
           ) : undefined}
-          <Dropdown.Item
-            className="bg-secondary text-white"
-            onClick={() => onResetCover()}
-          >
-            <FormattedMessage id="actions.reset_cover" />
-          </Dropdown.Item>
-          {isAdmin && (
+          {canEdit && (
+            <Dropdown.Item
+              className="bg-secondary text-white"
+              onClick={() => onResetCover()}
+            >
+              <FormattedMessage id="actions.reset_cover" />
+            </Dropdown.Item>
+          )}
+          {canRunTasks && (
             <Dropdown.Item
               className="bg-secondary text-white"
               onClick={() => setIsGenerateDialogOpen(true)}
@@ -237,7 +242,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
               {`${intl.formatMessage({ id: "actions.generate" })}…`}
             </Dropdown.Item>
           )}
-          {isAdmin && (
+          {canDeleteGallery && (
             <Dropdown.Item
               className="bg-secondary text-white"
               onClick={() => setIsDeleteAlertOpen(true)}
@@ -293,7 +298,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
                 <FormattedMessage id="chapters" />
               </Nav.Link>
             </Nav.Item>
-            {canModify && (
+            {canEdit && (
               <Nav.Item>
                 <Nav.Link eventKey="gallery-edit-panel">
                   <FormattedMessage id="actions.edit" />
@@ -320,14 +325,16 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
               isVisible={activeTabKey === "gallery-chapter-panel"}
             />
           </Tab.Pane>
-          {canModify && (
+          {canEdit && (
             <Tab.Pane eventKey="gallery-edit-panel" mountOnEnter>
               <GalleryEditPanel
                 isVisible={activeTabKey === "gallery-edit-panel"}
                 gallery={gallery}
                 onSubmit={onSave}
                 onDelete={
-                  canDelete ? () => setIsDeleteAlertOpen(true) : undefined
+                  canDeleteGallery
+                    ? () => setIsDeleteAlertOpen(true)
+                    : undefined
                 }
               />
             </Tab.Pane>
@@ -360,7 +367,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
                 <FormattedMessage id="images" />
               </Nav.Link>
             </Nav.Item>
-            {canModify && (
+            {canEdit && (
               <Nav.Item>
                 <Nav.Link eventKey="add">
                   <FormattedMessage id="actions.add" />
@@ -374,7 +381,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
           <Tab.Pane eventKey="images">
             <GalleryImagesPanel active={!add} gallery={gallery} />
           </Tab.Pane>
-          {canModify && (
+          {canEdit && (
             <Tab.Pane eventKey="add">
               <GalleryAddPanel active={!!add} gallery={gallery} />
             </Tab.Pane>
@@ -396,7 +403,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
   }
 
   useRatingKeybinds(
-    canModify,
+    canEdit,
     configuration?.ui.ratingSystemOptions?.type,
     setRating
   );
@@ -405,7 +412,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
   useEffect(() => {
     Mousetrap.bind("a", () => setActiveTabKey("gallery-details-panel"));
     Mousetrap.bind("c", () => setActiveTabKey("gallery-chapter-panel"));
-    if (canModify) {
+    if (canEdit) {
       Mousetrap.bind("e", () => setActiveTabKey("gallery-edit-panel"));
     }
     Mousetrap.bind("f", () => setActiveTabKey("gallery-file-info-panel"));
@@ -453,7 +460,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
               <RatingSystem
                 value={gallery.rating100}
                 onSetRating={setRating}
-                disabled={!canModify}
+                disabled={!canEdit}
                 clickToRate
                 withoutContext
               />
@@ -464,6 +471,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
                   loading={organizedLoading}
                   organized={gallery.organized}
                   onClick={onOrganizedClick}
+                  canEdit={canEdit}
                 />
               </span>
               <span>{renderOperations()}</span>

@@ -8,12 +8,15 @@ interface IChapterEntries {
   onClickChapter: (image_index: number) => void;
   // editing is not available if undefined
   onEdit?: (chapter: GQL.GalleryChapterDataFragment) => void;
+  // for users who may delete chapters but not edit them
+  onDelete?: (chapter: GQL.GalleryChapterDataFragment) => void;
 }
 
 export const ChapterEntries: React.FC<IChapterEntries> = ({
   galleryChapters,
   onClickChapter,
   onEdit,
+  onDelete,
 }) => {
   if (!galleryChapters?.length) return <div />;
 
@@ -39,6 +42,15 @@ export const ChapterEntries: React.FC<IChapterEntries> = ({
               onClick={() => onEdit(chapter)}
             >
               <FormattedMessage id="actions.edit" />
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              variant="link"
+              className="ml-auto"
+              onClick={() => onDelete(chapter)}
+            >
+              <FormattedMessage id="actions.delete" />
             </Button>
           )}
         </div>

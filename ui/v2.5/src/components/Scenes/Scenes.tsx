@@ -5,6 +5,7 @@ import { useTitleProps } from "src/hooks/title";
 import { lazyComponent } from "src/utils/lazyComponent";
 import { View } from "../List/views";
 import { usePermissions } from "src/hooks/Permissions";
+import * as GQL from "src/core/generated-graphql";
 import { PermissionDenied } from "../PermissionDenied";
 
 const SceneList = lazyComponent(() => import("./SceneList"));
@@ -27,7 +28,7 @@ const SceneMarkers: React.FC = () => {
 };
 
 const SceneRoutes: React.FC = () => {
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
   const titleProps = useTitleProps({ id: "scenes" });
   return (
     <>
@@ -38,7 +39,9 @@ const SceneRoutes: React.FC = () => {
         <Route
           exact
           path="/scenes/new"
-          component={canModify ? SceneCreate : PermissionDenied}
+          component={
+            can(GQL.Permission.ScenesEdit) ? SceneCreate : PermissionDenied
+          }
         />
         <Route path="/scenes/:id" component={Scene} />
       </Switch>

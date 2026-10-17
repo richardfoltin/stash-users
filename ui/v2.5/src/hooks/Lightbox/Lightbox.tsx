@@ -121,7 +121,9 @@ export const LightboxComponent: React.FC<IProps> = ({
   onDeleteImage,
 }) => {
   const [updateImage] = useImageUpdate();
-  const { canModify, canDelete } = usePermissions();
+  const { can } = usePermissions();
+  const canEdit = can(GQL.Permission.ImagesEdit);
+  const canDeleteImage = can(GQL.Permission.ImagesDelete);
 
   // zero-based
   const [index, setIndex] = useState<number | null>(null);
@@ -1079,18 +1081,20 @@ export const LightboxComponent: React.FC<IProps> = ({
           <div className={CLASSNAME_FOOTER_LEFT}>
             {currentImage?.id !== undefined && (
               <>
-                <div>
-                  <OCounterButton
-                    onDecrement={onDecrementClick}
-                    onIncrement={onIncrementClick}
-                    onReset={onResetClick}
-                    value={currentImage?.o_counter ?? 0}
-                  />
-                </div>
+                {can(GQL.Permission.RecordActivity) && (
+                  <div>
+                    <OCounterButton
+                      onDecrement={onDecrementClick}
+                      onIncrement={onIncrementClick}
+                      onReset={onResetClick}
+                      value={currentImage?.o_counter ?? 0}
+                    />
+                  </div>
+                )}
                 <RatingSystem
                   value={currentImage?.rating100}
                   onSetRating={(v) => setRating(v)}
-                  disabled={!canModify}
+                  disabled={!canEdit}
                   clickToRate
                   withoutContext
                 />
@@ -1112,7 +1116,7 @@ export const LightboxComponent: React.FC<IProps> = ({
                   >
                     {title ?? ""}
                   </Link>
-                  {currentImage.id !== undefined && canDelete && (
+                  {currentImage.id !== undefined && canDeleteImage && (
                     <Button
                       className="minimal delete-button"
                       onClick={() => setDeleteTarget(currentImage)}

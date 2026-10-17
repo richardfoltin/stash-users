@@ -1,23 +1,22 @@
 # Keyboard shortcuts
 
-## Shortcuts that need a role
+## Shortcuts that need a permission
 
-Some shortcuts only work for users whose role allows the action. For other users, they do nothing. See [Users and Permissions](/help/Users.md).
+Some shortcuts only work for users whose role has the permission for the action. For other users, they do nothing. See [Users and Permissions](/help/Users.md).
 
-| Keyboard sequence | Action | Required role |
-|-------------------|--------|---------------|
-| `g z` | Go to Settings | `Admin` |
-| `d d` | Delete, wherever it is listed below | `Admin` |
-| `e` | Edit, edit tab, edit selected | `Editor` |
-| `n` | New object, new marker, new chapter | `Editor` |
-| `s s` | Save in an edit tab or edit mode | `Editor` |
-| `c c`, `c d` | Generate scene screenshot | `Editor` |
-| `r ...` | Set or unset rating | `Editor` |
-| `f` | Toggle favourite on performer, studio and tag pages | `Editor` |
-| `v t` | Set view to tagger | `Editor` |
-| `Ctrl + v` | Paste image in an edit tab or edit mode | `Editor` |
-
-`o` increments the O count of the signed-in user, for every role.
+| Keyboard sequence | Action | Required permission |
+|-------------------|--------|---------------------|
+| `g z` | Go to Settings | `Admin` role, or `Run library tasks` for the `Tasks` page |
+| `d d` | Delete, wherever it is listed below | `Delete` of the object |
+| `e` | Edit, edit tab, edit selected | `Edit` of the object |
+| `n` | New object, new marker, new chapter | `Edit` of the new object |
+| `s s` | Save in an edit tab or edit mode | `Edit` of the object |
+| `c c`, `c d` | Generate scene screenshot | `Edit` of scenes |
+| `r ...` | Set or unset rating | `Edit` of the object |
+| `f` | Toggle favourite on performer, studio and tag pages | `Edit` of the object |
+| `v t` | Set view to tagger | `Use scrapers` and `Edit` of the objects |
+| `Ctrl + v` | Paste image in an edit tab or edit mode | `Edit` of the object |
+| `o` | Increment the O count of the signed-in user | `Record own viewing activity` |
 
 ## Global shortcuts
 

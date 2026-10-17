@@ -71,7 +71,8 @@ export const GroupSubGroupsPanel: React.FC<IGroupSubGroupsPanel> =
     ({ active, group, extraOperations = [] }) => {
       const intl = useIntl();
       const Toast = useToast();
-      const { canModify } = usePermissions();
+      const { can } = usePermissions();
+      const canEdit = can(GQL.Permission.GroupsEdit);
       const { modal, showModal, closeModal } = useModal();
 
       const [reorderSubGroups] = useReorderSubGroupsMutation();
@@ -116,7 +117,7 @@ export const GroupSubGroupsPanel: React.FC<IGroupSubGroupsPanel> =
         {
           text: intl.formatMessage({ id: "actions.add_sub_groups" }),
           onClick: onAddSubGroups,
-          isDisplayed: canModify ? showWhenNoneSelected : () => false,
+          isDisplayed: canEdit ? showWhenNoneSelected : () => false,
           postRefetch: true,
           icon: faPlus,
           buttonVariant: "secondary",
@@ -126,7 +127,7 @@ export const GroupSubGroupsPanel: React.FC<IGroupSubGroupsPanel> =
             id: "actions.remove_from_containing_group",
           }),
           onClick: removeSubGroups,
-          isDisplayed: canModify ? showWhenSelected : () => false,
+          isDisplayed: canEdit ? showWhenSelected : () => false,
           postRefetch: true,
           icon: faMinus,
           buttonVariant: "danger",
@@ -156,7 +157,7 @@ export const GroupSubGroupsPanel: React.FC<IGroupSubGroupsPanel> =
             alterQuery={active}
             fromGroupId={group.id}
             otherOperations={otherOperations}
-            onMove={canModify ? onMove : undefined}
+            onMove={canEdit ? onMove : undefined}
             view={View.GroupSubGroups}
           />
         </>

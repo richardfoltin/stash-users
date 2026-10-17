@@ -100,7 +100,8 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
   const { configuration: stashConfig } = useConfigurationContext();
 
   const intl = useIntl();
-  const { isAdmin } = usePermissions();
+  const { isAdmin, can } = usePermissions();
+  const canScrape = can(GQL.Permission.UseScrapers);
 
   const schema = yup.object({
     name: yup.string().required(),
@@ -491,7 +492,7 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
   }
 
   function renderScraperMenu() {
-    if (!performer) {
+    if (!performer || !canScrape) {
       return;
     }
     const stashBoxes = stashConfig?.general.stashBoxes ?? [];
@@ -753,7 +754,11 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
         {renderDateField("career_start")}
         {renderDateField("career_end")}
 
-        {renderURLListField("urls", onScrapePerformerURL, urlScrapable)}
+        {renderURLListField(
+          "urls",
+          canScrape ? onScrapePerformerURL : undefined,
+          urlScrapable
+        )}
 
         {renderInputField("details", "textarea")}
         {renderTagsField()}
@@ -767,7 +772,7 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
             variant="success"
             className="mr-2 py-0"
             onClick={() => setIsStashIDSearchOpen(true)}
-            disabled={!stashConfig?.general.stashBoxes?.length}
+            disabled={!stashConfig?.general.stashBoxes?.length || !canScrape}
             title={intl.formatMessage({ id: "actions.add_stash_id" })}
           >
             <Icon icon={faPlus} />

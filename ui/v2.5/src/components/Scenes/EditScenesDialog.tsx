@@ -47,7 +47,7 @@ export const EditScenesDialog: React.FC<IListOperationProps> = (
 ) => {
   const intl = useIntl();
   const Toast = useToast();
-  const { isAdmin } = usePermissions();
+  const { can } = usePermissions();
 
   const [updateInput, setUpdateInput] = useState<GQL.BulkSceneUpdateInput>({
     ids: props.selected.map((scene) => {
@@ -300,7 +300,7 @@ export const EditScenesDialog: React.FC<IListOperationProps> = (
             />
           </BulkUpdateFormGroup>
 
-          {isAdmin && (
+          {can(GQL.Permission.ChangeSceneVisibility) && (
             <BulkUpdateFormGroup
               name="visibility"
               messageId="scene_visibility.visible_to"
@@ -312,7 +312,8 @@ export const EditScenesDialog: React.FC<IListOperationProps> = (
                 onChange={(event) =>
                   setUpdateField({
                     visibility:
-                      (event.currentTarget.value as GQL.RoleEnum) || undefined,
+                      (event.currentTarget.value as GQL.SceneVisibility) ||
+                      undefined,
                   })
                 }
               >

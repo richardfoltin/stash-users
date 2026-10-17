@@ -13,7 +13,8 @@ import (
 	"github.com/stashapp/stash/pkg/sliceutil"
 )
 
-// sceneVisibilityTable has the minimum role that can see the restricted scenes.
+// sceneVisibilityTable has the visibility of the scenes that not everyone sees,
+// stored as the role that could see them before the visibilities were named.
 const sceneVisibilityTable = "scene_visibility"
 
 var sceneVisibilitySchema = []string{
@@ -36,19 +37,35 @@ func ensureSceneVisibilityTable(db *sqlx.DB) error {
 	return nil
 }
 
-// hiddenVisibilities returns the scene visibilities that are hidden in the
-// context, quoted for SQL. Returns nil if all scenes are visible.
-func hiddenVisibilities(ctx context.Context) []string {
-	role, restricted := models.ViewerRole(ctx)
-	if !restricted {
-		return nil
+// storedVisibility returns the value of the visibility in the
+// scene_visibility table: the role that could see the scene before the
+// visibilities were named. Scenes visible to everyone have no row; READ
+// stands for them in queries.
+func storedVisibility(v models.SceneVisibility) string {
+	switch v {
+	case models.SceneVisibilityRestricted:
+		return "MODIFY"
+	case models.SceneVisibilityPrivate:
+		return "ADMIN"
 	}
 
+	return "READ"
+}
+
+// visibilityFromStored returns the visibility of a value of the
+// scene_visibility table.
+func visibilityFromStored(s string) models.SceneVisibility {
+	v, _ := models.ParseSceneVisibility(s)
+	return v
+}
+
+// hiddenVisibilities returns the stored values of the scene visibilities that
+// are hidden in the context, quoted for SQL. Returns nil if all scenes are
+// visible.
+func hiddenVisibilities(ctx context.Context) []string {
 	var ret []string
-	for _, v := range []models.RoleEnum{models.RoleEnumModify, models.RoleEnumAdmin} {
-		if !role.Implies(v) {
-			ret = append(ret, "'"+v.String()+"'")
-		}
+	for _, v := range models.HiddenSceneVisibilities(ctx) {
+		ret = append(ret, "'"+storedVisibility(v)+"'")
 	}
 
 	return ret
@@ -200,16 +217,16 @@ func updateSceneIDs(ctx context.Context, update models.UpdateIDs, joins *joinTab
 	return update, nil
 }
 
-func sceneVisibilityCriterionHandler(c *models.RoleCriterionInput) criterionHandlerFunc {
+func sceneVisibilityCriterionHandler(c *models.SceneVisibilityCriterionInput) criterionHandlerFunc {
 	return func(ctx context.Context, f *filterBuilder) {
 		if c == nil {
 			return
 		}
 
-		column := fmt.Sprintf("COALESCE((SELECT sv.min_role FROM %s AS sv WHERE sv.scene_id = scenes.id), '%s')", sceneVisibilityTable, models.RoleEnumRead)
+		column := fmt.Sprintf("COALESCE((SELECT sv.min_role FROM %s AS sv WHERE sv.scene_id = scenes.id), '%s')", sceneVisibilityTable, storedVisibility(models.SceneVisibilityEveryone))
 		values := make([]string, len(c.Value))
 		for i, v := range c.Value {
-			values[i] = v.String()
+			values[i] = storedVisibility(v)
 		}
 
 		enumCriterionHandler(c.Modifier, values, column)(ctx, f)
@@ -217,23 +234,23 @@ func sceneVisibilityCriterionHandler(c *models.RoleCriterionInput) criterionHand
 }
 
 // SetDefaultSceneVisibility sets the function that returns the visibility of new scenes.
-func (db *Database) SetDefaultSceneVisibility(fn func() models.RoleEnum) {
+func (db *Database) SetDefaultSceneVisibility(fn func() models.SceneVisibility) {
 	db.Scene.defaultVisibility = fn
 }
 
-func (qb *SceneStore) newSceneVisibility() models.RoleEnum {
+func (qb *SceneStore) newSceneVisibility() models.SceneVisibility {
 	if qb.defaultVisibility == nil {
-		return models.RoleEnumRead
+		return models.SceneVisibilityEveryone
 	}
 
 	if ret := qb.defaultVisibility(); ret.IsValid() {
 		return ret
 	}
 
-	return models.RoleEnumRead
+	return models.SceneVisibilityEveryone
 }
 
-func (qb *SceneStore) GetVisibility(ctx context.Context, id int) (models.RoleEnum, error) {
+func (qb *SceneStore) GetVisibility(ctx context.Context, id int) (models.SceneVisibility, error) {
 	query := fmt.Sprintf("SELECT min_role FROM %s WHERE scene_id = ?", sceneVisibilityTable)
 
 	var ret []string
@@ -242,16 +259,16 @@ func (qb *SceneStore) GetVisibility(ctx context.Context, id int) (models.RoleEnu
 	}
 
 	if len(ret) == 0 {
-		return models.RoleEnumRead, nil
+		return models.SceneVisibilityEveryone, nil
 	}
 
-	return models.RoleEnum(ret[0]), nil
+	return visibilityFromStored(ret[0]), nil
 }
 
-func (qb *SceneStore) GetManyVisibility(ctx context.Context, ids []int) ([]models.RoleEnum, error) {
-	ret := make([]models.RoleEnum, len(ids))
+func (qb *SceneStore) GetManyVisibility(ctx context.Context, ids []int) ([]models.SceneVisibility, error) {
+	ret := make([]models.SceneVisibility, len(ids))
 	for i := range ret {
-		ret[i] = models.RoleEnumRead
+		ret[i] = models.SceneVisibilityEveryone
 	}
 
 	idToIndex := idToIndexMap(ids)
@@ -267,7 +284,7 @@ func (qb *SceneStore) GetManyVisibility(ctx context.Context, ids []int) ([]model
 				return err
 			}
 
-			ret[idToIndex[id]] = models.RoleEnum(role)
+			ret[idToIndex[id]] = visibilityFromStored(role)
 			return nil
 		})
 	}); err != nil {
@@ -277,16 +294,16 @@ func (qb *SceneStore) GetManyVisibility(ctx context.Context, ids []int) ([]model
 	return ret, nil
 }
 
-func (qb *SceneStore) setVisibility(ctx context.Context, id int, role models.RoleEnum) error {
-	if !role.IsValid() {
-		return fmt.Errorf("invalid scene visibility: %q", role)
+func (qb *SceneStore) setVisibility(ctx context.Context, id int, visibility models.SceneVisibility) error {
+	if !visibility.IsValid() {
+		return fmt.Errorf("invalid scene visibility: %q", visibility)
 	}
 
 	var err error
-	if role == models.RoleEnumRead {
+	if visibility == models.SceneVisibilityEveryone {
 		_, err = dbWrapper.Exec(ctx, "DELETE FROM "+sceneVisibilityTable+" WHERE scene_id = ?", id)
 	} else {
-		_, err = dbWrapper.Exec(ctx, "INSERT INTO "+sceneVisibilityTable+" (scene_id, min_role) VALUES (?, ?) ON CONFLICT (scene_id) DO UPDATE SET min_role = excluded.min_role", id, role.String())
+		_, err = dbWrapper.Exec(ctx, "INSERT INTO "+sceneVisibilityTable+" (scene_id, min_role) VALUES (?, ?) ON CONFLICT (scene_id) DO UPDATE SET min_role = excluded.min_role", id, storedVisibility(visibility))
 	}
 
 	if err != nil {

@@ -1190,15 +1190,15 @@ func (_m *SceneReaderWriter) GetViewDates(ctx context.Context, relatedID int) ([
 }
 
 // GetManyVisibility provides a mock function with given fields: ctx, ids
-func (_m *SceneReaderWriter) GetManyVisibility(ctx context.Context, ids []int) ([]models.RoleEnum, error) {
+func (_m *SceneReaderWriter) GetManyVisibility(ctx context.Context, ids []int) ([]models.SceneVisibility, error) {
 	ret := _m.Called(ctx, ids)
 
-	var r0 []models.RoleEnum
-	if rf, ok := ret.Get(0).(func(context.Context, []int) []models.RoleEnum); ok {
+	var r0 []models.SceneVisibility
+	if rf, ok := ret.Get(0).(func(context.Context, []int) []models.SceneVisibility); ok {
 		r0 = rf(ctx, ids)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]models.RoleEnum)
+			r0 = ret.Get(0).([]models.SceneVisibility)
 		}
 	}
 
@@ -1213,14 +1213,14 @@ func (_m *SceneReaderWriter) GetManyVisibility(ctx context.Context, ids []int) (
 }
 
 // GetVisibility provides a mock function with given fields: ctx, id
-func (_m *SceneReaderWriter) GetVisibility(ctx context.Context, id int) (models.RoleEnum, error) {
+func (_m *SceneReaderWriter) GetVisibility(ctx context.Context, id int) (models.SceneVisibility, error) {
 	ret := _m.Called(ctx, id)
 
-	var r0 models.RoleEnum
-	if rf, ok := ret.Get(0).(func(context.Context, int) models.RoleEnum); ok {
+	var r0 models.SceneVisibility
+	if rf, ok := ret.Get(0).(func(context.Context, int) models.SceneVisibility); ok {
 		r0 = rf(ctx, id)
 	} else {
-		r0 = ret.Get(0).(models.RoleEnum)
+		r0 = ret.Get(0).(models.SceneVisibility)
 	}
 
 	var r1 error

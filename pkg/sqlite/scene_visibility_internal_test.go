@@ -10,8 +10,8 @@ import (
 )
 
 func TestSceneVisibleClause(t *testing.T) {
-	withUser := func(role models.RoleEnum) context.Context {
-		return models.SetCurrentUser(testCtx, models.User{Username: "user", Roles: models.Roles{role}})
+	withPermissions := func(permissions ...models.Permission) context.Context {
+		return models.SetCurrentUser(testCtx, models.User{Username: "user", Role: "custom", Permissions: permissions})
 	}
 
 	const hiddenFmt = "NOT EXISTS (SELECT 1 FROM scene_visibility AS hidden_scene WHERE hidden_scene.scene_id = scenes.id AND hidden_scene.min_role IN (%s))"
@@ -22,10 +22,12 @@ func TestSceneVisibleClause(t *testing.T) {
 		hidden string
 	}{
 		{"no user", testCtx, ""},
-		{"admin", withUser(models.RoleEnumAdmin), ""},
-		{"editor", withUser(models.RoleEnumModify), "'ADMIN'"},
-		{"viewer", withUser(models.RoleEnumRead), "'MODIFY', 'ADMIN'"},
-		{"viewer role", models.SetViewerRole(testCtx, models.RoleEnumRead), "'MODIFY', 'ADMIN'"},
+		{"admin", models.SetCurrentUser(testCtx, models.User{Username: "admin", Role: models.RoleIDAdmin}), ""},
+		{"restricted scenes", withPermissions(models.PermissionViewRestrictedScenes), "'ADMIN'"},
+		{"private scenes", withPermissions(models.PermissionViewPrivateScenes), "'MODIFY'"},
+		{"no permissions", withPermissions(), "'MODIFY', 'ADMIN'"},
+		{"public scenes only", models.SetPublicScenesOnly(testCtx), "'MODIFY', 'ADMIN'"},
+		{"all scenes visible", models.SetAllScenesVisible(withPermissions()), ""},
 	}
 
 	for _, tt := range tests {

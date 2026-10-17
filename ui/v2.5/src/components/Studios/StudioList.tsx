@@ -213,7 +213,7 @@ export const FilteredStudioList = PatchComponent(
   "FilteredStudioList",
   (props: IStudioList) => {
     const intl = useIntl();
-    const { isAdmin, canModify, canDelete } = usePermissions();
+    const { isAdmin, can } = usePermissions();
 
     const searchFocus = useFocus();
 
@@ -313,7 +313,7 @@ export const FilteredStudioList = PatchComponent(
       );
     }
 
-    const onEdit = canModify
+    const onEdit = can(GQL.Permission.StudiosEdit)
       ? () => {
           showModal(
             <EditStudiosDialog
@@ -324,7 +324,7 @@ export const FilteredStudioList = PatchComponent(
         }
       : undefined;
 
-    const onDelete = canDelete
+    const onDelete = can(GQL.Permission.StudiosDelete)
       ? () => {
           showModal(
             <DeleteEntityDialog

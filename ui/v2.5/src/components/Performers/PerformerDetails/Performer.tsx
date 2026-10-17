@@ -240,7 +240,8 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
     const Toast = useToast();
     const history = useHistory();
     const intl = useIntl();
-    const { isAdmin, canModify } = usePermissions();
+    const { isAdmin, can } = usePermissions();
+    const canEdit = can(GQL.Permission.PerformersEdit);
 
     // Configuration settings
     const { configuration } = useConfigurationContext();
@@ -317,14 +318,14 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
     }
 
     useRatingKeybinds(
-      canModify,
+      canEdit,
       configuration?.ui.ratingSystemOptions?.type,
       setRating
     );
 
     // set up hotkeys
     useEffect(() => {
-      if (canModify) {
+      if (canEdit) {
         Mousetrap.bind("e", () => toggleEditing());
         Mousetrap.bind("f", () => setFavorite(!performer.favorite));
       }
@@ -452,6 +453,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                     <FavoriteIcon
                       favorite={performer.favorite}
                       onToggleFavorite={(v) => setFavorite(v)}
+                      canEdit={canEdit}
                     />
                     <ExternalLinkButtons urls={performer.urls ?? undefined} />
                   </span>
@@ -461,7 +463,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                   <RatingSystem
                     value={performer.rating100}
                     onSetRating={(value) => setRating(value)}
-                    disabled={!canModify}
+                    disabled={!canEdit}
                     clickToRate
                     withoutContext
                   />
@@ -502,15 +504,19 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                         onSave={() => {}}
                         onImageChange={() => {}}
                         classNames="mb-2"
+                        canEdit={canEdit}
+                        canDelete={can(GQL.Permission.PerformersDelete)}
+                        canAutoTag={can(GQL.Permission.RunLibraryTasks)}
                         customButtons={
-                          isAdmin ? (
-                            <>
-                              {renderMergeButton()}
+                          <>
+                            {can(GQL.Permission.PerformersMerge) &&
+                              renderMergeButton()}
+                            {isAdmin && (
                               <div>
                                 <PerformerSubmitButton performer={performer} />
                               </div>
-                            </>
-                          ) : undefined
+                            )}
+                          </>
                         }
                       ></DetailsEditNavbar>
                     </Row>

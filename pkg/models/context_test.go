@@ -7,34 +7,34 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestViewerRole(t *testing.T) {
-	withUser := func(roles ...RoleEnum) context.Context {
-		return SetCurrentUser(context.Background(), User{Username: "user", Roles: roles})
+func TestHiddenSceneVisibilities(t *testing.T) {
+	withUser := func(role string, permissions ...Permission) context.Context {
+		return SetCurrentUser(context.Background(), User{Username: "user", Role: role, Permissions: permissions})
 	}
+	viewer := withUser(RoleIDViewer, PermissionRecordActivity)
+
+	restrictedAndPrivate := []SceneVisibility{SceneVisibilityRestricted, SceneVisibilityPrivate}
 
 	tests := []struct {
-		name           string
-		ctx            context.Context
-		wantRole       RoleEnum
-		wantRestricted bool
+		name string
+		ctx  context.Context
+		want []SceneVisibility
 	}{
-		{"no user", context.Background(), "", false},
-		{"admin", withUser(RoleEnumAdmin), "", false},
-		{"editor", withUser(RoleEnumModify), RoleEnumModify, true},
-		{"viewer", withUser(RoleEnumRead), RoleEnumRead, true},
-		{"locked user", withUser(), RoleEnumRead, true},
-		{"viewer role without user", SetViewerRole(context.Background(), RoleEnumRead), RoleEnumRead, true},
-		{"viewer role over admin", SetViewerRole(withUser(RoleEnumAdmin), RoleEnumRead), RoleEnumRead, true},
-		{"admin viewer role over viewer", SetViewerRole(withUser(RoleEnumRead), RoleEnumAdmin), RoleEnumAdmin, false},
+		{"no user", context.Background(), nil},
+		{"admin", withUser(RoleIDAdmin), nil},
+		{"viewer", viewer, restrictedAndPrivate},
+		{"editor", withUser(RoleIDEditor, PermissionViewRestrictedScenes), []SceneVisibility{SceneVisibilityPrivate}},
+		{"private only", withUser("custom", PermissionViewPrivateScenes), []SceneVisibility{SceneVisibilityRestricted}},
+		{"both", withUser("custom", PermissionViewRestrictedScenes, PermissionViewPrivateScenes), nil},
+		{"locked user", withUser(""), restrictedAndPrivate},
+		{"public only without user", SetPublicScenesOnly(context.Background()), restrictedAndPrivate},
+		{"public only over admin", SetPublicScenesOnly(withUser(RoleIDAdmin)), restrictedAndPrivate},
+		{"all visible over viewer", SetAllScenesVisible(viewer), nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			role, restricted := ViewerRole(tt.ctx)
-			assert.Equal(t, tt.wantRestricted, restricted, "restricted")
-			if tt.wantRestricted {
-				assert.Equal(t, tt.wantRole, role, "role")
-			}
+			assert.Equal(t, tt.want, HiddenSceneVisibilities(tt.ctx))
 		})
 	}
 }

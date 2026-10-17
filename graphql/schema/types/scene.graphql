@@ -36,6 +36,16 @@ type VideoCaption {
   caption_type: String!
 }
 
+"Who can see a scene. The Admin role sees every scene."
+enum SceneVisibility {
+  "Every user"
+  EVERYONE
+  "Users whose role has the VIEW_RESTRICTED_SCENES permission"
+  RESTRICTED
+  "Users whose role has the VIEW_PRIVATE_SCENES permission"
+  PRIVATE
+}
+
 type Scene {
   id: ID!
   title: String
@@ -82,8 +92,8 @@ type Scene {
 
   custom_fields: Map!
 
-  "The minimum role that can see the scene"
-  visibility: RoleEnum!
+  "Who can see the scene"
+  visibility: SceneVisibility!
 
   "Return valid stream paths"
   sceneStreams: [SceneStreamEndpoint!]!
@@ -171,8 +181,9 @@ input SceneUpdateInput {
 
   custom_fields: CustomFieldsInput
 
-  "The minimum role that can see the scene"
-  visibility: RoleEnum @hasRole(role: ADMIN)
+  "Who can see the scene"
+  visibility: SceneVisibility
+    @hasPermission(permission: CHANGE_SCENE_VISIBILITY)
 }
 
 enum BulkUpdateIdMode {
@@ -209,13 +220,14 @@ input BulkSceneUpdateInput {
 
   custom_fields: CustomFieldsInput
 
-  "The minimum role that can see the scenes"
-  visibility: RoleEnum @hasRole(role: ADMIN)
+  "Who can see the scenes"
+  visibility: SceneVisibility
+    @hasPermission(permission: CHANGE_SCENE_VISIBILITY)
 }
 
 input SceneDestroyInput {
   id: ID!
-  delete_file: Boolean
+  delete_file: Boolean @hasPermission(permission: MANAGE_FILES)
   delete_generated: Boolean
   "If true, delete the file entry from the database if the file is not assigned to any other objects"
   destroy_file_entry: Boolean
@@ -223,7 +235,7 @@ input SceneDestroyInput {
 
 input ScenesDestroyInput {
   ids: [ID!]!
-  delete_file: Boolean
+  delete_file: Boolean @hasPermission(permission: MANAGE_FILES)
   delete_generated: Boolean
   "If true, delete the file entry from the database if the file is not assigned to any other objects"
   destroy_file_entry: Boolean

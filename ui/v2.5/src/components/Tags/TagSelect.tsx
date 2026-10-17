@@ -75,9 +75,10 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
   const intl = useIntl();
   const maxOptionsShown =
     configuration?.ui.maxOptionsShown ?? defaultMaxOptionsShown;
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
   const defaultCreatable =
-    canModify && !configuration?.interface.disableDropdownCreate.tag;
+    can(GQL.Permission.TagsEdit) &&
+    !configuration?.interface.disableDropdownCreate.tag;
 
   const exclude = useMemo(() => props.excludeIds ?? [], [props.excludeIds]);
 

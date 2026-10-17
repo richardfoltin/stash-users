@@ -156,8 +156,8 @@ input ConfigGeneralInput {
   password: String
   "Maximum session cookie age"
   maxSessionAge: Int
-  "Visibility of new scenes: the minimum role that can see them"
-  defaultSceneVisibility: RoleEnum
+  "Visibility of new scenes"
+  defaultSceneVisibility: SceneVisibility
   "Name of the log file"
   logFile: String
   "Whether to also output to stderr"
@@ -302,8 +302,8 @@ type ConfigGeneralResult {
   password: String!
   "Maximum session cookie age"
   maxSessionAge: Int!
-  "Visibility of new scenes: the minimum role that can see them"
-  defaultSceneVisibility: RoleEnum!
+  "Visibility of new scenes"
+  defaultSceneVisibility: SceneVisibility!
   "Name of the log file"
   logFile: String
   "Whether to also output to stderr"

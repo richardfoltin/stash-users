@@ -12,6 +12,7 @@ import * as GQL from "src/core/generated-graphql";
 import { DisplayMode } from "src/models/list-filter/types";
 import { Criterion } from "src/models/list-filter/criteria/criterion";
 import { usePermissions } from "src/hooks/Permissions";
+import { editPermissions } from "src/utils/permissions";
 import {
   browserStorage,
   IListState,
@@ -342,11 +343,13 @@ export function useFilterOperations(props: {
 }
 
 // returns the display mode to show: the tagger falls back to the default
-// mode for users who cannot modify
+// mode for users who cannot use scrapers and edit the objects
 export function useDisplayMode(filter: ListFilterModel) {
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
+  const canTag =
+    can(GQL.Permission.UseScrapers) && can(editPermissions[filter.mode]);
 
-  if (!canModify && filter.displayMode === DisplayMode.Tagger) {
+  if (!canTag && filter.displayMode === DisplayMode.Tagger) {
     return filter.options.displayModeOptions[0];
   }
 

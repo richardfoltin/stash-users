@@ -372,7 +372,7 @@ export const FilteredPerformerList = PatchComponent(
   "FilteredPerformerList",
   (props: IPerformerList) => {
     const intl = useIntl();
-    const { isAdmin, canModify, canDelete } = usePermissions();
+    const { isAdmin, can } = usePermissions();
     const history = useHistory();
 
     const searchFocus = useFocus();
@@ -479,7 +479,7 @@ export const FilteredPerformerList = PatchComponent(
       );
     }
 
-    const onEdit = canModify
+    const onEdit = can(GQL.Permission.PerformersEdit)
       ? () => {
           showModal(
             <EditPerformersDialog
@@ -490,7 +490,7 @@ export const FilteredPerformerList = PatchComponent(
         }
       : undefined;
 
-    const onDelete = canDelete
+    const onDelete = can(GQL.Permission.PerformersDelete)
       ? () => {
           showModal(
             <DeleteEntityDialog
@@ -554,7 +554,7 @@ export const FilteredPerformerList = PatchComponent(
       {
         text: `${intl.formatMessage({ id: "actions.merge" })}…`,
         onClick: onMerge,
-        isDisplayed: () => isAdmin && hasSelection,
+        isDisplayed: () => can(GQL.Permission.PerformersMerge) && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export" }),

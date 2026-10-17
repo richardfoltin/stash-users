@@ -14,8 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func withRoles(roles ...models.RoleEnum) context.Context {
-	return models.SetCurrentUser(context.Background(), models.User{Username: "user", Roles: roles})
+// withRole returns a context of a user with the role with the ID, who is
+// locked if the ID is empty.
+func withRole(roleID string) context.Context {
+	return models.SetCurrentUser(context.Background(), models.User{Username: "user", Role: roleID})
 }
 
 func TestUserAPIKey(t *testing.T) {
@@ -28,10 +30,10 @@ func TestUserAPIKey(t *testing.T) {
 		want string
 	}{
 		{"no current user", context.Background(), "global-key"},
-		{"admin", withRoles(models.RoleEnumAdmin), "global-key"},
-		{"editor", withRoles(models.RoleEnumModify), ""},
-		{"viewer", withRoles(models.RoleEnumRead), ""},
-		{"locked user", withRoles(), ""},
+		{"admin", withRole(models.RoleIDAdmin), "global-key"},
+		{"editor", withRole(models.RoleIDEditor), ""},
+		{"viewer", withRole(models.RoleIDViewer), ""},
+		{"locked user", withRole(""), ""},
 	}
 
 	for _, tt := range tests {
@@ -46,9 +48,9 @@ func TestResolveCredentialID(t *testing.T) {
 	cfg := config.InitializeEmpty()
 	cfg.SetConfigFile(filepath.Join(t.TempDir(), "config.yml"))
 	cfg.SetString(config.JWTSignKey, "test-sign-key")
-	require.NoError(t, cfg.UserStore.CreateUser(ctx, models.User{Username: "admin", Roles: models.Roles{models.RoleEnumAdmin}}, "pw"))
-	require.NoError(t, cfg.UserStore.CreateUser(ctx, models.User{Username: "viewer", Roles: models.Roles{models.RoleEnumRead}}, "pw"))
-	require.NoError(t, cfg.UserStore.CreateUser(ctx, models.User{Username: "locked", Roles: models.Roles{}}, "pw"))
+	require.NoError(t, cfg.UserStore.CreateUser(ctx, models.User{Username: "admin", Role: models.RoleIDAdmin}, "pw"))
+	require.NoError(t, cfg.UserStore.CreateUser(ctx, models.User{Username: "viewer", Role: models.RoleIDViewer}, "pw"))
+	require.NoError(t, cfg.UserStore.CreateUser(ctx, models.User{Username: "locked"}, "pw"))
 
 	cid := func(username string) string {
 		return signedurl.GenerateCredentialID(userSigningKey(cfg, username), username)

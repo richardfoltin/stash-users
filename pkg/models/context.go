@@ -6,7 +6,7 @@ type contextKey int
 
 const (
 	currentUserKey contextKey = iota
-	viewerRoleKey
+	sceneAccessKey
 	firstAdminActivityKey
 )
 
@@ -23,28 +23,50 @@ func GetCurrentUser(ctx context.Context) *User {
 	return nil
 }
 
-// SetViewerRole limits the visible content to that of the role, regardless of
-// the current user. The ADMIN role lifts the limit.
-func SetViewerRole(ctx context.Context, role RoleEnum) context.Context {
-	return context.WithValue(ctx, viewerRoleKey, role)
+type sceneAccess int
+
+const (
+	allScenesVisible sceneAccess = iota
+	publicScenesOnly
+)
+
+// SetAllScenesVisible makes every scene visible, regardless of the current
+// user.
+func SetAllScenesVisible(ctx context.Context) context.Context {
+	return context.WithValue(ctx, sceneAccessKey, allScenesVisible)
 }
 
-// ViewerRole returns the role that limits the visible content, and false if
-// all content is visible: for admins and when there is no current user.
-func ViewerRole(ctx context.Context) (RoleEnum, bool) {
-	if role, ok := ctx.Value(viewerRoleKey).(RoleEnum); ok {
-		return role, role != RoleEnumAdmin
+// SetPublicScenesOnly limits the visible scenes to those visible to everyone,
+// regardless of the current user.
+func SetPublicScenesOnly(ctx context.Context) context.Context {
+	return context.WithValue(ctx, sceneAccessKey, publicScenesOnly)
+}
+
+// HiddenSceneVisibilities returns the visibilities of the scenes that are
+// hidden from the request, or nil if all scenes are visible: for admins and
+// when there is no current user.
+func HiddenSceneVisibilities(ctx context.Context) []SceneVisibility {
+	if access, ok := ctx.Value(sceneAccessKey).(sceneAccess); ok {
+		if access == publicScenesOnly {
+			return []SceneVisibility{SceneVisibilityRestricted, SceneVisibilityPrivate}
+		}
+		return nil
 	}
 
 	u := GetCurrentUser(ctx)
-	switch {
-	case u == nil || u.IsAdmin():
-		return "", false
-	case u.Roles.HasRole(RoleEnumModify):
-		return RoleEnumModify, true
-	default:
-		return RoleEnumRead, true
+	if u == nil || u.IsAdmin() {
+		return nil
 	}
+
+	var ret []SceneVisibility
+	if !u.HasPermission(PermissionViewRestrictedScenes) {
+		ret = append(ret, SceneVisibilityRestricted)
+	}
+	if !u.HasPermission(PermissionViewPrivateScenes) {
+		ret = append(ret, SceneVisibilityPrivate)
+	}
+
+	return ret
 }
 
 // WithFirstAdminActivity reads and writes the viewing activity of the first

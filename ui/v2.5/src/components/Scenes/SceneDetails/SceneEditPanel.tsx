@@ -151,8 +151,9 @@ export const SceneEditPanel: React.FC<IProps> = ({
   const { configuration: stashConfig } = useConfigurationContext();
 
   // new scenes get the default visibility
-  const { isAdmin } = usePermissions();
-  const editVisibility = isAdmin && !isNew;
+  const { can } = usePermissions();
+  const editVisibility = can(GQL.Permission.ChangeSceneVisibility) && !isNew;
+  const canScrape = can(GQL.Permission.UseScrapers);
 
   // Network state
   const [isLoading, setIsLoading] = useState(false);
@@ -180,7 +181,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
     details: yup.string().ensure(),
     cover_image: yup.string().nullable().optional(),
     custom_fields: yup.object().required().defined(),
-    visibility: yup.mixed<GQL.RoleEnum>(),
+    visibility: yup.mixed<GQL.SceneVisibility>(),
   });
 
   const initialValues = useMemo(
@@ -204,7 +205,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
       custom_fields: cloneDeep(scene.custom_fields ?? {}),
       // left out of the input unless it can be changed
       visibility: editVisibility
-        ? (scene.visibility ?? GQL.RoleEnum.Read)
+        ? (scene.visibility ?? GQL.SceneVisibility.Everyone)
         : undefined,
     }),
     [scene, initialCoverImage, editVisibility]
@@ -914,7 +915,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
 
             {renderURLListField(
               "urls",
-              onScrapeSceneURL,
+              canScrape ? onScrapeSceneURL : undefined,
               urlScrapable,
               "urls",
               urlProps
@@ -939,7 +940,9 @@ export const SceneEditPanel: React.FC<IProps> = ({
                 variant="success"
                 className="mr-2 py-0"
                 onClick={() => setIsStashIDSearchOpen(true)}
-                disabled={!stashConfig?.general.stashBoxes?.length}
+                disabled={
+                  !stashConfig?.general.stashBoxes?.length || !canScrape
+                }
                 title={intl.formatMessage({ id: "actions.add_stash_id" })}
               >
                 <Icon icon={faPlus} />

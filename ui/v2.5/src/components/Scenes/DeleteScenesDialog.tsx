@@ -8,6 +8,7 @@ import { useConfigurationContext } from "src/hooks/Config";
 import { FormattedMessage, useIntl } from "react-intl";
 import { faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 import { objectPath } from "src/core/files";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IDeleteSceneDialogProps {
   selected: GQL.SlimSceneDataFragment[];
@@ -35,9 +36,11 @@ export const DeleteScenesDialog: React.FC<IDeleteSceneDialogProps> = (
   );
 
   const { configuration: config } = useConfigurationContext();
+  const { can } = usePermissions();
+  const canManageFiles = can(GQL.Permission.ManageFiles);
 
   const [deleteFile, setDeleteFile] = useState<boolean>(
-    config?.defaults.deleteFile ?? false
+    canManageFiles && (config?.defaults.deleteFile ?? false)
   );
   const [deleteGenerated, setDeleteGenerated] = useState<boolean>(
     config?.defaults.deleteGenerated ?? true
@@ -52,7 +55,7 @@ export const DeleteScenesDialog: React.FC<IDeleteSceneDialogProps> = (
   function getScenesDeleteInput(): GQL.ScenesDestroyInput {
     return {
       ids: props.selected.map((scene) => scene.id),
-      delete_file: deleteFile,
+      delete_file: canManageFiles && deleteFile,
       delete_generated: deleteGenerated,
     };
   }
@@ -150,14 +153,16 @@ export const DeleteScenesDialog: React.FC<IDeleteSceneDialogProps> = (
       <p>{message}</p>
       {maybeRenderDeleteFileAlert()}
       <Form>
-        <Form.Check
-          id="delete-file"
-          checked={deleteFile}
-          label={intl.formatMessage({
-            id: "actions.delete_file_and_funscript",
-          })}
-          onChange={() => setDeleteFile(!deleteFile)}
-        />
+        {canManageFiles && (
+          <Form.Check
+            id="delete-file"
+            checked={deleteFile}
+            label={intl.formatMessage({
+              id: "actions.delete_file_and_funscript",
+            })}
+            onChange={() => setDeleteFile(!deleteFile)}
+          />
+        )}
         <Form.Check
           id="delete-generated"
           checked={deleteGenerated}

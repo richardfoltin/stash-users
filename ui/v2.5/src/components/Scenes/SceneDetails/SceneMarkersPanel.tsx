@@ -6,6 +6,7 @@ import * as GQL from "src/core/generated-graphql";
 import { MarkerWallPanel } from "src/components/Wall/WallPanel";
 import { PrimaryTags } from "./PrimaryTags";
 import { SceneMarkerForm } from "./SceneMarkerForm";
+import { DeleteSceneMarkersDialog } from "../DeleteSceneMarkersDialog";
 import { usePermissions } from "src/hooks/Permissions";
 
 interface ISceneMarkersPanelProps {
@@ -24,9 +25,13 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   const { data, loading } = GQL.useFindSceneMarkerTagsQuery({
     variables: { id: sceneId },
   });
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
+  const canModify = can(GQL.Permission.MarkersEdit);
+  const canDelete = can(GQL.Permission.MarkersDelete);
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
   const [editingMarker, setEditingMarker] =
+    useState<GQL.SceneMarkerDataFragment>();
+  const [deletingMarker, setDeletingMarker] =
     useState<GQL.SceneMarkerDataFragment>();
 
   // set up hotkeys
@@ -66,6 +71,12 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
 
   return (
     <div className="scene-markers-panel">
+      {deletingMarker && (
+        <DeleteSceneMarkersDialog
+          selected={[deletingMarker]}
+          onClose={() => setDeletingMarker(undefined)}
+        />
+      )}
       {canModify && (
         <Button onClick={() => onOpenEditor()}>
           <FormattedMessage id="actions.create_marker" />
@@ -77,6 +88,7 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
           onClickMarker={onClickMarker}
           onLoopMarker={onLoopMarker}
           onEdit={canModify ? onOpenEditor : undefined}
+          onDelete={!canModify && canDelete ? setDeletingMarker : undefined}
         />
       </div>
       <MarkerWallPanel

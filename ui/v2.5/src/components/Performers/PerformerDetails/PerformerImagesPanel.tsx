@@ -21,7 +21,8 @@ export const PerformerImagesPanel: React.FC<IPerformerImagesPanel> =
     const intl = useIntl();
     const Toast = useToast();
     const [updatePerformer] = usePerformerUpdate();
-    const { canModify } = usePermissions();
+    const { can } = usePermissions();
+    const canEdit = can(GQL.Permission.PerformersEdit);
     const filterHook = usePerformerFilterHook(performer);
 
     const handleSetAsPerformerImage = useCallback<
@@ -71,11 +72,11 @@ export const PerformerImagesPanel: React.FC<IPerformerImagesPanel> =
             id: "actions.set_as_performer_image",
           }),
           isDisplayed: (_result, _filter, selectedIds) =>
-            canModify && selectedIds.size === 1,
+            canEdit && selectedIds.size === 1,
           onClick: handleSetAsPerformerImage,
         },
       ],
-      [handleSetAsPerformerImage, intl, canModify]
+      [handleSetAsPerformerImage, intl, canEdit]
     );
 
     return (

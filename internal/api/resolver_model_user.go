@@ -10,10 +10,18 @@ func (r *userResolver) Name(ctx context.Context, obj *models.User) (string, erro
 	return obj.Username, nil
 }
 
-func (r *userResolver) Roles(ctx context.Context, obj *models.User) ([]models.RoleEnum, error) {
-	ret := make([]models.RoleEnum, len(obj.Roles))
-	for i, role := range obj.Roles {
-		ret[i] = models.RoleEnum(role)
+func (r *userResolver) Role(ctx context.Context, obj *models.User) (*models.Role, error) {
+	if obj.IsLocked() {
+		return nil, nil
 	}
-	return ret, nil
+
+	return r.userService.GetRole(ctx, obj.Role)
+}
+
+func (r *userResolver) Permissions(ctx context.Context, obj *models.User) ([]models.Permission, error) {
+	if obj.IsAdmin() {
+		return models.AllPermissions, nil
+	}
+
+	return obj.Permissions, nil
 }

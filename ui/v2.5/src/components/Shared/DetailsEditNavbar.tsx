@@ -5,7 +5,6 @@ import { useAutoTagTrigger } from "src/hooks/useAutoTagTrigger";
 import { ImageInput } from "./ImageInput";
 import { AutoTagConfirmDialog } from "./AutoTagConfirmDialog";
 import cx from "classnames";
-import { usePermissions } from "src/hooks/Permissions";
 
 interface IProps {
   objectName?: string;
@@ -28,11 +27,13 @@ interface IProps {
   customButtons?: JSX.Element;
   classNames?: string;
   children?: JSX.Element | JSX.Element[];
+  canEdit: boolean;
+  canDelete: boolean;
+  canAutoTag: boolean;
 }
 
 export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
   const intl = useIntl();
-  const { isAdmin, canModify, canDelete } = usePermissions();
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState<boolean>(false);
   const [isAutoTagAlertOpen, setIsAutoTagAlertOpen] = useState<boolean>(false);
 
@@ -42,7 +43,7 @@ export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
   );
 
   function renderEditButton() {
-    if (props.isNew || !canModify) return;
+    if (props.isNew || !props.canEdit) return;
     return (
       <Button
         variant="primary"
@@ -89,7 +90,7 @@ export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
   }
 
   function renderDeleteButton() {
-    if (props.isNew || props.isEditing || !canDelete) return;
+    if (props.isNew || props.isEditing || !props.canDelete) return;
     return (
       <Button
         variant="danger"
@@ -116,7 +117,7 @@ export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
   }
 
   function renderAutoTagButton() {
-    if (props.isNew || props.isEditing || !isAdmin) return;
+    if (props.isNew || props.isEditing || !props.canAutoTag) return;
 
     if (props.onAutoTag) {
       return (

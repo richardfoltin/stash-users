@@ -1,11 +1,11 @@
 import * as GQL from "src/core/generated-graphql";
 
-// the visibilities of a scene - the least privileged role that can see it -
-// from everyone to admins only
+// the visibilities of a scene - who can see it - from everyone to the users
+// who may see private scenes
 export const sceneVisibilities = [
-  GQL.RoleEnum.Read,
-  GQL.RoleEnum.Modify,
-  GQL.RoleEnum.Admin,
+  GQL.SceneVisibility.Everyone,
+  GQL.SceneVisibility.Restricted,
+  GQL.SceneVisibility.Private,
 ];
 
 // returns the message id of the name of the visibility

@@ -12,7 +12,7 @@ import (
 // SceneVisibilityLoaderConfig captures the config to create a new SceneVisibilityLoader
 type SceneVisibilityLoaderConfig struct {
 	// Fetch is a method that provides the data for the loader
-	Fetch func(keys []int) ([]models.RoleEnum, []error)
+	Fetch func(keys []int) ([]models.SceneVisibility, []error)
 
 	// Wait is how long wait before sending a batch
 	Wait time.Duration
@@ -33,7 +33,7 @@ func NewSceneVisibilityLoader(config SceneVisibilityLoaderConfig) *SceneVisibili
 // SceneVisibilityLoader batches and caches requests
 type SceneVisibilityLoader struct {
 	// this method provides the data for the loader
-	fetch func(keys []int) ([]models.RoleEnum, []error)
+	fetch func(keys []int) ([]models.SceneVisibility, []error)
 
 	// how long to done before sending a batch
 	wait time.Duration
@@ -44,7 +44,7 @@ type SceneVisibilityLoader struct {
 	// INTERNAL
 
 	// lazily created cache
-	cache map[int]models.RoleEnum
+	cache map[int]models.SceneVisibility
 
 	// the current batch. keys will continue to be collected until timeout is hit,
 	// then everything will be sent to the fetch method and out to the listeners
@@ -56,25 +56,25 @@ type SceneVisibilityLoader struct {
 
 type sceneVisibilityLoaderBatch struct {
 	keys    []int
-	data    []models.RoleEnum
+	data    []models.SceneVisibility
 	error   []error
 	closing bool
 	done    chan struct{}
 }
 
-// Load a RoleEnum by key, batching and caching will be applied automatically
-func (l *SceneVisibilityLoader) Load(key int) (models.RoleEnum, error) {
+// Load a SceneVisibility by key, batching and caching will be applied automatically
+func (l *SceneVisibilityLoader) Load(key int) (models.SceneVisibility, error) {
 	return l.LoadThunk(key)()
 }
 
-// LoadThunk returns a function that when called will block waiting for a RoleEnum.
+// LoadThunk returns a function that when called will block waiting for a SceneVisibility.
 // This method should be used if you want one goroutine to make requests to many
 // different data loaders without blocking until the thunk is called.
-func (l *SceneVisibilityLoader) LoadThunk(key int) func() (models.RoleEnum, error) {
+func (l *SceneVisibilityLoader) LoadThunk(key int) func() (models.SceneVisibility, error) {
 	l.mu.Lock()
 	if it, ok := l.cache[key]; ok {
 		l.mu.Unlock()
-		return func() (models.RoleEnum, error) {
+		return func() (models.SceneVisibility, error) {
 			return it, nil
 		}
 	}
@@ -85,10 +85,10 @@ func (l *SceneVisibilityLoader) LoadThunk(key int) func() (models.RoleEnum, erro
 	pos := batch.keyIndex(l, key)
 	l.mu.Unlock()
 
-	return func() (models.RoleEnum, error) {
+	return func() (models.SceneVisibility, error) {
 		<-batch.done
 
-		var data models.RoleEnum
+		var data models.SceneVisibility
 		if pos < len(batch.data) {
 			data = batch.data[pos]
 		}
@@ -113,43 +113,43 @@ func (l *SceneVisibilityLoader) LoadThunk(key int) func() (models.RoleEnum, erro
 
 // LoadAll fetches many keys at once. It will be broken into appropriate sized
 // sub batches depending on how the loader is configured
-func (l *SceneVisibilityLoader) LoadAll(keys []int) ([]models.RoleEnum, []error) {
-	results := make([]func() (models.RoleEnum, error), len(keys))
+func (l *SceneVisibilityLoader) LoadAll(keys []int) ([]models.SceneVisibility, []error) {
+	results := make([]func() (models.SceneVisibility, error), len(keys))
 
 	for i, key := range keys {
 		results[i] = l.LoadThunk(key)
 	}
 
-	roleEnums := make([]models.RoleEnum, len(keys))
+	sceneVisibilitys := make([]models.SceneVisibility, len(keys))
 	errors := make([]error, len(keys))
 	for i, thunk := range results {
-		roleEnums[i], errors[i] = thunk()
+		sceneVisibilitys[i], errors[i] = thunk()
 	}
-	return roleEnums, errors
+	return sceneVisibilitys, errors
 }
 
-// LoadAllThunk returns a function that when called will block waiting for a RoleEnums.
+// LoadAllThunk returns a function that when called will block waiting for a SceneVisibilitys.
 // This method should be used if you want one goroutine to make requests to many
 // different data loaders without blocking until the thunk is called.
-func (l *SceneVisibilityLoader) LoadAllThunk(keys []int) func() ([]models.RoleEnum, []error) {
-	results := make([]func() (models.RoleEnum, error), len(keys))
+func (l *SceneVisibilityLoader) LoadAllThunk(keys []int) func() ([]models.SceneVisibility, []error) {
+	results := make([]func() (models.SceneVisibility, error), len(keys))
 	for i, key := range keys {
 		results[i] = l.LoadThunk(key)
 	}
-	return func() ([]models.RoleEnum, []error) {
-		roleEnums := make([]models.RoleEnum, len(keys))
+	return func() ([]models.SceneVisibility, []error) {
+		sceneVisibilitys := make([]models.SceneVisibility, len(keys))
 		errors := make([]error, len(keys))
 		for i, thunk := range results {
-			roleEnums[i], errors[i] = thunk()
+			sceneVisibilitys[i], errors[i] = thunk()
 		}
-		return roleEnums, errors
+		return sceneVisibilitys, errors
 	}
 }
 
 // Prime the cache with the provided key and value. If the key already exists, no change is made
 // and false is returned.
 // (To forcefully prime the cache, clear the key first with loader.clear(key).prime(key, value).)
-func (l *SceneVisibilityLoader) Prime(key int, value models.RoleEnum) bool {
+func (l *SceneVisibilityLoader) Prime(key int, value models.SceneVisibility) bool {
 	l.mu.Lock()
 	var found bool
 	if _, found = l.cache[key]; !found {
@@ -166,9 +166,9 @@ func (l *SceneVisibilityLoader) Clear(key int) {
 	l.mu.Unlock()
 }
 
-func (l *SceneVisibilityLoader) unsafeSet(key int, value models.RoleEnum) {
+func (l *SceneVisibilityLoader) unsafeSet(key int, value models.SceneVisibility) {
 	if l.cache == nil {
-		l.cache = map[int]models.RoleEnum{}
+		l.cache = map[int]models.SceneVisibility{}
 	}
 	l.cache[key] = value
 }

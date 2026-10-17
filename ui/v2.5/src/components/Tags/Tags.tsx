@@ -6,6 +6,7 @@ import Tag from "./TagDetails/Tag";
 import TagCreate from "./TagDetails/TagCreate";
 import { FilteredTagList } from "./TagList";
 import { usePermissions } from "src/hooks/Permissions";
+import * as GQL from "src/core/generated-graphql";
 import { PermissionDenied } from "../PermissionDenied";
 
 const Tags: React.FC = () => {
@@ -13,7 +14,7 @@ const Tags: React.FC = () => {
 };
 
 const TagRoutes: React.FC = () => {
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
   const titleProps = useTitleProps({ id: "tags" });
   return (
     <>
@@ -23,7 +24,9 @@ const TagRoutes: React.FC = () => {
         <Route
           exact
           path="/tags/new"
-          component={canModify ? TagCreate : PermissionDenied}
+          component={
+            can(GQL.Permission.TagsEdit) ? TagCreate : PermissionDenied
+          }
         />
         <Route path="/tags/:id/:tab?" component={Tag} />
       </Switch>

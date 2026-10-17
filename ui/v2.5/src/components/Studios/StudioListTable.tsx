@@ -25,7 +25,7 @@ export const StudioListTable: React.FC<IStudioListTableProps> = ({
   onSelectChange,
 }) => {
   const intl = useIntl();
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
   const [updateStudio] = useStudioUpdate();
   const { configuration } = useConfigurationContext();
   const showChildContent = configuration?.ui?.showChildStudioContent ?? false;
@@ -79,7 +79,7 @@ export const StudioListTable: React.FC<IStudioListTableProps> = ({
     <RatingSystem
       value={studio.rating100}
       onSetRating={(value) => setRating(value, studio.id)}
-      disabled={!canModify}
+      disabled={!can(GQL.Permission.StudiosEdit)}
       clickToRate
     />
   );

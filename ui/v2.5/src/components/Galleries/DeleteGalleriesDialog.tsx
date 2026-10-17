@@ -7,6 +7,7 @@ import { useToast } from "src/hooks/Toast";
 import { useConfigurationContext } from "src/hooks/Config";
 import { FormattedMessage, useIntl } from "react-intl";
 import { faTrashAlt } from "@fortawesome/free-solid-svg-icons";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IDeleteGalleryDialogProps {
   selected: GQL.SlimGalleryDataFragment[];
@@ -34,9 +35,11 @@ export const DeleteGalleriesDialog: React.FC<IDeleteGalleryDialogProps> = (
   );
 
   const { configuration: config } = useConfigurationContext();
+  const { can } = usePermissions();
+  const canManageFiles = can(GQL.Permission.ManageFiles);
 
   const [deleteFile, setDeleteFile] = useState<boolean>(
-    config?.defaults.deleteFile ?? false
+    canManageFiles && (config?.defaults.deleteFile ?? false)
   );
   const [deleteGenerated, setDeleteGenerated] = useState<boolean>(
     config?.defaults.deleteGenerated ?? true
@@ -51,7 +54,7 @@ export const DeleteGalleriesDialog: React.FC<IDeleteGalleryDialogProps> = (
   function getGalleriesDeleteInput(): GQL.GalleryDestroyInput {
     return {
       ids: props.selected.map((gallery) => gallery.id!),
-      delete_file: deleteFile,
+      delete_file: canManageFiles && deleteFile,
       delete_generated: deleteGenerated,
     };
   }
@@ -143,14 +146,16 @@ export const DeleteGalleriesDialog: React.FC<IDeleteGalleryDialogProps> = (
       <p>{message}</p>
       {maybeRenderDeleteFileAlert()}
       <Form>
-        <Form.Check
-          id="delete-file"
-          checked={deleteFile}
-          label={intl.formatMessage({
-            id: "dialogs.delete_gallery_files",
-          })}
-          onChange={() => setDeleteFile(!deleteFile)}
-        />
+        {canManageFiles && (
+          <Form.Check
+            id="delete-file"
+            checked={deleteFile}
+            label={intl.formatMessage({
+              id: "dialogs.delete_gallery_files",
+            })}
+            onChange={() => setDeleteFile(!deleteFile)}
+          />
+        )}
         <Form.Check
           id="delete-generated"
           checked={deleteGenerated}

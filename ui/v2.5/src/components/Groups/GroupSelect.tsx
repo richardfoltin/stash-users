@@ -71,9 +71,10 @@ export const GroupSelect: React.FC<
   const intl = useIntl();
   const maxOptionsShown =
     configuration?.ui.maxOptionsShown ?? defaultMaxOptionsShown;
-  const { canModify } = usePermissions();
+  const { can } = usePermissions();
   const defaultCreatable =
-    canModify && !configuration?.interface.disableDropdownCreate.movie;
+    can(GQL.Permission.GroupsEdit) &&
+    !configuration?.interface.disableDropdownCreate.movie;
 
   const exclude = useMemo(() => props.excludeIds ?? [], [props.excludeIds]);
 

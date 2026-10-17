@@ -24,7 +24,7 @@ export const GalleryAddPanel: React.FC<IGalleryAddProps> = PatchComponent(
   ({ active, gallery, extraOperations = [] }) => {
     const Toast = useToast();
     const intl = useIntl();
-    const { canModify } = usePermissions();
+    const { can } = usePermissions();
 
     const filterHook = useCallback(
       (filter: ListFilterModel) => {
@@ -98,7 +98,9 @@ export const GalleryAddPanel: React.FC<IGalleryAddProps> = PatchComponent(
           { entityType: intl.formatMessage({ id: "gallery" }) }
         ),
         onClick: addImages,
-        isDisplayed: canModify ? showWhenSelected : () => false,
+        isDisplayed: can(GQL.Permission.GalleriesEdit)
+          ? showWhenSelected
+          : () => false,
         postRefetch: true,
         icon: faPlus,
       },

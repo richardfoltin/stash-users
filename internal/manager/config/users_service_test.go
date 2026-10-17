@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	adminRole  = models.Roles{models.RoleEnumAdmin}
-	modifyRole = models.Roles{models.RoleEnumModify}
-	readRole   = models.Roles{models.RoleEnumRead}
+	adminRole  = models.RoleIDAdmin
+	modifyRole = models.RoleIDEditor
+	readRole   = models.RoleIDViewer
 )
 
 // newTestService returns a user service backed by an empty config file.
@@ -35,10 +35,10 @@ func TestUserService_FirstUserMustBeAdmin(t *testing.T) {
 	s, _ := newTestService(t)
 
 	assert.False(t, s.LoginRequired(ctx))
-	assert.ErrorIs(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole}, "pw"), user.ErrFirstUserNotAdmin)
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: adminRole}, "pw"))
+	assert.ErrorIs(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: readRole}, "pw"), user.ErrFirstUserNotAdmin)
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Role: adminRole}, "pw"))
 	assert.True(t, s.LoginRequired(ctx))
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole}, "pw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: readRole}, "pw"))
 }
 
 func TestUserService_CreateValidation(t *testing.T) {
@@ -51,10 +51,10 @@ func TestUserService_CreateValidation(t *testing.T) {
 		password string
 		want     error
 	}{
-		{"empty username", models.User{Username: "", Roles: adminRole}, "pw", user.ErrEmptyUsername},
-		{"username with whitespace", models.User{Username: " admin", Roles: adminRole}, "pw", user.ErrUsernameHasWhitespace},
-		{"empty password", models.User{Username: "admin", Roles: adminRole}, "", user.ErrEmptyPassword},
-		{"invalid role", models.User{Username: "admin", Roles: models.Roles{"SUPERUSER"}}, "pw", user.ErrInvalidRole},
+		{"empty username", models.User{Username: "", Role: adminRole}, "pw", user.ErrEmptyUsername},
+		{"username with whitespace", models.User{Username: " admin", Role: adminRole}, "pw", user.ErrUsernameHasWhitespace},
+		{"empty password", models.User{Username: "admin", Role: adminRole}, "", user.ErrEmptyPassword},
+		{"unknown role", models.User{Username: "admin", Role: "SUPERUSER"}, "pw", user.ErrRoleNotExist},
 	}
 
 	for _, tt := range tests {
@@ -63,43 +63,43 @@ func TestUserService_CreateValidation(t *testing.T) {
 		})
 	}
 
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: adminRole}, "pw"))
-	assert.ErrorIs(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: adminRole}, "pw"), user.ErrUserAlreadyExists)
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Role: adminRole}, "pw"))
+	assert.ErrorIs(t, s.CreateUser(ctx, models.User{Username: "admin", Role: adminRole}, "pw"), user.ErrUserAlreadyExists)
 }
 
 func TestUserService_LastAdminProtection(t *testing.T) {
 	ctx := context.Background()
 	s, _ := newTestService(t)
 
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: adminRole}, "pw"))
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "editor", Roles: modifyRole}, "pw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Role: adminRole}, "pw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "editor", Role: modifyRole}, "pw"))
 
 	// the last admin cannot be demoted or removed - even if it is the only user
-	assert.ErrorIs(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Roles: modifyRole}), user.ErrRemoveLastAdminRole)
-	assert.ErrorIs(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Roles: models.Roles{}}), user.ErrRemoveLastAdminRole)
+	assert.ErrorIs(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Role: modifyRole}), user.ErrRemoveLastAdminRole)
+	assert.ErrorIs(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin"}), user.ErrRemoveLastAdminRole)
 	assert.ErrorIs(t, s.DeleteUser(ctx, "admin"), user.ErrDeleteLastAdminUser)
 
 	// renaming the last admin is allowed
-	require.NoError(t, s.UpdateUser(ctx, "admin", models.User{Username: "root", Roles: adminRole}))
+	require.NoError(t, s.UpdateUser(ctx, "admin", models.User{Username: "root", Role: adminRole}))
 
 	// non-admins can be removed
 	require.NoError(t, s.DeleteUser(ctx, "editor"))
 	assert.ErrorIs(t, s.DeleteUser(ctx, "root"), user.ErrDeleteLastAdminUser)
 
 	// with a second admin, either admin can be demoted or removed
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin2", Roles: adminRole}, "pw"))
-	require.NoError(t, s.UpdateUser(ctx, "root", models.User{Username: "root", Roles: readRole}))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin2", Role: adminRole}, "pw"))
+	require.NoError(t, s.UpdateUser(ctx, "root", models.User{Username: "root", Role: readRole}))
 	assert.ErrorIs(t, s.DeleteUser(ctx, "admin2"), user.ErrDeleteLastAdminUser)
-	require.NoError(t, s.UpdateUser(ctx, "root", models.User{Username: "root", Roles: adminRole}))
+	require.NoError(t, s.UpdateUser(ctx, "root", models.User{Username: "root", Role: adminRole}))
 	require.NoError(t, s.DeleteUser(ctx, "admin2"))
 
 	users, err := s.AllUsers(ctx)
 	require.NoError(t, err)
 	require.Len(t, users, 1)
 	assert.Equal(t, "root", users[0].Username)
-	assert.Equal(t, adminRole, users[0].Roles)
+	assert.Equal(t, adminRole, users[0].Role)
 
-	assert.ErrorIs(t, s.UpdateUser(ctx, "missing", models.User{Username: "missing", Roles: readRole}), user.ErrUserNotExist)
+	assert.ErrorIs(t, s.UpdateUser(ctx, "missing", models.User{Username: "missing", Role: readRole}), user.ErrUserNotExist)
 	assert.ErrorIs(t, s.DeleteUser(ctx, "missing"), user.ErrUserNotExist)
 }
 
@@ -120,12 +120,12 @@ func TestUserService_LegacyUserIsAdmin(t *testing.T) {
 	require.NoError(t, err)
 	u, err := s.AuthenticateSession(ctx, "legacy", token)
 	require.NoError(t, err)
-	assert.Equal(t, adminRole, u.Roles)
+	assert.Equal(t, adminRole, u.Role)
 
 	// the legacy user is the last admin
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole}, "pw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: readRole}, "pw"))
 	assert.ErrorIs(t, s.DeleteUser(ctx, "legacy"), user.ErrDeleteLastAdminUser)
-	assert.ErrorIs(t, s.UpdateUser(ctx, "legacy", models.User{Username: "legacy", Roles: readRole}), user.ErrRemoveLastAdminRole)
+	assert.ErrorIs(t, s.UpdateUser(ctx, "legacy", models.User{Username: "legacy", Role: readRole}), user.ErrRemoveLastAdminRole)
 
 	// and can still log in after being moved into the users list, keeping
 	// existing sessions
@@ -138,8 +138,8 @@ func TestUserService_Authentication(t *testing.T) {
 	ctx := context.Background()
 	s, _ := newTestService(t)
 
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: adminRole}, "adminpw"))
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole}, "viewerpw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Role: adminRole}, "adminpw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: readRole}, "viewerpw"))
 
 	assert.NoError(t, s.ValidateCredentials(ctx, "viewer", "viewerpw"))
 	assert.ErrorIs(t, s.ValidateCredentials(ctx, "viewer", "adminpw"), user.ErrAccessDenied)
@@ -152,14 +152,14 @@ func TestUserService_Authentication(t *testing.T) {
 
 	u, err := s.AuthenticateSession(ctx, "viewer", viewerToken)
 	require.NoError(t, err)
-	assert.Equal(t, readRole, u.Roles)
+	assert.Equal(t, readRole, u.Role)
 	_, err = s.AuthenticateSession(ctx, "viewer", "")
 	assert.ErrorIs(t, err, user.ErrAccessDenied, "session without token")
 	_, err = s.AuthenticateSession(ctx, "viewer", "wrong")
 	assert.ErrorIs(t, err, user.ErrAccessDenied)
 
 	// a user without roles is locked
-	require.NoError(t, s.UpdateUser(ctx, "viewer", models.User{Username: "viewer", Roles: models.Roles{}}))
+	require.NoError(t, s.UpdateUser(ctx, "viewer", models.User{Username: "viewer"}))
 	assert.ErrorIs(t, s.ValidateCredentials(ctx, "viewer", "viewerpw"), user.ErrAccessDenied)
 	_, err = s.AuthenticateSession(ctx, "viewer", viewerToken)
 	assert.ErrorIs(t, err, user.ErrAccessDenied)
@@ -171,7 +171,7 @@ func TestUserService_Authentication(t *testing.T) {
 
 	// a user created again with the same name does not get the sessions of
 	// the deleted user
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole}, "viewerpw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: readRole}, "viewerpw"))
 	_, err = s.AuthenticateSession(ctx, "viewer", viewerToken)
 	assert.ErrorIs(t, err, user.ErrAccessDenied)
 
@@ -203,8 +203,8 @@ func TestUserService_PasswordTooLong(t *testing.T) {
 
 	long := strings.Repeat("a", user.MaxPasswordLength+1)
 
-	assert.ErrorIs(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: adminRole}, long), user.ErrPasswordTooLong)
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: adminRole}, "pw"))
+	assert.ErrorIs(t, s.CreateUser(ctx, models.User{Username: "admin", Role: adminRole}, long), user.ErrPasswordTooLong)
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Role: adminRole}, "pw"))
 	assert.ErrorIs(t, s.ChangeUserPassword(ctx, "admin", long), user.ErrPasswordTooLong)
 	assert.ErrorIs(t, s.ChangePassword(ctx, "admin", "pw", long), user.ErrPasswordTooLong)
 	assert.NoError(t, s.ValidateCredentials(ctx, "admin", "pw"))
@@ -230,23 +230,23 @@ func TestUserService_APIKey(t *testing.T) {
 	cfg.SetString(config.ApiKey, key)
 	u, err := s.AuthenticateByAPIKey(ctx, key)
 	require.NoError(t, err)
-	assert.Equal(t, adminRole, u.Roles)
+	assert.Equal(t, adminRole, u.Role)
 	_, err = s.AuthenticateByAPIKey(ctx, "wrong-key")
 	assert.ErrorIs(t, err, user.ErrAccessDenied)
 
 	// with users, the user of the key must exist and be an admin
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: adminRole}, "pw"))
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin2", Roles: adminRole}, "pw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Role: adminRole}, "pw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin2", Role: adminRole}, "pw"))
 	u, err = s.AuthenticateByAPIKey(ctx, key)
 	require.NoError(t, err)
 	assert.Equal(t, "admin", u.Username)
-	assert.Equal(t, adminRole, u.Roles)
+	assert.Equal(t, adminRole, u.Role)
 
-	require.NoError(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Roles: modifyRole}))
+	require.NoError(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Role: modifyRole}))
 	_, err = s.AuthenticateByAPIKey(ctx, key)
 	assert.ErrorIs(t, err, user.ErrAccessDenied, "demoted user")
 
-	require.NoError(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Roles: adminRole}))
+	require.NoError(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Role: adminRole}))
 	_, err = s.AuthenticateByAPIKey(ctx, key)
 	require.NoError(t, err)
 
@@ -268,8 +268,8 @@ func TestUserService_AutoLoginUser(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, u, "no users")
 
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Roles: adminRole}, "adminpw"))
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "editor", Roles: modifyRole}, "editorpw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "admin", Role: adminRole}, "adminpw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "editor", Role: modifyRole}, "editorpw"))
 
 	u, _, err = s.AutoLoginUser(ctx)
 	require.NoError(t, err)
@@ -277,12 +277,12 @@ func TestUserService_AutoLoginUser(t *testing.T) {
 
 	// the token of the marked user authenticates its sessions, like the
 	// token of a password login
-	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: modifyRole, AutoLogin: true}))
+	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Role: modifyRole, AutoLogin: true}))
 	u, token, err := s.AutoLoginUser(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, u)
 	assert.Equal(t, "editor", u.Username)
-	assert.Equal(t, modifyRole, u.Roles)
+	assert.Equal(t, modifyRole, u.Role)
 	loginToken, err := s.Login(ctx, "editor", "editorpw")
 	require.NoError(t, err)
 	assert.Equal(t, loginToken, token)
@@ -301,25 +301,25 @@ func TestUserService_AutoLoginUser(t *testing.T) {
 	assert.NoError(t, err)
 
 	// a locked user is not logged in automatically
-	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: models.Roles{}, AutoLogin: true}))
+	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", AutoLogin: true}))
 	u, _, err = s.AutoLoginUser(ctx)
 	require.NoError(t, err)
 	assert.Nil(t, u, "locked user")
 
 	// nor is a removed user
-	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: modifyRole, AutoLogin: true}))
+	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Role: modifyRole, AutoLogin: true}))
 	require.NoError(t, s.DeleteUser(ctx, "editor"))
 	u, _, err = s.AutoLoginUser(ctx)
 	require.NoError(t, err)
 	assert.Nil(t, u, "removed user")
 
 	// nor is a user whose mark was cleared
-	require.NoError(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Roles: adminRole, AutoLogin: true}))
+	require.NoError(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Role: adminRole, AutoLogin: true}))
 	u, _, err = s.AutoLoginUser(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, u)
 	assert.Equal(t, "admin", u.Username)
-	require.NoError(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Roles: adminRole}))
+	require.NoError(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Role: adminRole}))
 	u, _, err = s.AutoLoginUser(ctx)
 	require.NoError(t, err)
 	assert.Nil(t, u, "mark cleared")
@@ -366,18 +366,18 @@ func TestUserService_FirstPassword(t *testing.T) {
 func TestUserService_AutoLoginWithoutPassword(t *testing.T) {
 	ctx := context.Background()
 	s := newFirstAdminService(t)
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "editor", Roles: modifyRole}, "pw"))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "editor", Role: modifyRole}, "pw"))
 
 	// auto login cannot be turned off for the user without a password
-	assert.ErrorIs(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Roles: adminRole}), user.ErrAutoLoginNoPassword)
+	assert.ErrorIs(t, s.UpdateUser(ctx, "admin", models.User{Username: "admin", Role: adminRole}), user.ErrAutoLoginNoPassword)
 
 	// nor given to another user, which would turn it off for that user
-	assert.ErrorIs(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: modifyRole, AutoLogin: true}), user.ErrAutoLoginUserNoPassword)
-	assert.ErrorIs(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole, AutoLogin: true}, "pw"), user.ErrAutoLoginUserNoPassword)
+	assert.ErrorIs(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Role: modifyRole, AutoLogin: true}), user.ErrAutoLoginUserNoPassword)
+	assert.ErrorIs(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: readRole, AutoLogin: true}, "pw"), user.ErrAutoLoginUserNoPassword)
 
 	// other changes are allowed
-	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: readRole}))
-	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Roles: readRole}, "pw"))
+	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Role: readRole}))
+	require.NoError(t, s.CreateUser(ctx, models.User{Username: "viewer", Role: readRole}, "pw"))
 
 	u, _, err := s.AutoLoginUser(ctx)
 	require.NoError(t, err)
@@ -386,14 +386,62 @@ func TestUserService_AutoLoginWithoutPassword(t *testing.T) {
 
 	// once the user has a password, auto login can be moved and turned off
 	require.NoError(t, s.ChangeUserPassword(ctx, "admin", "pw"))
-	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: readRole, AutoLogin: true}))
+	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Role: readRole, AutoLogin: true}))
 	u, _, err = s.AutoLoginUser(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, u)
 	assert.Equal(t, "editor", u.Username)
 
-	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: readRole}))
+	require.NoError(t, s.UpdateUser(ctx, "editor", models.User{Username: "editor", Role: readRole}))
 	u, _, err = s.AutoLoginUser(ctx)
 	require.NoError(t, err)
 	assert.Nil(t, u)
+}
+
+// TestUserService_RoleValidation checks the role names and permissions that
+// create and update reject.
+func TestUserService_RoleValidation(t *testing.T) {
+	ctx := context.Background()
+	s, cfg := newTestService(t)
+
+	custom, err := s.CreateRole(ctx, models.Role{Name: "  Tagger  ", Permissions: models.Permissions{models.PermissionTagsEdit}})
+	require.NoError(t, err)
+	assert.Equal(t, "Tagger", custom.Name, "trimmed name")
+
+	tests := []struct {
+		name        string
+		roleName    string
+		permissions models.Permissions
+		want        error
+	}{
+		{"empty name", "", nil, user.ErrEmptyRoleName},
+		{"name of spaces", "   ", nil, user.ErrEmptyRoleName},
+		{"invalid permission", "Marker editor", models.Permissions{"NOPE"}, user.ErrInvalidPermission},
+		{"duplicate permission", "Marker editor", models.Permissions{models.PermissionMarkersEdit, models.PermissionMarkersEdit}, user.ErrInvalidPermission},
+		{"name of another role", "editor", nil, user.ErrRoleNameExists},
+		{"name of another role with spaces", " VIEWER ", nil, user.ErrRoleNameExists},
+		{"name of the Admin role", "admin", nil, user.ErrRoleNameExists},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := s.CreateRole(ctx, models.Role{Name: tt.roleName, Permissions: tt.permissions})
+			assert.ErrorIs(t, err, tt.want, "create")
+
+			err = s.UpdateRole(ctx, models.Role{ID: custom.ID, Name: tt.roleName, Permissions: tt.permissions})
+			assert.ErrorIs(t, err, tt.want, "update")
+		})
+	}
+
+	require.NoError(t, s.UpdateRole(ctx, models.Role{ID: custom.ID, Name: " Tag editor ", Permissions: models.Permissions{models.PermissionTagsEdit}}))
+	got, err := cfg.UserStore.GetRole(ctx, custom.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Tag editor", got.Name, "trimmed name")
+
+	assert.ErrorIs(t, s.DeleteRole(ctx, "nope"), user.ErrRoleNotExist)
+	require.NoError(t, s.DeleteRole(ctx, custom.ID))
+
+	roles, err := s.AllRoles(ctx)
+	require.NoError(t, err)
+	assert.Len(t, roles, 3, "Admin and the default roles")
 }

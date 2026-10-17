@@ -3,6 +3,7 @@ import { useTagCreate } from "src/core/StashService";
 import { useEffect, useState } from "react";
 import { Tag, TagSelect, TagSelectProps } from "src/components/Tags/TagSelect";
 import { useToast } from "src/hooks/Toast";
+import { usePermissions } from "src/hooks/Permissions";
 import { useIntl } from "react-intl";
 import { Badge, Button } from "react-bootstrap";
 import { Icon } from "src/components/Shared/Icon";
@@ -16,6 +17,7 @@ export function useTagsEdit(
   const intl = useIntl();
   const Toast = useToast();
   const [createTag] = useTagCreate();
+  const { can } = usePermissions();
 
   const [tags, setTags] = useState<Tag[]>([]);
   const [newTags, setNewTags] = useState<GQL.ScrapedTag[]>();
@@ -108,7 +110,7 @@ export function useTagsEdit(
   }
 
   function renderNewTags() {
-    if (!newTags || newTags.length === 0) {
+    if (!newTags || newTags.length === 0 || !can(GQL.Permission.TagsEdit)) {
       return;
     }
 

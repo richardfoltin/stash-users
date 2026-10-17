@@ -28,9 +28,10 @@ var ErrUsersListExists = errors.New("the username and password are managed in th
 
 // StoredUser is a user as stored in the config file, with its password hash.
 type StoredUser struct {
-	Username     string            `json:"username" koanf:"username"`
-	PasswordHash string            `json:"passwordhash" koanf:"passwordhash"`
-	Roles        []models.RoleEnum `json:"roles" koanf:"roles"`
+	Username     string `json:"username" koanf:"username"`
+	PasswordHash string `json:"passwordhash" koanf:"passwordhash"`
+	// Roles are the IDs of the role of the user, empty if the user is locked
+	Roles []string `json:"roles" koanf:"roles"`
 	// SessionToken is replaced when the password changes, ending the sessions
 	SessionToken string `json:"sessiontoken" koanf:"sessiontoken"`
 	AutoLogin    bool   `json:"autologin" koanf:"autologin"`
@@ -38,9 +39,7 @@ type StoredUser struct {
 
 func (u StoredUser) toMap() map[string]interface{} {
 	roles := make([]string, len(u.Roles))
-	for i, r := range u.Roles {
-		roles[i] = r.String()
-	}
+	copy(roles, u.Roles)
 
 	ret := map[string]interface{}{
 		"username":     u.Username,
@@ -59,13 +58,36 @@ func (u StoredUser) toMap() map[string]interface{} {
 	return ret
 }
 
-func (u StoredUser) toUser() *models.User {
-	return &models.User{
+// toUser returns the user with the permissions of its role: the Admin role if
+// the user has it, otherwise the first of its roles that exists. A user stored
+// with several roles by an earlier version has the highest of the built-in
+// roles, as then. A user without an existing role is locked.
+func (u StoredUser) toUser(roles []StoredRole) *models.User {
+	ret := &models.User{
 		Username:    u.Username,
-		Roles:       slices.Clone(u.Roles),
 		AutoLogin:   u.AutoLogin,
 		HasPassword: u.hasPassword(),
 	}
+
+	if u.isAdmin() {
+		ret.Role = models.RoleIDAdmin
+		return ret
+	}
+
+	ids := u.Roles
+	if slices.Contains(ids, models.RoleIDEditor) {
+		ids = append([]string{models.RoleIDEditor}, ids...)
+	}
+
+	for _, id := range ids {
+		if idx := findRole(roles, id); idx != -1 {
+			ret.Role = id
+			ret.Permissions = roles[idx].validPermissions()
+			break
+		}
+	}
+
+	return ret
 }
 
 func (u StoredUser) hasPassword() bool {
@@ -73,7 +95,27 @@ func (u StoredUser) hasPassword() bool {
 }
 
 func (u StoredUser) isAdmin() bool {
-	return models.Roles(u.Roles).HasRole(models.RoleEnumAdmin)
+	return slices.Contains(u.Roles, models.RoleIDAdmin)
+}
+
+// storedRoleIDs returns the role IDs to store for the role: none for a locked
+// user.
+func storedRoleIDs(role string) []string {
+	if role == "" {
+		return nil
+	}
+
+	return []string{role}
+}
+
+// checkRoleExists returns ErrRoleNotExist unless the role is empty, Admin or
+// one of the roles.
+func checkRoleExists(roles []StoredRole, role string) error {
+	if role == "" || role == models.RoleIDAdmin || findRole(roles, role) != -1 {
+		return nil
+	}
+
+	return user.ErrRoleNotExist
 }
 
 // sessionToken returns the token that the sessions of the user must contain.
@@ -182,7 +224,7 @@ func (s *UserStore) legacyUserNoLock() *StoredUser {
 	return &StoredUser{
 		Username:     un,
 		PasswordHash: pwHash,
-		Roles:        []models.RoleEnum{models.RoleEnumAdmin},
+		Roles:        []string{models.RoleIDAdmin},
 	}
 }
 
@@ -264,12 +306,25 @@ func (s *UserStore) getStoredUser(username string) (*StoredUser, error) {
 
 // GetUser returns the user with the provided username, or nil if not found.
 func (s *UserStore) GetUser(ctx context.Context, username string) (*models.User, error) {
-	u, err := s.getStoredUser(username)
-	if err != nil || u == nil {
+	s.RLock()
+	defer s.RUnlock()
+
+	users, err := s.allUsersNoLock()
+	if err != nil {
 		return nil, err
 	}
 
-	return u.toUser(), nil
+	idx := s.findUser(users, username)
+	if idx == -1 {
+		return nil, nil
+	}
+
+	roles, err := s.rolesNoLock()
+	if err != nil {
+		return nil, err
+	}
+
+	return users[idx].toUser(roles), nil
 }
 
 // AllUsers returns all users, including the legacy user.
@@ -282,9 +337,14 @@ func (s *UserStore) AllUsers(ctx context.Context) ([]*models.User, error) {
 		return nil, err
 	}
 
+	roles, err := s.rolesNoLock()
+	if err != nil {
+		return nil, err
+	}
+
 	ret := make([]*models.User, len(users))
 	for i, u := range users {
-		ret[i] = u.toUser()
+		ret[i] = u.toUser(roles)
 	}
 
 	return ret, nil
@@ -377,7 +437,8 @@ func (s *UserStore) modifyUsers(fn func(users []StoredUser) ([]StoredUser, error
 	return s.writeNoLock()
 }
 
-// CreateUser adds a user. The first user must have the ADMIN role.
+// CreateUser adds a user. The role must exist, and the first user must have
+// the Admin role.
 func (s *UserStore) CreateUser(ctx context.Context, u models.User, password string) error {
 	hash, err := hashPassword(password)
 	if err != nil {
@@ -394,7 +455,16 @@ func (s *UserStore) CreateUser(ctx context.Context, u models.User, password stri
 			return nil, user.ErrUserAlreadyExists
 		}
 
-		if len(users) == 0 && !u.Roles.HasRole(models.RoleEnumAdmin) {
+		roles, err := s.rolesNoLock()
+		if err != nil {
+			return nil, err
+		}
+
+		if err := checkRoleExists(roles, u.Role); err != nil {
+			return nil, err
+		}
+
+		if len(users) == 0 && !u.IsAdmin() {
 			return nil, user.ErrFirstUserNotAdmin
 		}
 
@@ -405,7 +475,7 @@ func (s *UserStore) CreateUser(ctx context.Context, u models.User, password stri
 		users = append(users, StoredUser{
 			Username:     u.Username,
 			PasswordHash: hash,
-			Roles:        slices.Clone(u.Roles),
+			Roles:        storedRoleIDs(u.Role),
 			SessionToken: token,
 			AutoLogin:    u.AutoLogin,
 		})
@@ -418,8 +488,8 @@ func (s *UserStore) CreateUser(ctx context.Context, u models.User, password stri
 	})
 }
 
-// ReplaceUser replaces the name, roles and auto login mark of the user, but not
-// its password.
+// ReplaceUser replaces the name, role and auto login mark of the user, but not
+// its password. The role must exist.
 func (s *UserStore) ReplaceUser(ctx context.Context, username string, updated models.User) error {
 	return s.modifyUsers(func(users []StoredUser) ([]StoredUser, error) {
 		idx := s.findUser(users, username)
@@ -431,7 +501,16 @@ func (s *UserStore) ReplaceUser(ctx context.Context, username string, updated mo
 			return nil, user.ErrUserAlreadyExists
 		}
 
-		if users[idx].isAdmin() && !updated.Roles.HasRole(models.RoleEnumAdmin) && !hasOtherAdmin(users, username) {
+		roles, err := s.rolesNoLock()
+		if err != nil {
+			return nil, err
+		}
+
+		if err := checkRoleExists(roles, updated.Role); err != nil {
+			return nil, err
+		}
+
+		if users[idx].isAdmin() && !updated.IsAdmin() && !hasOtherAdmin(users, username) {
 			return nil, user.ErrRemoveLastAdminRole
 		}
 
@@ -444,7 +523,7 @@ func (s *UserStore) ReplaceUser(ctx context.Context, username string, updated mo
 		}
 
 		users[idx].Username = updated.Username
-		users[idx].Roles = slices.Clone(updated.Roles)
+		users[idx].Roles = storedRoleIDs(updated.Role)
 		users[idx].AutoLogin = updated.AutoLogin
 
 		if updated.AutoLogin {
@@ -517,7 +596,7 @@ func (s *UserStore) CreateFirstAdmin(ctx context.Context) (bool, error) {
 
 	admin := StoredUser{
 		Username:     FirstAdminUsername,
-		Roles:        []models.RoleEnum{models.RoleEnumAdmin},
+		Roles:        []string{models.RoleIDAdmin},
 		SessionToken: token,
 		AutoLogin:    true,
 	}

@@ -269,7 +269,7 @@ export const FilteredGalleryList = PatchComponent(
   "FilteredGalleryList",
   (props: IGalleryList) => {
     const intl = useIntl();
-    const { isAdmin, canModify, canDelete } = usePermissions();
+    const { isAdmin, can } = usePermissions();
 
     const searchFocus = useFocus();
 
@@ -369,7 +369,7 @@ export const FilteredGalleryList = PatchComponent(
       );
     }
 
-    const onEdit = canModify
+    const onEdit = can(GQL.Permission.GalleriesEdit)
       ? () => {
           showModal(
             <EditGalleriesDialog
@@ -380,7 +380,7 @@ export const FilteredGalleryList = PatchComponent(
         }
       : undefined;
 
-    const onDelete = canDelete
+    const onDelete = can(GQL.Permission.GalleriesDelete)
       ? () => {
           showModal(
             <DeleteGalleriesDialog
@@ -436,7 +436,7 @@ export const FilteredGalleryList = PatchComponent(
       {
         text: `${intl.formatMessage({ id: "actions.generate" })}…`,
         onClick: onGenerate,
-        isDisplayed: () => isAdmin && hasSelection,
+        isDisplayed: () => can(GQL.Permission.RunLibraryTasks) && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export" }),

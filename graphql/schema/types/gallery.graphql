@@ -105,7 +105,7 @@ input GalleryDestroyInput {
   If gallery is folder-based, then any files not associated with other
   galleries will be deleted, along with the folder, if it is not empty.
   """
-  delete_file: Boolean
+  delete_file: Boolean @hasPermission(permission: MANAGE_FILES)
   delete_generated: Boolean
   "If true, delete the file entry from the database if the file is not assigned to any other objects"
   destroy_file_entry: Boolean

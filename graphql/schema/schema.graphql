@@ -142,7 +142,7 @@ type Query {
   "Organize scene markers by tag for a given scene ID"
   sceneMarkerTags(scene_id: ID!): [SceneMarkerTag!]!
 
-  logs: [LogEntry!]! @hasRole(role: ADMIN)
+  logs: [LogEntry!]! @adminOnly
 
   # Scrapers
 
@@ -153,79 +153,79 @@ type Query {
   scrapeSingleScene(
     source: ScraperSourceInput!
     input: ScrapeSingleSceneInput!
-  ): [ScrapedScene!]! @hasRole(role: MODIFY)
+  ): [ScrapedScene!]! @hasPermission(permission: USE_SCRAPERS)
   "Scrape for multiple scenes"
   scrapeMultiScenes(
     source: ScraperSourceInput!
     input: ScrapeMultiScenesInput!
-  ): [[ScrapedScene!]!]! @hasRole(role: MODIFY)
+  ): [[ScrapedScene!]!]! @hasPermission(permission: USE_SCRAPERS)
 
   "Scrape for a single studio"
   scrapeSingleStudio(
     source: ScraperSourceInput!
     input: ScrapeSingleStudioInput!
-  ): [ScrapedStudio!]! @hasRole(role: MODIFY)
+  ): [ScrapedStudio!]! @hasPermission(permission: USE_SCRAPERS)
 
   "Scrape for a single tag"
   scrapeSingleTag(
     source: ScraperSourceInput!
     input: ScrapeSingleTagInput!
-  ): [ScrapedTag!]! @hasRole(role: MODIFY)
+  ): [ScrapedTag!]! @hasPermission(permission: USE_SCRAPERS)
 
   "Scrape for a single performer"
   scrapeSinglePerformer(
     source: ScraperSourceInput!
     input: ScrapeSinglePerformerInput!
-  ): [ScrapedPerformer!]! @hasRole(role: MODIFY)
+  ): [ScrapedPerformer!]! @hasPermission(permission: USE_SCRAPERS)
   "Scrape for multiple performers"
   scrapeMultiPerformers(
     source: ScraperSourceInput!
     input: ScrapeMultiPerformersInput!
-  ): [[ScrapedPerformer!]!]! @hasRole(role: MODIFY)
+  ): [[ScrapedPerformer!]!]! @hasPermission(permission: USE_SCRAPERS)
 
   "Scrape for a single gallery"
   scrapeSingleGallery(
     source: ScraperSourceInput!
     input: ScrapeSingleGalleryInput!
-  ): [ScrapedGallery!]! @hasRole(role: MODIFY)
+  ): [ScrapedGallery!]! @hasPermission(permission: USE_SCRAPERS)
 
   "Scrape for a single movie"
   scrapeSingleMovie(
     source: ScraperSourceInput!
     input: ScrapeSingleMovieInput!
   ): [ScrapedMovie!]! @deprecated(reason: "Use scrapeSingleGroup instead")
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: USE_SCRAPERS)
 
   "Scrape for a single group"
   scrapeSingleGroup(
     source: ScraperSourceInput!
     input: ScrapeSingleGroupInput!
-  ): [ScrapedGroup!]! @hasRole(role: MODIFY)
+  ): [ScrapedGroup!]! @hasPermission(permission: USE_SCRAPERS)
 
   "Scrape for a single image"
   scrapeSingleImage(
     source: ScraperSourceInput!
     input: ScrapeSingleImageInput!
-  ): [ScrapedImage!]! @hasRole(role: MODIFY)
+  ): [ScrapedImage!]! @hasPermission(permission: USE_SCRAPERS)
 
   "Scrapes content based on a URL"
   scrapeURL(url: String!, ty: ScrapeContentType!): ScrapedContent
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: USE_SCRAPERS)
 
   "Scrapes a complete performer record based on a URL"
-  scrapePerformerURL(url: String!): ScrapedPerformer @hasRole(role: MODIFY)
+  scrapePerformerURL(url: String!): ScrapedPerformer @hasPermission(permission: USE_SCRAPERS)
   "Scrapes a complete scene record based on a URL"
-  scrapeSceneURL(url: String!): ScrapedScene @hasRole(role: MODIFY)
+  scrapeSceneURL(url: String!): ScrapedScene @hasPermission(permission: USE_SCRAPERS)
   "Scrapes a complete gallery record based on a URL"
-  scrapeGalleryURL(url: String!): ScrapedGallery @hasRole(role: MODIFY)
+  scrapeGalleryURL(url: String!): ScrapedGallery @hasPermission(permission: USE_SCRAPERS)
   "Scrapes a complete image record based on a URL"
-  scrapeImageURL(url: String!): ScrapedImage @hasRole(role: MODIFY)
+  scrapeImageURL(url: String!): ScrapedImage @hasPermission(permission: USE_SCRAPERS)
   "Scrapes a complete movie record based on a URL"
   scrapeMovieURL(url: String!): ScrapedMovie
     @deprecated(reason: "Use scrapeGroupURL instead")
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: USE_SCRAPERS)
   "Scrapes a complete group record based on a URL"
-  scrapeGroupURL(url: String!): ScrapedGroup @hasRole(role: MODIFY)
+  scrapeGroupURL(url: String!): ScrapedGroup @hasPermission(permission: USE_SCRAPERS)
 
   # Plugins
   "List loaded plugins"
@@ -235,10 +235,10 @@ type Query {
 
   # Packages
   "List installed packages"
-  installedPackages(type: PackageType!): [Package!]! @hasRole(role: ADMIN)
+  installedPackages(type: PackageType!): [Package!]! @adminOnly
   "List available packages"
   availablePackages(type: PackageType!, source: String!): [Package!]!
-    @hasRole(role: ADMIN)
+    @adminOnly
 
   # Config
   "Returns the current, complete configuration"
@@ -249,9 +249,9 @@ type Query {
     path: String
     "Desired collation locale. Determines the order of the directory result. eg. 'en-US', 'pt-BR', ..."
     locale: String = "en"
-  ): Directory! @hasRole(role: ADMIN)
+  ): Directory! @adminOnly
   validateStashBoxCredentials(input: StashBoxInput!): StashBoxValidationResult!
-    @hasRole(role: ADMIN)
+    @adminOnly
 
   # System status
   systemStatus: SystemStatus!
@@ -279,7 +279,9 @@ type Query {
 
   # Users
   "List all users"
-  users: [User!]! @hasRole(role: ADMIN)
+  users: [User!]! @adminOnly
+  "List all roles: the Admin role first"
+  roles: [Role!]! @adminOnly
   """
   Returns currently authenticated user.
   Returns null if no users are configured and authentication is not required.
@@ -294,167 +296,167 @@ type Query {
 }
 
 type Mutation {
-  setup(input: SetupInput!): Boolean! @hasRole(role: ADMIN)
+  setup(input: SetupInput!): Boolean! @adminOnly
 
   "Migrates the schema to the required version. Returns the job ID"
-  migrate(input: MigrateInput!): ID! @hasRole(role: ADMIN)
+  migrate(input: MigrateInput!): ID! @adminOnly
 
   "Downloads and installs ffmpeg and ffprobe binaries into the configuration directory. Returns the job ID."
-  downloadFFMpeg: ID! @hasRole(role: ADMIN)
+  downloadFFMpeg: ID! @adminOnly
 
-  sceneCreate(input: SceneCreateInput!): Scene @hasRole(role: MODIFY)
-  sceneUpdate(input: SceneUpdateInput!): Scene @hasRole(role: MODIFY)
-  sceneMerge(input: SceneMergeInput!): Scene @hasRole(role: ADMIN)
-  bulkSceneUpdate(input: BulkSceneUpdateInput!): [Scene!] @hasRole(role: MODIFY)
-  sceneDestroy(input: SceneDestroyInput!): Boolean! @hasRole(role: ADMIN)
-  scenesDestroy(input: ScenesDestroyInput!): Boolean! @hasRole(role: ADMIN)
-  scenesUpdate(input: [SceneUpdateInput!]!): [Scene] @hasRole(role: MODIFY)
+  sceneCreate(input: SceneCreateInput!): Scene @hasPermission(permission: SCENES_EDIT)
+  sceneUpdate(input: SceneUpdateInput!): Scene @hasPermission(permission: SCENES_EDIT)
+  sceneMerge(input: SceneMergeInput!): Scene @hasPermission(permission: SCENES_MERGE)
+  bulkSceneUpdate(input: BulkSceneUpdateInput!): [Scene!] @hasPermission(permission: SCENES_EDIT)
+  sceneDestroy(input: SceneDestroyInput!): Boolean! @hasPermission(permission: SCENES_DELETE)
+  scenesDestroy(input: ScenesDestroyInput!): Boolean! @hasPermission(permission: SCENES_DELETE)
+  scenesUpdate(input: [SceneUpdateInput!]!): [Scene] @hasPermission(permission: SCENES_EDIT)
 
   "Increments the o-counter for a scene. Returns the new value"
   sceneIncrementO(id: ID!): Int! @deprecated(reason: "Use sceneAddO instead")
-    @hasRole(role: READ)
+    @hasPermission(permission: RECORD_ACTIVITY)
   "Decrements the o-counter for a scene. Returns the new value"
   sceneDecrementO(id: ID!): Int! @deprecated(reason: "Use sceneRemoveO instead")
-    @hasRole(role: READ)
+    @hasPermission(permission: RECORD_ACTIVITY)
 
   "Increments the o-counter for a scene. Uses the current time if none provided."
   sceneAddO(id: ID!, times: [Timestamp!]): HistoryMutationResult!
-    @hasRole(role: READ)
+    @hasPermission(permission: RECORD_ACTIVITY)
   "Decrements the o-counter for a scene, removing the last recorded time if specific time not provided. Returns the new value"
   sceneDeleteO(id: ID!, times: [Timestamp!]): HistoryMutationResult!
-    @hasRole(role: READ)
+    @hasPermission(permission: RECORD_ACTIVITY)
 
   "Resets the o-counter for a scene to 0. Returns the new value"
-  sceneResetO(id: ID!): Int! @hasRole(role: READ)
+  sceneResetO(id: ID!): Int! @hasPermission(permission: RECORD_ACTIVITY)
 
   "Sets the resume time point (if provided) and adds the provided duration to the scene's play duration"
   sceneSaveActivity(id: ID!, resume_time: Float, playDuration: Float): Boolean!
-    @hasRole(role: READ)
+    @hasPermission(permission: RECORD_ACTIVITY)
 
   "Resets the resume time point and play duration"
   sceneResetActivity(
     id: ID!
     reset_resume: Boolean
     reset_duration: Boolean
-  ): Boolean! @hasRole(role: READ)
+  ): Boolean! @hasPermission(permission: RECORD_ACTIVITY)
 
   "Increments the play count for the scene. Returns the new play count value."
   sceneIncrementPlayCount(id: ID!): Int!
     @deprecated(reason: "Use sceneAddPlay instead")
-    @hasRole(role: READ)
+    @hasPermission(permission: RECORD_ACTIVITY)
 
   "Increments the play count for the scene. Uses the current time if none provided."
   sceneAddPlay(id: ID!, times: [Timestamp!]): HistoryMutationResult!
-    @hasRole(role: READ)
+    @hasPermission(permission: RECORD_ACTIVITY)
   "Decrements the play count for the scene, removing the specific times or the last recorded time if not provided."
   sceneDeletePlay(id: ID!, times: [Timestamp!]): HistoryMutationResult!
-    @hasRole(role: READ)
+    @hasPermission(permission: RECORD_ACTIVITY)
   "Resets the play count for a scene to 0. Returns the new play count value."
-  sceneResetPlayCount(id: ID!): Int! @hasRole(role: READ)
+  sceneResetPlayCount(id: ID!): Int! @hasPermission(permission: RECORD_ACTIVITY)
 
   "Generates screenshot at specified time in seconds. Leave empty to generate default screenshot"
-  sceneGenerateScreenshot(id: ID!, at: Float): ID! @hasRole(role: MODIFY)
+  sceneGenerateScreenshot(id: ID!, at: Float): ID! @hasPermission(permission: SCENES_EDIT)
 
   sceneMarkerCreate(input: SceneMarkerCreateInput!): SceneMarker
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: MARKERS_EDIT)
   sceneMarkerUpdate(input: SceneMarkerUpdateInput!): SceneMarker
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: MARKERS_EDIT)
   bulkSceneMarkerUpdate(input: BulkSceneMarkerUpdateInput!): [SceneMarker!]
-    @hasRole(role: MODIFY)
-  sceneMarkerDestroy(id: ID!): Boolean! @hasRole(role: ADMIN)
-  sceneMarkersDestroy(ids: [ID!]!): Boolean! @hasRole(role: ADMIN)
+    @hasPermission(permission: MARKERS_EDIT)
+  sceneMarkerDestroy(id: ID!): Boolean! @hasPermission(permission: MARKERS_DELETE)
+  sceneMarkersDestroy(ids: [ID!]!): Boolean! @hasPermission(permission: MARKERS_DELETE)
 
-  sceneAssignFile(input: AssignSceneFileInput!): Boolean! @hasRole(role: ADMIN)
+  sceneAssignFile(input: AssignSceneFileInput!): Boolean! @hasPermission(permission: MANAGE_FILES)
 
-  imageUpdate(input: ImageUpdateInput!): Image @hasRole(role: MODIFY)
-  bulkImageUpdate(input: BulkImageUpdateInput!): [Image!] @hasRole(role: MODIFY)
-  imageDestroy(input: ImageDestroyInput!): Boolean! @hasRole(role: ADMIN)
-  imagesDestroy(input: ImagesDestroyInput!): Boolean! @hasRole(role: ADMIN)
-  imagesUpdate(input: [ImageUpdateInput!]!): [Image] @hasRole(role: MODIFY)
+  imageUpdate(input: ImageUpdateInput!): Image @hasPermission(permission: IMAGES_EDIT)
+  bulkImageUpdate(input: BulkImageUpdateInput!): [Image!] @hasPermission(permission: IMAGES_EDIT)
+  imageDestroy(input: ImageDestroyInput!): Boolean! @hasPermission(permission: IMAGES_DELETE)
+  imagesDestroy(input: ImagesDestroyInput!): Boolean! @hasPermission(permission: IMAGES_DELETE)
+  imagesUpdate(input: [ImageUpdateInput!]!): [Image] @hasPermission(permission: IMAGES_EDIT)
 
   "Increments the o-counter for an image. Returns the new value"
-  imageIncrementO(id: ID!): Int! @hasRole(role: READ)
+  imageIncrementO(id: ID!): Int! @hasPermission(permission: RECORD_ACTIVITY)
   "Decrements the o-counter for an image. Returns the new value"
-  imageDecrementO(id: ID!): Int! @hasRole(role: READ)
+  imageDecrementO(id: ID!): Int! @hasPermission(permission: RECORD_ACTIVITY)
   "Resets the o-counter for a image to 0. Returns the new value"
-  imageResetO(id: ID!): Int! @hasRole(role: READ)
+  imageResetO(id: ID!): Int! @hasPermission(permission: RECORD_ACTIVITY)
 
-  galleryCreate(input: GalleryCreateInput!): Gallery @hasRole(role: MODIFY)
-  galleryUpdate(input: GalleryUpdateInput!): Gallery @hasRole(role: MODIFY)
+  galleryCreate(input: GalleryCreateInput!): Gallery @hasPermission(permission: GALLERIES_EDIT)
+  galleryUpdate(input: GalleryUpdateInput!): Gallery @hasPermission(permission: GALLERIES_EDIT)
   bulkGalleryUpdate(input: BulkGalleryUpdateInput!): [Gallery!]
-    @hasRole(role: MODIFY)
-  galleryDestroy(input: GalleryDestroyInput!): Boolean! @hasRole(role: ADMIN)
+    @hasPermission(permission: GALLERIES_EDIT)
+  galleryDestroy(input: GalleryDestroyInput!): Boolean! @hasPermission(permission: GALLERIES_DELETE)
   galleriesUpdate(input: [GalleryUpdateInput!]!): [Gallery]
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: GALLERIES_EDIT)
 
-  addGalleryImages(input: GalleryAddInput!): Boolean! @hasRole(role: MODIFY)
+  addGalleryImages(input: GalleryAddInput!): Boolean! @hasPermission(permission: GALLERIES_EDIT)
   removeGalleryImages(input: GalleryRemoveInput!): Boolean!
-    @hasRole(role: MODIFY)
-  setGalleryCover(input: GallerySetCoverInput!): Boolean! @hasRole(role: MODIFY)
+    @hasPermission(permission: GALLERIES_EDIT)
+  setGalleryCover(input: GallerySetCoverInput!): Boolean! @hasPermission(permission: GALLERIES_EDIT)
   resetGalleryCover(input: GalleryResetCoverInput!): Boolean!
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: GALLERIES_EDIT)
 
   galleryChapterCreate(input: GalleryChapterCreateInput!): GalleryChapter
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: CHAPTERS_EDIT)
   galleryChapterUpdate(input: GalleryChapterUpdateInput!): GalleryChapter
-    @hasRole(role: MODIFY)
-  galleryChapterDestroy(id: ID!): Boolean! @hasRole(role: ADMIN)
+    @hasPermission(permission: CHAPTERS_EDIT)
+  galleryChapterDestroy(id: ID!): Boolean! @hasPermission(permission: CHAPTERS_DELETE)
 
   performerCreate(input: PerformerCreateInput!): Performer
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: PERFORMERS_EDIT)
   performerUpdate(input: PerformerUpdateInput!): Performer
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: PERFORMERS_EDIT)
   performerDestroy(input: PerformerDestroyInput!): Boolean!
-    @hasRole(role: ADMIN)
-  performersDestroy(ids: [ID!]!): Boolean! @hasRole(role: ADMIN)
+    @hasPermission(permission: PERFORMERS_DELETE)
+  performersDestroy(ids: [ID!]!): Boolean! @hasPermission(permission: PERFORMERS_DELETE)
   bulkPerformerUpdate(input: BulkPerformerUpdateInput!): [Performer!]
-    @hasRole(role: MODIFY)
-  performerMerge(input: PerformerMergeInput!): Performer! @hasRole(role: ADMIN)
+    @hasPermission(permission: PERFORMERS_EDIT)
+  performerMerge(input: PerformerMergeInput!): Performer! @hasPermission(permission: PERFORMERS_MERGE)
 
-  studioCreate(input: StudioCreateInput!): Studio @hasRole(role: MODIFY)
-  studioUpdate(input: StudioUpdateInput!): Studio @hasRole(role: MODIFY)
-  studioDestroy(input: StudioDestroyInput!): Boolean! @hasRole(role: ADMIN)
-  studiosDestroy(ids: [ID!]!): Boolean! @hasRole(role: ADMIN)
+  studioCreate(input: StudioCreateInput!): Studio @hasPermission(permission: STUDIOS_EDIT)
+  studioUpdate(input: StudioUpdateInput!): Studio @hasPermission(permission: STUDIOS_EDIT)
+  studioDestroy(input: StudioDestroyInput!): Boolean! @hasPermission(permission: STUDIOS_DELETE)
+  studiosDestroy(ids: [ID!]!): Boolean! @hasPermission(permission: STUDIOS_DELETE)
   bulkStudioUpdate(input: BulkStudioUpdateInput!): [Studio!]
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: STUDIOS_EDIT)
 
   movieCreate(input: MovieCreateInput!): Movie
     @deprecated(reason: "Use groupCreate instead")
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: GROUPS_EDIT)
   movieUpdate(input: MovieUpdateInput!): Movie
     @deprecated(reason: "Use groupUpdate instead")
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: GROUPS_EDIT)
   movieDestroy(input: MovieDestroyInput!): Boolean!
     @deprecated(reason: "Use groupDestroy instead")
-    @hasRole(role: ADMIN)
+    @hasPermission(permission: GROUPS_DELETE)
   moviesDestroy(ids: [ID!]!): Boolean!
     @deprecated(reason: "Use groupsDestroy instead")
-    @hasRole(role: ADMIN)
+    @hasPermission(permission: GROUPS_DELETE)
   bulkMovieUpdate(input: BulkMovieUpdateInput!): [Movie!]
     @deprecated(reason: "Use bulkGroupUpdate instead")
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: GROUPS_EDIT)
 
-  groupCreate(input: GroupCreateInput!): Group @hasRole(role: MODIFY)
-  groupUpdate(input: GroupUpdateInput!): Group @hasRole(role: MODIFY)
-  groupDestroy(input: GroupDestroyInput!): Boolean! @hasRole(role: ADMIN)
-  groupsDestroy(ids: [ID!]!): Boolean! @hasRole(role: ADMIN)
-  bulkGroupUpdate(input: BulkGroupUpdateInput!): [Group!] @hasRole(role: MODIFY)
+  groupCreate(input: GroupCreateInput!): Group @hasPermission(permission: GROUPS_EDIT)
+  groupUpdate(input: GroupUpdateInput!): Group @hasPermission(permission: GROUPS_EDIT)
+  groupDestroy(input: GroupDestroyInput!): Boolean! @hasPermission(permission: GROUPS_DELETE)
+  groupsDestroy(ids: [ID!]!): Boolean! @hasPermission(permission: GROUPS_DELETE)
+  bulkGroupUpdate(input: BulkGroupUpdateInput!): [Group!] @hasPermission(permission: GROUPS_EDIT)
 
   addGroupSubGroups(input: GroupSubGroupAddInput!): Boolean!
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: GROUPS_EDIT)
   removeGroupSubGroups(input: GroupSubGroupRemoveInput!): Boolean!
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: GROUPS_EDIT)
 
   "Reorder sub groups within a group. Returns true if successful."
   reorderSubGroups(input: ReorderSubGroupsInput!): Boolean!
-    @hasRole(role: MODIFY)
+    @hasPermission(permission: GROUPS_EDIT)
 
-  tagCreate(input: TagCreateInput!): Tag @hasRole(role: MODIFY)
-  tagUpdate(input: TagUpdateInput!): Tag @hasRole(role: MODIFY)
-  tagDestroy(input: TagDestroyInput!): Boolean! @hasRole(role: ADMIN)
-  tagsDestroy(ids: [ID!]!): Boolean! @hasRole(role: ADMIN)
-  tagsMerge(input: TagsMergeInput!): Tag @hasRole(role: ADMIN)
-  bulkTagUpdate(input: BulkTagUpdateInput!): [Tag!] @hasRole(role: MODIFY)
+  tagCreate(input: TagCreateInput!): Tag @hasPermission(permission: TAGS_EDIT)
+  tagUpdate(input: TagUpdateInput!): Tag @hasPermission(permission: TAGS_EDIT)
+  tagDestroy(input: TagDestroyInput!): Boolean! @hasPermission(permission: TAGS_DELETE)
+  tagsDestroy(ids: [ID!]!): Boolean! @hasPermission(permission: TAGS_DELETE)
+  tagsMerge(input: TagsMergeInput!): Tag @hasPermission(permission: TAGS_MERGE)
+  bulkTagUpdate(input: BulkTagUpdateInput!): [Tag!] @hasPermission(permission: TAGS_EDIT)
 
   """
   Moves the given files to the given destination. Returns true if successful.
@@ -465,102 +467,102 @@ type Mutation {
   matches one of the media extensions.
   Creates folder hierarchy if needed.
   """
-  moveFiles(input: MoveFilesInput!): Boolean! @hasRole(role: ADMIN)
-  deleteFiles(ids: [ID!]!): Boolean! @hasRole(role: ADMIN)
+  moveFiles(input: MoveFilesInput!): Boolean! @hasPermission(permission: MANAGE_FILES)
+  deleteFiles(ids: [ID!]!): Boolean! @hasPermission(permission: MANAGE_FILES)
   "Deletes file entries from the database without deleting the files from the filesystem"
-  destroyFiles(ids: [ID!]!): Boolean! @hasRole(role: ADMIN)
+  destroyFiles(ids: [ID!]!): Boolean! @hasPermission(permission: MANAGE_FILES)
 
   fileSetFingerprints(input: FileSetFingerprintsInput!): Boolean!
-    @hasRole(role: ADMIN)
+    @hasPermission(permission: MANAGE_FILES)
   "Reveal the file in the system file manager"
-  revealFileInFileManager(id: ID!): Boolean! @hasRole(role: ADMIN)
+  revealFileInFileManager(id: ID!): Boolean! @hasPermission(permission: MANAGE_FILES)
   "Reveal the folder in the system file manager"
-  revealFolderInFileManager(id: ID!): Boolean! @hasRole(role: ADMIN)
+  revealFolderInFileManager(id: ID!): Boolean! @hasPermission(permission: MANAGE_FILES)
 
   # Saved filters
-  saveFilter(input: SaveFilterInput!): SavedFilter! @hasRole(role: MODIFY)
-  destroySavedFilter(input: DestroyFilterInput!): Boolean! @hasRole(role: ADMIN)
+  saveFilter(input: SaveFilterInput!): SavedFilter! @hasPermission(permission: SAVE_FILTERS)
+  destroySavedFilter(input: DestroyFilterInput!): Boolean! @hasPermission(permission: DELETE_SAVED_FILTERS)
   setDefaultFilter(input: SetDefaultFilterInput!): Boolean!
     @deprecated(reason: "now uses UI config")
-    @hasRole(role: ADMIN)
+    @hasPermission(permission: MANAGE_SHARED_LIST_SETTINGS)
 
   "Change general configuration options"
   configureGeneral(input: ConfigGeneralInput!): ConfigGeneralResult!
-    @hasRole(role: ADMIN)
+    @adminOnly
   configureInterface(input: ConfigInterfaceInput!): ConfigInterfaceResult!
-    @hasRole(role: ADMIN)
+    @adminOnly
   configureDLNA(input: ConfigDLNAInput!): ConfigDLNAResult!
-    @hasRole(role: ADMIN)
+    @adminOnly
   configureScraping(input: ConfigScrapingInput!): ConfigScrapingResult!
-    @hasRole(role: ADMIN)
+    @adminOnly
   configureDefaults(
     input: ConfigDefaultSettingsInput!
-  ): ConfigDefaultSettingsResult! @hasRole(role: ADMIN)
+  ): ConfigDefaultSettingsResult! @adminOnly
 
   "overwrites the entire plugin configuration for the given plugin"
-  configurePlugin(plugin_id: ID!, input: Map!): Map! @hasRole(role: ADMIN)
+  configurePlugin(plugin_id: ID!, input: Map!): Map! @adminOnly
 
   """
   overwrites the UI configuration
   if input is provided, then the entire UI configuration is replaced
   if partial is provided, then the partial UI configuration is merged into the existing UI configuration
   """
-  configureUI(input: Map, partial: Map): Map! @hasRole(role: ADMIN)
+  configureUI(input: Map, partial: Map): Map! @hasPermission(permission: MANAGE_SHARED_LIST_SETTINGS)
   """
   sets a single UI key value
   key is a dot separated path to the value
   """
-  configureUISetting(key: String!, value: Any): Map! @hasRole(role: ADMIN)
+  configureUISetting(key: String!, value: Any): Map! @hasPermission(permission: MANAGE_SHARED_LIST_SETTINGS)
 
   "Generate and set (or clear) API key"
-  generateAPIKey(input: GenerateAPIKeyInput!): String! @hasRole(role: ADMIN)
+  generateAPIKey(input: GenerateAPIKeyInput!): String! @adminOnly
 
   "Returns a link to download the result"
-  exportObjects(input: ExportObjectsInput!): String @hasRole(role: ADMIN)
+  exportObjects(input: ExportObjectsInput!): String @adminOnly
 
   "Performs an incremental import. Returns the job ID"
-  importObjects(input: ImportObjectsInput!): ID! @hasRole(role: ADMIN)
+  importObjects(input: ImportObjectsInput!): ID! @adminOnly
 
   "Start an full import. Completely wipes the database and imports from the metadata directory. Returns the job ID"
-  metadataImport: ID! @hasRole(role: ADMIN)
+  metadataImport: ID! @adminOnly
   "Start a full export. Outputs to the metadata directory. Returns the job ID"
-  metadataExport: ID! @hasRole(role: ADMIN)
+  metadataExport: ID! @adminOnly
   "Start a scan. Returns the job ID"
-  metadataScan(input: ScanMetadataInput!): ID! @hasRole(role: ADMIN)
+  metadataScan(input: ScanMetadataInput!): ID! @hasPermission(permission: RUN_LIBRARY_TASKS)
   "Start generating content. Returns the job ID"
-  metadataGenerate(input: GenerateMetadataInput!): ID! @hasRole(role: ADMIN)
+  metadataGenerate(input: GenerateMetadataInput!): ID! @hasPermission(permission: RUN_LIBRARY_TASKS)
   "Start auto-tagging. Returns the job ID"
-  metadataAutoTag(input: AutoTagMetadataInput!): ID! @hasRole(role: ADMIN)
+  metadataAutoTag(input: AutoTagMetadataInput!): ID! @hasPermission(permission: RUN_LIBRARY_TASKS)
   "Clean metadata. Returns the job ID"
-  metadataClean(input: CleanMetadataInput!): ID! @hasRole(role: ADMIN)
+  metadataClean(input: CleanMetadataInput!): ID! @hasPermission(permission: RUN_LIBRARY_TASKS)
   "Clean generated files. Returns the job ID"
-  metadataCleanGenerated(input: CleanGeneratedInput!): ID! @hasRole(role: ADMIN)
+  metadataCleanGenerated(input: CleanGeneratedInput!): ID! @hasPermission(permission: RUN_LIBRARY_TASKS)
   "Identifies scenes using scrapers. Returns the job ID"
-  metadataIdentify(input: IdentifyMetadataInput!): ID! @hasRole(role: ADMIN)
+  metadataIdentify(input: IdentifyMetadataInput!): ID! @hasPermission(permission: RUN_LIBRARY_TASKS)
 
   "Migrate generated files for the current hash naming"
-  migrateHashNaming: ID! @hasRole(role: ADMIN)
+  migrateHashNaming: ID! @adminOnly
   "Migrates legacy scene screenshot files into the blob storage"
   migrateSceneScreenshots(input: MigrateSceneScreenshotsInput!): ID!
-    @hasRole(role: ADMIN)
+    @adminOnly
   "Migrates blobs from the old storage system to the current one"
-  migrateBlobs(input: MigrateBlobsInput!): ID! @hasRole(role: ADMIN)
+  migrateBlobs(input: MigrateBlobsInput!): ID! @adminOnly
 
   "Anonymise the database in a separate file. Optionally returns a link to download the database file"
   anonymiseDatabase(input: AnonymiseDatabaseInput!): String
-    @hasRole(role: ADMIN)
+    @adminOnly
 
   "Optimises the database. Returns the job ID"
-  optimiseDatabase: ID! @hasRole(role: ADMIN)
+  optimiseDatabase: ID! @adminOnly
 
   "Reload scrapers"
-  reloadScrapers: Boolean! @hasRole(role: ADMIN)
+  reloadScrapers: Boolean! @adminOnly
 
   """
   Enable/disable plugins - enabledMap is a map of plugin IDs to enabled booleans.
   Plugins not in the map are not affected.
   """
-  setPluginsEnabled(enabledMap: BoolMap!): Boolean! @hasRole(role: ADMIN)
+  setPluginsEnabled(enabledMap: BoolMap!): Boolean! @adminOnly
 
   """
   Run a plugin task.
@@ -577,15 +579,15 @@ type Mutation {
     description: String
     args: [PluginArgInput!] @deprecated(reason: "Use args_map instead")
     args_map: Map
-  ): ID! @hasRole(role: ADMIN)
+  ): ID! @adminOnly
 
   """
   Runs a plugin operation. The operation is run immediately and does not use the job queue.
   Returns a map of the result.
   """
-  runPluginOperation(plugin_id: ID!, args: Map): Any @hasRole(role: ADMIN)
+  runPluginOperation(plugin_id: ID!, args: Map): Any @adminOnly
 
-  reloadPlugins: Boolean! @hasRole(role: ADMIN)
+  reloadPlugins: Boolean! @adminOnly
 
   """
   Installs the given packages.
@@ -594,7 +596,7 @@ type Mutation {
   Returns the job ID
   """
   installPackages(type: PackageType!, packages: [PackageSpecInput!]!): ID!
-    @hasRole(role: ADMIN)
+    @adminOnly
   """
   Updates the given packages.
   If a package is not installed, it will not be installed.
@@ -604,79 +606,86 @@ type Mutation {
   Returns the job ID.
   """
   updatePackages(type: PackageType!, packages: [PackageSpecInput!]): ID!
-    @hasRole(role: ADMIN)
+    @adminOnly
   """
   Uninstalls the given packages.
   If an error occurs when uninstalling a package, the job will continue to uninstall the remaining packages.
   Returns the job ID
   """
   uninstallPackages(type: PackageType!, packages: [PackageSpecInput!]!): ID!
-    @hasRole(role: ADMIN)
+    @adminOnly
 
-  stopJob(job_id: ID!): Boolean! @hasRole(role: ADMIN)
-  stopAllJobs: Boolean! @hasRole(role: ADMIN)
+  stopJob(job_id: ID!): Boolean! @hasPermission(permission: RUN_LIBRARY_TASKS)
+  stopAllJobs: Boolean! @hasPermission(permission: RUN_LIBRARY_TASKS)
 
   "Submit fingerprints to stash-box instance"
   submitStashBoxFingerprints(
     input: StashBoxFingerprintSubmissionInput!
-  ): Boolean! @hasRole(role: ADMIN)
+  ): Boolean! @adminOnly
 
   "Submit scene as draft to stash-box instance"
   submitStashBoxSceneDraft(input: StashBoxDraftSubmissionInput!): ID
-    @hasRole(role: ADMIN)
+    @adminOnly
   "Submit performer as draft to stash-box instance"
   submitStashBoxPerformerDraft(input: StashBoxDraftSubmissionInput!): ID
-    @hasRole(role: ADMIN)
+    @adminOnly
 
   "Backup the database. Optionally returns a link to download the database file"
-  backupDatabase(input: BackupDatabaseInput!): String @hasRole(role: ADMIN)
+  backupDatabase(input: BackupDatabaseInput!): String @adminOnly
 
   "DANGEROUS: Execute an arbitrary SQL statement that returns rows."
-  querySQL(sql: String!, args: [Any]): SQLQueryResult! @hasRole(role: ADMIN)
+  querySQL(sql: String!, args: [Any]): SQLQueryResult! @adminOnly
 
   "DANGEROUS: Execute an arbitrary SQL statement without returning any rows."
-  execSQL(sql: String!, args: [Any]): SQLExecResult! @hasRole(role: ADMIN)
+  execSQL(sql: String!, args: [Any]): SQLExecResult! @adminOnly
 
   "Run batch performer tag task. Returns the job ID."
   stashBoxBatchPerformerTag(input: StashBoxBatchTagInput!): String!
-    @hasRole(role: ADMIN)
+    @adminOnly
   "Run batch studio tag task. Returns the job ID."
   stashBoxBatchStudioTag(input: StashBoxBatchTagInput!): String!
-    @hasRole(role: ADMIN)
+    @adminOnly
   "Run batch tag tag task. Returns the job ID."
   stashBoxBatchTagTag(input: StashBoxBatchTagInput!): String!
-    @hasRole(role: ADMIN)
+    @adminOnly
 
   "Enables DLNA for an optional duration. Has no effect if DLNA is enabled by default"
-  enableDLNA(input: EnableDLNAInput!): Boolean! @hasRole(role: ADMIN)
+  enableDLNA(input: EnableDLNAInput!): Boolean! @adminOnly
   "Disables DLNA for an optional duration. Has no effect if DLNA is disabled by default"
-  disableDLNA(input: DisableDLNAInput!): Boolean! @hasRole(role: ADMIN)
+  disableDLNA(input: DisableDLNAInput!): Boolean! @adminOnly
   "Enables an IP address for DLNA for an optional duration"
-  addTempDLNAIP(input: AddTempDLNAIPInput!): Boolean! @hasRole(role: ADMIN)
+  addTempDLNAIP(input: AddTempDLNAIPInput!): Boolean! @adminOnly
   "Removes an IP address from the temporary DLNA whitelist"
   removeTempDLNAIP(input: RemoveTempDLNAIPInput!): Boolean!
-    @hasRole(role: ADMIN)
+    @adminOnly
 
   # Users
   "Creates a user. The first user must have the ADMIN role"
-  userCreate(input: UserCreateInput!): User @hasRole(role: ADMIN)
-  "Sets the name, roles and auto login of a user. The last admin keeps the ADMIN role"
-  userUpdate(input: UserUpdateInput!): User @hasRole(role: ADMIN)
+  userCreate(input: UserCreateInput!): User @adminOnly
+  "Sets the name, role and auto login of a user. The last admin keeps the Admin role"
+  userUpdate(input: UserUpdateInput!): User @adminOnly
   "Deletes a user. The last admin cannot be deleted"
-  userDestroy(input: UserDestroyInput!): Boolean! @hasRole(role: ADMIN)
+  userDestroy(input: UserDestroyInput!): Boolean! @adminOnly
   "Sets the password of the given user"
   changeUserPassword(input: ChangeUserPasswordInput!): Boolean!
-    @hasRole(role: ADMIN)
+    @adminOnly
   "Changes the password of the current user"
   changePassword(input: UserChangePasswordInput!): Boolean!
-    @hasRole(role: READ)
+    @signedIn
+
+  "Creates a role. Role names are unique, ignoring case"
+  roleCreate(input: RoleCreateInput!): Role! @adminOnly
+  "Sets the name, description and permissions of a role. The Admin role cannot be changed"
+  roleUpdate(input: RoleUpdateInput!): Role! @adminOnly
+  "Deletes a role. A role that users have, and the Admin role, cannot be deleted"
+  roleDestroy(input: RoleDestroyInput!): Boolean! @adminOnly
 }
 
 type Subscription {
   "Update from the metadata manager"
   jobsSubscribe: JobStatusUpdate!
 
-  loggingSubscribe: [LogEntry!]! @hasRole(role: ADMIN)
+  loggingSubscribe: [LogEntry!]! @adminOnly
 
   scanCompleteSubscribe: Boolean!
 }

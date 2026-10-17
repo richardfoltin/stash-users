@@ -61,4 +61,11 @@ type UserService interface {
 	ChangePassword(ctx context.Context, username, existingPassword, newPassword string) error
 	ChangeUserPassword(ctx context.Context, username string, newPassword string) error
 	DeleteUser(ctx context.Context, username string) error
+
+	AllRoles(ctx context.Context) ([]*models.Role, error)
+	GetRole(ctx context.Context, id string) (*models.Role, error)
+	CreateRole(ctx context.Context, r models.Role) (*models.Role, error)
+	UpdateRole(ctx context.Context, r models.Role) error
+	DeleteRole(ctx context.Context, id string) error
+	RoleUserCounts(ctx context.Context) (map[string]int, error)
 }

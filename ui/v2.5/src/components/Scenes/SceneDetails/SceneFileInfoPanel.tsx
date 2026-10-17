@@ -38,7 +38,9 @@ const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
 ) => {
   const intl = useIntl();
   const history = useHistory();
-  const { isAdmin, canModify, canDelete } = usePermissions();
+  const { can } = usePermissions();
+  const canModify = can(GQL.Permission.ScenesEdit);
+  const canManageFiles = can(GQL.Permission.ManageFiles);
 
   // TODO - generalise fingerprints
   const oshash = props.file.fingerprints.find((f) => f.type === "oshash");
@@ -136,16 +138,18 @@ const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
       {props.ofMany &&
         props.onSetPrimaryFile &&
         !props.primary &&
-        canModify && (
+        (canModify || canManageFiles) && (
           <div>
-            <Button
-              className="edit-button"
-              disabled={props.loading}
-              onClick={props.onSetPrimaryFile}
-            >
-              <FormattedMessage id="actions.make_primary" />
-            </Button>
-            {isAdmin && (
+            {canModify && (
+              <Button
+                className="edit-button"
+                disabled={props.loading}
+                onClick={props.onSetPrimaryFile}
+              >
+                <FormattedMessage id="actions.make_primary" />
+              </Button>
+            )}
+            {canManageFiles && (
               <Button
                 className="edit-button"
                 disabled={props.loading}
@@ -154,10 +158,12 @@ const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
                 <FormattedMessage id="actions.reassign" />
               </Button>
             )}
-            <Button className="edit-button" onClick={onSplit}>
-              <FormattedMessage id="actions.split" />
-            </Button>
-            {canDelete && (
+            {canModify && (
+              <Button className="edit-button" onClick={onSplit}>
+                <FormattedMessage id="actions.split" />
+              </Button>
+            )}
+            {canManageFiles && (
               <Button
                 variant="danger"
                 disabled={props.loading}

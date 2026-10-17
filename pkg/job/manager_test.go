@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stashapp/stash/pkg/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const sleepTime time.Duration = 10 * time.Millisecond
@@ -40,6 +42,39 @@ func (e *testExec) Execute(ctx context.Context, p *Progress) error {
 	}
 
 	return nil
+}
+
+// TestJobSeesAllScenes checks that a job works on the whole library, not with
+// the scene visibility of the user who started it.
+func TestJobSeesAllScenes(t *testing.T) {
+	m := NewManager()
+	defer m.Stop()
+
+	runner := models.User{
+		Username:    "runner",
+		Role:        "runner",
+		Permissions: models.Permissions{models.PermissionRunLibraryTasks},
+	}
+	ctx := models.SetCurrentUser(context.Background(), runner)
+	require.NotEmpty(t, models.HiddenSceneVisibilities(ctx))
+
+	hidden := make(chan []models.SceneVisibility, 2)
+	exec := MakeJobExec(func(ctx context.Context, p *Progress) error {
+		hidden <- models.HiddenSceneVisibilities(ctx)
+		return nil
+	})
+
+	m.Add(ctx, "queued job", exec)
+	m.Start(ctx, "started job", exec)
+
+	for range 2 {
+		select {
+		case h := <-hidden:
+			assert.Empty(t, h)
+		case <-time.After(5 * time.Second):
+			t.Fatal("job did not run")
+		}
+	}
 }
 
 func TestAdd(t *testing.T) {

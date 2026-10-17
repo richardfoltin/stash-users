@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/models"
@@ -71,9 +72,9 @@ func (a *autoLoginTest) loginCookie(username string, password string) *http.Cook
 	return c
 }
 
-func (a *autoLoginTest) createUser(name string, roles models.Roles, autoLogin bool) {
+func (a *autoLoginTest) createUser(name string, roleID string, autoLogin bool) {
 	a.t.Helper()
-	require.NoError(a.t, a.users.CreateUser(context.Background(), models.User{Username: name, Roles: roles, AutoLogin: autoLogin}, name+"pw"))
+	require.NoError(a.t, a.users.CreateUser(context.Background(), models.User{Username: name, Role: roleID, AutoLogin: autoLogin}, name+"pw"))
 }
 
 func (a *autoLoginTest) serve(method string, target string, remoteAddr string, modify func(r *http.Request)) *httptest.ResponseRecorder {
@@ -128,8 +129,8 @@ func assertNoAutoLogin(t *testing.T, rec *httptest.ResponseRecorder, wantStatus 
 
 func TestAuthenticateHandler_AutoLogin(t *testing.T) {
 	a := newAutoLoginTest(t)
-	a.createUser("admin", models.Roles{models.RoleEnumAdmin}, false)
-	a.createUser("editor", models.Roles{models.RoleEnumModify}, true)
+	a.createUser("admin", models.RoleIDAdmin, false)
+	a.createUser("editor", models.RoleIDEditor, true)
 
 	for _, addr := range []string{"127.0.0.1:50000", "[::1]:50000", localAddr, "10.1.2.3:50000", "100.64.1.2:50000"} {
 		t.Run(addr, func(t *testing.T) {
@@ -152,8 +153,8 @@ func TestAuthenticateHandler_AutoLogin(t *testing.T) {
 
 func TestAuthenticateHandler_AutoLoginNonLocal(t *testing.T) {
 	a := newAutoLoginTest(t)
-	a.createUser("admin", models.Roles{models.RoleEnumAdmin}, false)
-	a.createUser("editor", models.Roles{models.RoleEnumModify}, true)
+	a.createUser("admin", models.RoleIDAdmin, false)
+	a.createUser("editor", models.RoleIDEditor, true)
 
 	// requests from public addresses are redirected to the login page, or
 	// refused for graphql and non-html requests
@@ -178,8 +179,8 @@ func TestAuthenticateHandler_AutoLoginNonLocal(t *testing.T) {
 
 func TestAuthenticateHandler_AutoLoginExcludedPaths(t *testing.T) {
 	a := newAutoLoginTest(t)
-	a.createUser("admin", models.Roles{models.RoleEnumAdmin}, false)
-	a.createUser("editor", models.Roles{models.RoleEnumModify}, true)
+	a.createUser("admin", models.RoleIDAdmin, false)
+	a.createUser("editor", models.RoleIDEditor, true)
 
 	// the login page and its assets, and logout, are not logged in
 	for _, path := range []string{"/login", "/login/login.css", "/login/locale", "/logout", "/css", "/assets/index.js", "/favicon.ico", "/plugin/example-theme/css"} {
@@ -205,8 +206,8 @@ func TestAllowUnauthenticated(t *testing.T) {
 
 func TestAuthenticateHandler_AutoLoginAPIKey(t *testing.T) {
 	a := newAutoLoginTest(t)
-	a.createUser("admin", models.Roles{models.RoleEnumAdmin}, false)
-	a.createUser("editor", models.Roles{models.RoleEnumModify}, true)
+	a.createUser("admin", models.RoleIDAdmin, false)
+	a.createUser("editor", models.RoleIDEditor, true)
 
 	key, err := manager.GenerateAPIKey("admin")
 	require.NoError(t, err)
@@ -239,13 +240,13 @@ func TestAuthenticateHandler_AutoLoginNoUsers(t *testing.T) {
 func TestAuthenticateHandler_AutoLoginUserChanges(t *testing.T) {
 	ctx := context.Background()
 	a := newAutoLoginTest(t)
-	a.createUser("admin", models.Roles{models.RoleEnumAdmin}, false)
-	a.createUser("editor", models.Roles{models.RoleEnumModify}, false)
+	a.createUser("admin", models.RoleIDAdmin, false)
+	a.createUser("editor", models.RoleIDEditor, false)
 
 	// no user is marked
 	assertNoAutoLogin(t, a.serve(http.MethodGet, "/", localAddr, nil), http.StatusFound)
 
-	require.NoError(t, a.users.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: models.Roles{models.RoleEnumModify}, AutoLogin: true}))
+	require.NoError(t, a.users.UpdateUser(ctx, "editor", models.User{Username: "editor", Role: models.RoleIDEditor, AutoLogin: true}))
 	c := assertAutoLogin(t, a.serve(http.MethodGet, "/", localAddr, nil), "editor")
 
 	// a password change ends the session; the next request is logged in
@@ -261,23 +262,23 @@ func TestAuthenticateHandler_AutoLoginUserChanges(t *testing.T) {
 	assert.Equal(t, "editor", rec.Header().Get("X-Test-User"))
 
 	// a locked user is not logged in automatically
-	require.NoError(t, a.users.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: models.Roles{}, AutoLogin: true}))
+	require.NoError(t, a.users.UpdateUser(ctx, "editor", models.User{Username: "editor", AutoLogin: true}))
 	assertNoAutoLogin(t, a.serve(http.MethodGet, "/", localAddr, nil), http.StatusFound)
 
 	// nor is a user whose mark was cleared
-	require.NoError(t, a.users.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: models.Roles{models.RoleEnumModify}}))
+	require.NoError(t, a.users.UpdateUser(ctx, "editor", models.User{Username: "editor", Role: models.RoleIDEditor}))
 	assertNoAutoLogin(t, a.serve(http.MethodGet, "/", localAddr, nil), http.StatusFound)
 
 	// nor is a removed user
-	require.NoError(t, a.users.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: models.Roles{models.RoleEnumModify}, AutoLogin: true}))
+	require.NoError(t, a.users.UpdateUser(ctx, "editor", models.User{Username: "editor", Role: models.RoleIDEditor, AutoLogin: true}))
 	require.NoError(t, a.users.DeleteUser(ctx, "editor"))
 	assertNoAutoLogin(t, a.serve(http.MethodGet, "/", localAddr, nil), http.StatusFound)
 }
 
 func TestHandleLogin_ContinueAsAutoLoginUser(t *testing.T) {
 	a := newAutoLoginTest(t)
-	a.createUser("admin", models.Roles{models.RoleEnumAdmin}, false)
-	a.createUser("editor", models.Roles{models.RoleEnumModify}, true)
+	a.createUser("admin", models.RoleIDAdmin, false)
+	a.createUser("editor", models.RoleIDEditor, true)
 
 	// the login page behind the authentication middleware
 	handler := RequestIPMiddleware(authenticateHandler(a.users, func() *session.Store {
@@ -313,4 +314,111 @@ func TestHandleLogin_ContinueAsAutoLoginUser(t *testing.T) {
 	// a request with a valid session would not be logged in automatically
 	body = loginPage("/login", localAddr, a.loginCookie("admin", "adminpw"))
 	assert.NotContains(t, body, `id="auto-login-link"`)
+}
+
+// TestAuthenticateHandler_WebsocketReauthenticates checks that each operation
+// on a websocket connection authenticates its user again, as the next request
+// would, instead of keeping the user of the request that opened it.
+func TestAuthenticateHandler_WebsocketReauthenticates(t *testing.T) {
+	ctx := context.Background()
+	a := newAutoLoginTest(t)
+	a.createUser("admin", models.RoleIDAdmin, false)
+	a.createUser("editor", models.RoleIDEditor, false)
+
+	// connect returns the context of the request that opens a connection
+	connect := func(remoteAddr string, modify func(r *http.Request)) context.Context {
+		var connCtx context.Context
+		h := RequestIPMiddleware(authenticateHandler(a.users, func() *session.Store {
+			return a.store
+		})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			connCtx = r.Context()
+		})))
+
+		r := httptest.NewRequest(http.MethodGet, "/graphql", nil)
+		r.RemoteAddr = remoteAddr
+		r.Header.Set("Connection", "Upgrade")
+		r.Header.Set("Upgrade", "websocket")
+		if modify != nil {
+			modify(r)
+		}
+		h.ServeHTTP(httptest.NewRecorder(), r)
+		require.NotNil(t, connCtx)
+		return connCtx
+	}
+
+	// operation runs an operation on a connection and returns the user it ran
+	// as, or nil if it did not run
+	operation := func(connCtx context.Context) (*models.User, *graphql.Response) {
+		var u *models.User
+		resp := reauthenticateOperation(connCtx, func(ctx context.Context) graphql.ResponseHandler {
+			u = models.GetCurrentUser(ctx)
+			return graphql.OneShot(&graphql.Response{})
+		})(connCtx)
+		return u, resp
+	}
+
+	conn := connect(publicAddr, withCookie(a.loginCookie("editor", "editorpw")))
+	u, resp := operation(conn)
+	require.Empty(t, resp.Errors)
+	require.NotNil(t, u)
+	assert.True(t, u.HasPermission(models.PermissionScenesEdit))
+
+	// a permission removed from the role applies to the next operation
+	editor, err := a.users.GetRole(ctx, models.RoleIDEditor)
+	require.NoError(t, err)
+	editor.Permissions = models.Permissions{models.PermissionRecordActivity}
+	require.NoError(t, a.users.UpdateRole(ctx, *editor))
+	u, resp = operation(conn)
+	require.Empty(t, resp.Errors)
+	require.NotNil(t, u)
+	assert.False(t, u.HasPermission(models.PermissionScenesEdit))
+
+	// a password change ends the session
+	require.NoError(t, a.users.ChangeUserPassword(ctx, "editor", "new"))
+	u, resp = operation(conn)
+	assert.Nil(t, u)
+	assert.NotEmpty(t, resp.Errors)
+
+	// a session issued to a plugin keeps the Admin role
+	pluginCookie := a.store.MakePluginCookie(models.SetCurrentUser(ctx, models.User{Username: "editor", Role: models.RoleIDEditor}))
+	require.NotNil(t, pluginCookie)
+	u, resp = operation(connect(publicAddr, withCookie(pluginCookie)))
+	require.Empty(t, resp.Errors)
+	require.NotNil(t, u)
+	assert.True(t, u.IsAdmin())
+
+	// a replaced API key ends the connections opened with it
+	key, err := manager.GenerateAPIKey("admin")
+	require.NoError(t, err)
+	a.cfg.SetString(config.ApiKey, key)
+	conn = connect(publicAddr, func(r *http.Request) {
+		r.Header.Set(session.ApiKeyHeader, key)
+	})
+	u, resp = operation(conn)
+	require.Empty(t, resp.Errors)
+	require.NotNil(t, u)
+	assert.Equal(t, "admin", u.Username)
+	a.cfg.SetString(config.ApiKey, "")
+	u, resp = operation(conn)
+	assert.Nil(t, u)
+	assert.NotEmpty(t, resp.Errors)
+
+	// a connection logged in automatically ends when the mark is cleared
+	require.NoError(t, a.users.UpdateUser(ctx, "admin", models.User{Username: "admin", Role: models.RoleIDAdmin, AutoLogin: true}))
+	conn = connect(localAddr, nil)
+	u, resp = operation(conn)
+	require.Empty(t, resp.Errors)
+	require.NotNil(t, u)
+	assert.Equal(t, "admin", u.Username)
+	require.NoError(t, a.users.UpdateUser(ctx, "admin", models.User{Username: "admin", Role: models.RoleIDAdmin}))
+	u, resp = operation(conn)
+	assert.Nil(t, u)
+	assert.NotEmpty(t, resp.Errors)
+
+	// requests that do not open a connection are not authenticated again
+	httpCtx := models.SetCurrentUser(ctx, models.User{Username: "gone", Role: models.RoleIDAdmin})
+	u, resp = operation(httpCtx)
+	require.Empty(t, resp.Errors)
+	require.NotNil(t, u)
+	assert.Equal(t, "gone", u.Username)
 }
