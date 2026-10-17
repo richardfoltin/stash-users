@@ -25,6 +25,8 @@ import (
 
 const (
 	returnURLParam = "returnURL"
+	// switchParam opens the login page in switch mode
+	switchParam = "switch"
 
 	defaultLocale = "en-GB"
 )
@@ -41,9 +43,11 @@ type loginTemplateData struct {
 	URL   string
 	Error string
 	// AutoLoginUser is the user that the request would be logged in as
-	// automatically, offered as a way to continue
+	// automatically, offered as a way to continue or to switch to
 	AutoLoginUser string
 	ContinueURL   string
+	SwitchMode    bool
+	CurrentUser   string
 
 	ThemeColor        string
 	AppStylesheets    []template.HTML
@@ -259,11 +263,19 @@ func handleLogin(s manager.UserService, cfg *config.Config, uiFS fs.FS, pluginCa
 
 		data := loginTemplateData{URL: returnURL}
 
+		// switch mode changes the account of a signed in user
+		current := models.GetCurrentUser(ctx)
+		if current != nil && r.URL.Query().Get(switchParam) != "" {
+			data.SwitchMode = true
+			data.CurrentUser = current.Username
+		}
+
 		// the login page is never logged in automatically, so that another
 		// user can log in. Without a session, it links to the return URL
-		// instead, which is logged in automatically.
-		if models.GetCurrentUser(ctx) == nil {
-			if u, _, err := autoLoginUser(ctx, s); err == nil && u != nil {
+		// instead, which is logged in automatically. In switch mode, it
+		// offers to switch to the auto login user.
+		if current == nil || data.SwitchMode {
+			if u, _, err := autoLoginUser(ctx, s); err == nil && u != nil && (current == nil || u.Username != current.Username) {
 				data.AutoLoginUser = u.Username
 			}
 		}
@@ -277,6 +289,32 @@ func handleLogin(s manager.UserService, cfg *config.Config, uiFS fs.FS, pluginCa
 		}
 
 		serveLoginPage(w, r, data, plugins)
+	}
+}
+
+// handleLoginAuto replaces the session with one of the user marked for auto
+// login. It applies the same checks as automatic login, and is refused
+// otherwise.
+func handleLoginAuto(g UserAuthenticator, getStore func() *session.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !g.LoginRequired(r.Context()) {
+			http.Error(w, "Automatic login is not available", http.StatusForbidden)
+			return
+		}
+
+		u, err := autoLogin(w, r, g, getStore())
+		if err != nil {
+			logger.Errorf("error switching to the auto login user: %v", err)
+			http.Error(w, "An unexpected error occurred. See logs", http.StatusInternalServerError)
+			return
+		}
+
+		if u == nil {
+			http.Error(w, "Automatic login is not available", http.StatusForbidden)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
 	}
 }
 

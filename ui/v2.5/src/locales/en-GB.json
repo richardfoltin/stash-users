@@ -1324,9 +1324,13 @@
     "password": "Password",
     "invalid_credentials": "Invalid username or password",
     "internal_error": "Unexpected internal error. See logs for more details",
+    "cancel": "Cancel",
     "continue_as": "Continue as {name}",
+    "continue_failed": "Could not continue as {name}",
     "or": "or",
+    "signed_in_as": "Signed in as {name}",
     "signing_in": "Signing in…",
+    "switch_title": "Switch account",
     "title": "Sign in"
   },
   "marker_count": "Marker Count",
@@ -1457,17 +1461,20 @@
   "performer_tags": "Performer Tags",
   "performers": "Performers",
   "permissions": {
+    "account": "Account",
     "change_password": "Change password",
     "denied": "Permission denied: this action requires the {role} role.",
     "load_error": "Could not load the current user, so Stash only allows viewing: {error}",
     "locked": "Locked",
-    "logged_in_as": "Logged in as {name} ({role}). Click to change your password.",
+    "logged_in_as": "Logged in as {name} ({role})",
+    "manage_users": "Manage users",
     "page_denied": "You do not have permission to view this page.",
     "roles": {
       "admin": "Admin",
       "modify": "Editor",
       "read": "Viewer"
-    }
+    },
+    "switch_account": "Switch account"
   },
   "photographer": "Photographer",
   "piercings": "Piercings",

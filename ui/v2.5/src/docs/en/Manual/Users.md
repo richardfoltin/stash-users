@@ -2,7 +2,7 @@
 
 Stash always has at least one user. Each user has a role, which decides what they may do.
 
-Administrators manage users in the `Users` section of `Settings > Security`.
+Administrators manage users in the `Users` section of `Settings > Security`. `Manage users` in the account menu opens it.
 
 ## Roles
 
@@ -30,18 +30,22 @@ Only one user can log in automatically. Turn it on when adding a user, or with t
 
 To require a password from everyone:
 
-1. Set a password for the automatic user. While a user has no password, the `Change password` dialog of the user icon in the navigation bar does not ask for the current one. Administrators can also use `Change password` for the user in the users list.
+1. Set a password for the automatic user. While a user has no password, `Change password` in the account menu does not ask for the current one. Administrators can also use `Change password` for the user in the users list.
 2. Turn off `Log in automatically from the local network` for that user.
 
 Automatic login cannot be turned off for a user without a password. It also cannot be given to another user while the automatic user has no password. Set a password first.
 
 Changing a password ends all sessions of that user. Passwords cannot be longer than 72 bytes.
 
-## Signing in and logging out
+## Signing in, switching account and logging out
 
-The user icon in the navigation bar shows the signed-in user and their role when you point at it, and opens `Change password`. The `Log out` button next to it ends the session and opens the `Sign in` page. On the local network, while a user is set to log in automatically, opening any other page signs you in as that user again.
+The account menu is the user icon at the right end of the navigation bar. It shows the signed-in user and their role, and has `Change password`, `Manage users` (administrators only), `Switch account` and `Log out`. On phones, the menu button opens a drawer, which has the same items at its top.
 
 The `Sign in` page asks for a username and password. On the local network, while a user is set to log in automatically, it also offers `Continue as` that user, which signs in without a password. The `Sign in` page itself is never signed in automatically, so another user can sign in there.
+
+`Switch account` opens the sign-in page with the title `Switch account`. The current session stays until the new sign-in succeeds, and `Cancel` returns to the previous page. On the local network, it also offers `Continue as` the automatic user, unless you are already signed in as that user.
+
+`Log out` ends the session and opens the `Sign in` page. On the local network, while a user is set to log in automatically, opening any other page signs you in as that user again.
 
 A session ends after the `Maximum session age` of idle time, set in `Settings > Security`.
 
@@ -60,7 +64,7 @@ If no administrator can sign in:
 1. Stop Stash.
 2. Open `config.yml` in a text editor. Delete the `users` section, and the `username` and `password` lines if they exist. Save the file.
 3. Start Stash. Because there are no users, it creates the user `admin` with no password and automatic login from the local network.
-4. Open Stash from the local network, and set a password with the user icon in the navigation bar.
+4. Open Stash from the local network, and set a password with `Change password` in the account menu.
 
 All other users are removed along with the `users` section, so add them again. The API key only works again if the administrator who generated it is added again with the same name and the `Admin` role. Otherwise, generate a new key.
 

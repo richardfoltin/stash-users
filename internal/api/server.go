@@ -45,6 +45,7 @@ import (
 const (
 	loginEndpoint       = "/login"
 	loginLocaleEndpoint = loginEndpoint + "/locale"
+	loginAutoEndpoint   = loginEndpoint + "/auto"
 	logoutEndpoint      = "/logout"
 	gqlEndpoint         = "/graphql"
 	playgroundEndpoint  = "/playground"
@@ -268,6 +269,7 @@ func Initialize() (*Server, error) {
 	r.Post(loginEndpoint, handleLoginPost(getStore))
 	r.Get(logoutEndpoint, handleLogout(userService, getStore))
 	r.Get(loginLocaleEndpoint, handleLoginLocale(cfg))
+	r.Post(loginAutoEndpoint, handleLoginAuto(userService, getStore))
 	r.HandleFunc(loginEndpoint+"/*", func(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = strings.TrimPrefix(r.URL.Path, loginEndpoint)
 		w.Header().Set("Cache-Control", "no-cache")

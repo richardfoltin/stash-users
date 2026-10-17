@@ -25,7 +25,11 @@
             or: "or",
             invalid_credentials: "Invalid username or password",
             internal_error: "Unexpected internal error. See logs for more details",
-            continue_as: "Continue as {name}"
+            continue_as: "Continue as {name}",
+            continue_failed: "Could not continue as {name}",
+            switch_title: "Switch account",
+            signed_in_as: "Signed in as {name}",
+            cancel: "Cancel"
         };
         var localeStrings = {};
     </script>
@@ -33,14 +37,17 @@
 </head>
 
 <body class="login">
-    <div class="dialog">
+    <div class="dialog" data-switch="{{.SwitchMode}}" data-current-user="{{.CurrentUser}}">
         <div class="card">
             <div class="text-center mb-4">
                 <img class="login-logo" src="favicon.ico" alt="" width="56" height="56">
                 <div class="text-muted text-uppercase small font-weight-bold mt-2">Stash</div>
             </div>
 
-            <h1 class="h4 text-center mb-4" id="login-title">Sign in</h1>
+            <h1 class="h4 text-center {{if .SwitchMode}}mb-1{{else}}mb-4{{end}}" id="login-title">{{if .SwitchMode}}Switch account{{else}}Sign in{{end}}</h1>
+            {{if .SwitchMode}}
+            <p class="text-center text-muted text-break mb-4" id="login-current">Signed in as <strong>{{.CurrentUser}}</strong></p>
+            {{end}}
 
             <div class="login-error alert alert-danger" id="login-error" role="alert" {{if not .Error}}hidden{{end}}>
                 <div class="d-flex align-items-start">
@@ -70,11 +77,23 @@
 
             {{if .AutoLoginUser}}
             <p class="text-center text-muted text-uppercase small my-3" id="login-or">or</p>
+            {{if .SwitchMode}}
+            <button type="button" id="auto-login-switch" class="btn btn-secondary btn-block" data-name="{{.AutoLoginUser}}" aria-busy="false">
+                <span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span><svg class="mr-2" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+                    <path d="M8 8a3.25 3.25 0 1 0 0-6.5A3.25 3.25 0 0 0 8 8zm0 1.25c-3.1 0-5.75 1.6-5.75 4.1 0 .63.5 1.15 1.13 1.15h9.24c.63 0 1.13-.52 1.13-1.15 0-2.5-2.65-4.1-5.75-4.1z"/>
+                </svg><span id="auto-login-text" class="text-break">Continue as {{.AutoLoginUser}}</span>
+            </button>
+            {{else}}
             <a id="auto-login-link" href="{{.ContinueURL}}" class="btn btn-secondary btn-block" data-name="{{.AutoLoginUser}}">
                 <svg class="mr-2" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
                     <path d="M8 8a3.25 3.25 0 1 0 0-6.5A3.25 3.25 0 0 0 8 8zm0 1.25c-3.1 0-5.75 1.6-5.75 4.1 0 .63.5 1.15 1.13 1.15h9.24c.63 0 1.13-.52 1.13-1.15 0-2.5-2.65-4.1-5.75-4.1z"/>
                 </svg><span id="auto-login-text" class="text-break">Continue as {{.AutoLoginUser}}</span>
             </a>
+            {{end}}
+            {{end}}
+
+            {{if .SwitchMode}}
+            <a id="login-cancel" href="{{.ContinueURL}}" class="btn btn-secondary minimal btn-block mt-2">Cancel</a>
             {{end}}
         </div>
     </div>
@@ -83,6 +102,20 @@
         (function() {
             function text(key) {
                 return localeStrings[key] || defaultLocaleStrings[key];
+            }
+
+            // replaces {name} in a string with the name, optionally in bold
+            function fillName(el, template, name, bold) {
+                var parts = template.split("{name}");
+                el.textContent = "";
+                for (var i = 0; i < parts.length; i++) {
+                    if (i > 0) {
+                        var n = document.createElement(bold ? "strong" : "span");
+                        n.textContent = name;
+                        el.appendChild(n);
+                    }
+                    el.appendChild(document.createTextNode(parts[i]));
+                }
             }
 
             // only ever go to a page of this server
@@ -94,6 +127,9 @@
                 }
             }
 
+            var page = document.querySelector(".login .dialog");
+            var switchMode = page.dataset.switch === "true";
+            var currentUser = page.dataset.currentUser;
             var form = document.getElementById("login-form");
             var username = document.getElementById("username");
             var password = document.getElementById("password");
@@ -104,23 +140,41 @@
             var errorText = document.getElementById("login-error-text");
             var continueURL = sameOrigin(form.dataset.continue) ? form.dataset.continue : document.baseURI;
 
-            var title = text("title");
+            var title = text(switchMode ? "switch_title" : "title");
             document.title = title + " | Stash";
             document.getElementById("login-title").textContent = title;
             document.getElementById("username-heading").textContent = text("username");
             document.getElementById("password-heading").textContent = text("password");
             buttonLabel.textContent = text("login");
 
-            var autoLogin = document.getElementById("auto-login-link");
+            var current = document.getElementById("login-current");
+            if (current) {
+                fillName(current, text("signed_in_as"), currentUser, true);
+            }
+
+            var cancel = document.getElementById("login-cancel");
+            if (cancel) {
+                cancel.textContent = text("cancel");
+            }
+
+            // a link, or a button in switch mode
+            var autoLogin = document.getElementById("auto-login-link") || document.getElementById("auto-login-switch");
+            var autoLoginText = document.getElementById("auto-login-text");
+            function autoLoginLabel() {
+                return text("continue_as").replace("{name}", autoLogin.dataset.name);
+            }
             if (autoLogin) {
                 document.getElementById("login-or").textContent = text("or");
-                document.getElementById("auto-login-text").textContent = text("continue_as").replace("{name}", autoLogin.dataset.name);
+                autoLoginText.textContent = autoLoginLabel();
             }
 
             function setBusy(busy) {
                 button.disabled = busy;
                 button.setAttribute("aria-busy", busy ? "true" : "false");
                 buttonLabel.textContent = text(busy ? "signing_in" : "login");
+                if (autoLogin && autoLogin.tagName === "BUTTON") {
+                    autoLogin.disabled = busy;
+                }
             }
 
             function showError(message) {
@@ -157,6 +211,38 @@
                 var body = "username=" + encodeURIComponent(username.value) + "&password=" + encodeURIComponent(password.value) + "&returnURL=" + encodeURIComponent(returnURL.value);
                 xhr.send(body);
             });
+
+            // switch mode: log in as the auto login user
+            if (autoLogin && autoLogin.tagName === "BUTTON") {
+                autoLogin.addEventListener("click", function() {
+                    if (autoLogin.disabled) {
+                        return;
+                    }
+
+                    errorBox.hidden = true;
+                    setBusy(true);
+                    autoLogin.setAttribute("aria-busy", "true");
+                    autoLoginText.textContent = text("signing_in");
+
+                    function failed() {
+                        autoLogin.setAttribute("aria-busy", "false");
+                        autoLoginText.textContent = autoLoginLabel();
+                        showError(text("continue_failed").replace("{name}", autoLogin.dataset.name));
+                    }
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open("POST", "login/auto", true);
+                    xhr.onload = function() {
+                        if (xhr.status == 200) {
+                            window.location.replace(continueURL);
+                        } else {
+                            failed();
+                        }
+                    };
+                    xhr.onerror = failed;
+                    xhr.send();
+                });
+            }
         })();
     </script>
 </body>

@@ -45,6 +45,134 @@ func TestSameOriginURL(t *testing.T) {
 	}
 }
 
+// loginAutoTest serves the auto login switch endpoint behind the
+// authentication middleware.
+func loginAutoTest(t *testing.T) (*autoLoginTest, func(remoteAddr string, cookie *http.Cookie) *httptest.ResponseRecorder) {
+	a := newAutoLoginTest(t)
+	a.createUser("admin", models.Roles{models.RoleEnumAdmin}, false)
+	a.createUser("editor", models.Roles{models.RoleEnumModify}, true)
+
+	getStore := func() *session.Store { return a.store }
+	handler := RequestIPMiddleware(authenticateHandler(a.users, getStore)(handleLoginAuto(a.users, getStore)))
+
+	post := func(remoteAddr string, cookie *http.Cookie) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(http.MethodPost, loginAutoEndpoint, nil)
+		r.RemoteAddr = remoteAddr
+		if cookie != nil {
+			r.AddCookie(cookie)
+		}
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, r)
+		return rec
+	}
+
+	return a, post
+}
+
+// assertSessionOf asserts that the session after the response, refreshed or
+// not, is still the session of the user.
+func assertSessionOf(t *testing.T, a *autoLoginTest, rec *httptest.ResponseRecorder, old *http.Cookie, username string) {
+	t.Helper()
+
+	c := newSessionCookie(rec)
+	if c == nil {
+		c = old
+	}
+	got := a.serve(http.MethodGet, "/", publicAddr, withCookie(c))
+	assert.Equal(t, username, got.Header().Get("X-Test-User"), "the session must not be replaced")
+}
+
+func TestHandleLoginAuto_Allowed(t *testing.T) {
+	a, post := loginAutoTest(t)
+	admin := a.loginCookie("admin", "adminpw")
+
+	// a signed in admin on the local network switches to the auto login user
+	rec := post(localAddr, admin)
+	require.Equal(t, http.StatusOK, rec.Code)
+	c := newSessionCookie(rec)
+	require.NotNil(t, c, "a new session cookie must be set")
+
+	got := a.serve(http.MethodGet, "/", publicAddr, withCookie(c))
+	assert.Equal(t, "editor", got.Header().Get("X-Test-User"))
+
+	// without a session too
+	rec = post(localAddr, nil)
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.NotNil(t, newSessionCookie(rec))
+}
+
+func TestHandleLoginAuto_RefusedFromPublicAddress(t *testing.T) {
+	a, post := loginAutoTest(t)
+	admin := a.loginCookie("admin", "adminpw")
+
+	rec := post(publicAddr, admin)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assertSessionOf(t, a, rec, admin, "admin")
+}
+
+func TestHandleLoginAuto_NoAutoLoginUser(t *testing.T) {
+	a, post := loginAutoTest(t)
+	admin := a.loginCookie("admin", "adminpw")
+	require.NoError(t, a.users.UpdateUser(context.Background(), "editor", models.User{Username: "editor", Roles: models.Roles{models.RoleEnumModify}}))
+
+	rec := post(localAddr, admin)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assertSessionOf(t, a, rec, admin, "admin")
+
+	// nor is a request without a session logged in
+	rec = post(localAddr, nil)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assert.Nil(t, newSessionCookie(rec))
+}
+
+func TestHandleLogin_SwitchMode(t *testing.T) {
+	a := newAutoLoginTest(t)
+	a.createUser("admin", models.Roles{models.RoleEnumAdmin}, false)
+	a.createUser("editor", models.Roles{models.RoleEnumModify}, true)
+
+	handler := RequestIPMiddleware(authenticateHandler(a.users, func() *session.Store {
+		return a.store
+	})(handleLogin(a.users, a.cfg, testUI, plugin.NewCache(a.cfg))))
+
+	loginPage := func(target string, remoteAddr string, cookie *http.Cookie) string {
+		r := httptest.NewRequest(http.MethodGet, target, nil)
+		r.RemoteAddr = remoteAddr
+		if cookie != nil {
+			r.AddCookie(cookie)
+		}
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, r)
+		require.Equal(t, http.StatusOK, rec.Code)
+		return rec.Body.String()
+	}
+
+	switchURL := loginEndpoint + "?" + url.Values{switchParam: {"1"}, returnURLParam: {"/scenes"}}.Encode()
+
+	// a signed in admin is offered the auto login user, by a POST
+	body := loginPage(switchURL, localAddr, a.loginCookie("admin", "adminpw"))
+	assert.Contains(t, body, `data-switch="true"`)
+	assert.Contains(t, body, `data-current-user="admin"`)
+	assert.Contains(t, body, `id="auto-login-switch"`)
+	assert.Contains(t, body, "Continue as editor")
+	assert.NotContains(t, body, `id="auto-login-link"`)
+	assert.Contains(t, body, `id="login-cancel" href="/scenes"`)
+
+	// not from a public address
+	body = loginPage(switchURL, publicAddr, a.loginCookie("admin", "adminpw"))
+	assert.Contains(t, body, `data-switch="true"`)
+	assert.NotContains(t, body, `id="auto-login-switch"`)
+
+	// not to the user that is signed in
+	body = loginPage(switchURL, localAddr, a.loginCookie("editor", "editorpw"))
+	assert.Contains(t, body, `data-current-user="editor"`)
+	assert.NotContains(t, body, `id="auto-login-switch"`)
+
+	// without a session there is nothing to switch from
+	body = loginPage(switchURL, localAddr, nil)
+	assert.Contains(t, body, `data-switch="false"`)
+	assert.Contains(t, body, `id="auto-login-link"`)
+}
+
 func TestHandleLogin_ReturnURLSameOrigin(t *testing.T) {
 	a := newAutoLoginTest(t)
 	a.createUser("admin", models.Roles{models.RoleEnumAdmin}, false)
