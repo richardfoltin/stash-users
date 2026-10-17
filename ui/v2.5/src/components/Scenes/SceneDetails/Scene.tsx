@@ -277,11 +277,12 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     Mousetrap.bind("k", () => setActiveTabKey("scene-markers-panel"));
     Mousetrap.bind("i", () => setActiveTabKey("scene-file-info-panel"));
     Mousetrap.bind("h", () => setActiveTabKey("scene-history-panel"));
+    // every user records their own o-counter
+    Mousetrap.bind("o", () => {
+      onIncrementOClick();
+    });
     if (canModify) {
       Mousetrap.bind("e", () => setActiveTabKey("scene-edit-panel"));
-      Mousetrap.bind("o", () => {
-        onIncrementOClick();
-      });
       Mousetrap.bind("c c", () => {
         onGenerateScreenshot(getPlayerPosition());
       });

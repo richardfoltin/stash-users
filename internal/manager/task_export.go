@@ -123,6 +123,8 @@ func CreateExportTask(a models.HashAlgorithm, input ExportObjectsInput) *ExportT
 
 func (t *ExportTask) Start(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
+	// the export has the activity of the first admin
+	ctx = models.WithFirstAdminActivity(ctx)
 	// @manager.total = Scene.count + Gallery.count + Performer.count + Studio.count + Group.count
 	workerCount := runtime.GOMAXPROCS(0) // set worker count to number of cpus available
 

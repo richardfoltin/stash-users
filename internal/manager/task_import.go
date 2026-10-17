@@ -90,6 +90,9 @@ func (t *ImportTask) GetDescription() string {
 }
 
 func (t *ImportTask) Start(ctx context.Context) {
+	// the imported activity belongs to the first admin
+	ctx = models.WithFirstAdminActivity(ctx)
+
 	if t.TmpZip != "" {
 		defer func() {
 			err := fsutil.RemoveDir(t.BaseDir)

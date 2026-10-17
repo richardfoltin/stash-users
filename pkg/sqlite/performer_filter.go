@@ -477,18 +477,19 @@ func (qb *performerFilterHandler) galleryCountCriterionHandler(count *models.Int
 	return h.handler(count)
 }
 
-// used for sorting and filtering on performer o-count
+// used for sorting and filtering on performer o-count, formatted with
+// formatUserActivity
 var selectPerformerOCountSQL = utils.StrFormat(
 	"SELECT SUM(o_counter) "+
 		"FROM ("+
 		"SELECT SUM(o_counter) as o_counter from {performers_images} s "+
-		"LEFT JOIN {images} ON {images}.id = s.{images_id} "+
+		"LEFT JOIN %[1]s AS {images} ON {images}.id = s.{images_id} "+
 		"WHERE s.{performer_id} = {performers}.id "+
 		"UNION ALL "+
 		"SELECT COUNT({scenes_o_dates}.{o_date}) as o_counter from {performers_scenes} s "+
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
-		"LEFT JOIN {scenes_o_dates} ON {scenes_o_dates}.{scene_id} = {scenes}.id "+
-		"WHERE s.{performer_id} = {performers}.id%s "+
+		"LEFT JOIN %[2]s AS {scenes_o_dates} ON {scenes_o_dates}.{scene_id} = {scenes}.id "+
+		"WHERE s.{performer_id} = {performers}.id%[4]s "+
 		")",
 	map[string]interface{}{
 		"performers_images": performersImagesTable,
@@ -504,13 +505,14 @@ var selectPerformerOCountSQL = utils.StrFormat(
 	},
 )
 
-// used for sorting and filtering play count on performer view count
+// used for sorting and filtering play count on performer view count,
+// formatted with formatUserActivity
 var selectPerformerPlayCountSQL = utils.StrFormat(
 	"SELECT COUNT(DISTINCT {view_date}) FROM ("+
 		"SELECT {view_date} FROM {performers_scenes} s "+
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
-		"LEFT JOIN {scenes_view_dates} ON {scenes_view_dates}.{scene_id} = {scenes}.id "+
-		"WHERE s.{performer_id} = {performers}.id%s"+
+		"LEFT JOIN %[3]s AS {scenes_view_dates} ON {scenes_view_dates}.{scene_id} = {scenes}.id "+
+		"WHERE s.{performer_id} = {performers}.id%[4]s"+
 		")",
 	map[string]interface{}{
 		"performer_id":      performerIDColumn,
@@ -529,10 +531,10 @@ func (qb *performerFilterHandler) oCounterCriterionHandler(count *models.IntCrit
 			return
 		}
 
-		lhs := "(" + withSceneVisible(ctx, selectPerformerOCountSQL, "s."+sceneIDColumn) + ")"
-		clause, args := getIntCriterionWhereClause(lhs, *count)
+		oCount, args := formatUserActivity(ctx, selectPerformerOCountSQL, "s."+sceneIDColumn)
+		clause, countArgs := getIntCriterionWhereClause("("+oCount+")", *count)
 
-		f.addWhere(clause, args...)
+		f.addWhere(clause, append(args, countArgs...)...)
 	}
 }
 
@@ -542,10 +544,10 @@ func (qb *performerFilterHandler) playCounterCriterionHandler(count *models.IntC
 			return
 		}
 
-		lhs := "(" + withSceneVisible(ctx, selectPerformerPlayCountSQL, "s."+sceneIDColumn) + ")"
-		clause, args := getIntCriterionWhereClause(lhs, *count)
+		playCount, args := formatUserActivity(ctx, selectPerformerPlayCountSQL, "s."+sceneIDColumn)
+		clause, countArgs := getIntCriterionWhereClause("("+playCount+")", *count)
 
-		f.addWhere(clause, args...)
+		f.addWhere(clause, append(args, countArgs...)...)
 	}
 }
 

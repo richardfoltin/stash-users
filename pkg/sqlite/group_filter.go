@@ -241,14 +241,15 @@ func (qb *groupFilterHandler) sceneCountCriterionHandler(count *models.IntCriter
 	return h.handler(count)
 }
 
-// used for sorting and filtering on group o-count
+// used for sorting and filtering on group o-count, formatted with
+// formatUserActivity
 var selectGroupOCountSQL = utils.StrFormat(
 	"SELECT SUM(o_counter) "+
 		"FROM ("+
 		"SELECT COUNT({scenes_o_dates}.{o_date}) as o_counter from {groups_scenes} s "+
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
-		"LEFT JOIN {scenes_o_dates} ON {scenes_o_dates}.{scene_id} = {scenes}.id "+
-		"WHERE s.{group_id} = {group}.id%s "+
+		"LEFT JOIN %[2]s AS {scenes_o_dates} ON {scenes_o_dates}.{scene_id} = {scenes}.id "+
+		"WHERE s.{group_id} = {group}.id%[4]s "+
 		")",
 	map[string]interface{}{
 		"group":          groupTable,
@@ -267,10 +268,10 @@ func (qb *groupFilterHandler) groupOCounterCriterionHandler(count *models.IntCri
 			return
 		}
 
-		lhs := "(" + withSceneVisible(ctx, selectGroupOCountSQL, "s."+sceneIDColumn) + ")"
-		clause, args := getIntCriterionWhereClause(lhs, *count)
+		oCount, args := formatUserActivity(ctx, selectGroupOCountSQL, "s."+sceneIDColumn)
+		clause, countArgs := getIntCriterionWhereClause("("+oCount+")", *count)
 
-		f.addWhere(clause, args...)
+		f.addWhere(clause, append(args, countArgs...)...)
 	}
 
 }

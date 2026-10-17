@@ -131,6 +131,22 @@ type ViewHistoryWriter interface {
 	DeleteAllViews(ctx context.Context, id int) (int, error)
 }
 
+// SceneActivityMergeOptions selects the viewing activity that a scene merge
+// moves to the destination scene.
+type SceneActivityMergeOptions struct {
+	PlayHistory bool
+	OHistory    bool
+	// PlayDuration is true if the merge sets the play duration of the
+	// destination scene.
+	PlayDuration bool
+}
+
+// SceneActivityMerger moves the viewing activity of every user from scenes
+// that are merged into another scene.
+type SceneActivityMerger interface {
+	MergeActivity(ctx context.Context, destinationID int, sourceIDs []int, options SceneActivityMergeOptions) error
+}
+
 // SceneWriter provides all methods to modify scenes.
 type SceneWriter interface {
 	SceneCreator
@@ -143,6 +159,7 @@ type SceneWriter interface {
 
 	OHistoryWriter
 	ViewHistoryWriter
+	SceneActivityMerger
 	SaveActivity(ctx context.Context, sceneID int, resumeTime *float64, playDuration *float64) (bool, error)
 	ResetActivity(ctx context.Context, sceneID int, resetResume bool, resetDuration bool) (bool, error)
 	CustomFieldsWriter

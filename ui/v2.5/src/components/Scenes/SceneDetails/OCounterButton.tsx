@@ -6,7 +6,6 @@ import { Icon } from "src/components/Shared/Icon";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { SweatDrops } from "src/components/Shared/SweatDrops";
 import { useConfigurationContext } from "src/hooks/Config";
-import { usePermissions } from "src/hooks/Permissions";
 
 export interface IOCounterButtonProps {
   value: number;
@@ -26,7 +25,6 @@ export const OCounterButton: React.FC<IOCounterButtonProps> = (
   const messageID = !sfwContentMode ? "o_count" : "o_count_sfw";
 
   const [loading, setLoading] = useState(false);
-  const { canModify } = usePermissions();
 
   async function increment() {
     setLoading(true);
@@ -54,7 +52,6 @@ export const OCounterButton: React.FC<IOCounterButtonProps> = (
       onClick={increment}
       variant="secondary"
       title={intl.formatMessage({ id: messageID })}
-      disabled={!canModify}
     >
       {icon}
       <span className="ml-2">{props.value}</span>
@@ -62,7 +59,7 @@ export const OCounterButton: React.FC<IOCounterButtonProps> = (
   );
 
   const maybeRenderDropdown = () => {
-    if (props.value && canModify) {
+    if (props.value) {
       return (
         <DropdownButton
           as={ButtonGroup}

@@ -352,8 +352,8 @@
           "role": "Role",
           "role_desc": {
             "admin": "Full access, including settings, tasks, deleting and merging objects, and managing users.",
-            "modify": "Everything a viewer can do, plus creating and editing library metadata, ratings and play history. Cannot delete or merge objects, change settings or run tasks.",
-            "read": "Can browse and play content. Cannot change library data or settings."
+            "modify": "Everything a viewer can do, plus creating and editing library metadata and ratings. Cannot delete or merge objects, change settings or run tasks.",
+            "read": "Can browse and play content, and record their own plays, O counts and resume times. Cannot change library data or settings."
           },
           "user_added": "Added user {name}",
           "user_removed": "Removed user {name}",

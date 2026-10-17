@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
@@ -164,7 +165,7 @@ func (r *repository) buildQueryBody(body string, whereClauses []string, havingCl
 	return body
 }
 
-func (r *repository) executeFindQuery(ctx context.Context, body string, args []interface{}, sortAndPagination string, whereClauses []string, havingClauses []string, withClauses []string, recursiveWith bool) ([]int, int, error) {
+func (r *repository) executeFindQuery(ctx context.Context, body string, args []interface{}, sortAndPagination string, sortArgs []interface{}, whereClauses []string, havingClauses []string, withClauses []string, recursiveWith bool) ([]int, int, error) {
 	body = r.buildQueryBody(body, whereClauses, havingClauses)
 
 	withClause := ""
@@ -178,6 +179,7 @@ func (r *repository) executeFindQuery(ctx context.Context, body string, args []i
 
 	countQuery := withClause + r.buildCountQuery(body)
 	idsQuery := withClause + body + sortAndPagination
+	idsArgs := slices.Concat(args, sortArgs)
 
 	// Perform query and fetch result
 	var countResult int
@@ -186,13 +188,13 @@ func (r *repository) executeFindQuery(ctx context.Context, body string, args []i
 	var idsErr error
 
 	countResult, countErr = r.runCountQuery(ctx, countQuery, args)
-	idsResult, idsErr = r.runIdsQuery(ctx, idsQuery, args)
+	idsResult, idsErr = r.runIdsQuery(ctx, idsQuery, idsArgs)
 
 	if countErr != nil {
 		return nil, 0, fmt.Errorf("error executing count query with SQL: %s, args: %v, error: %s", countQuery, args, countErr.Error())
 	}
 	if idsErr != nil {
-		return nil, 0, fmt.Errorf("error executing find query with SQL: %s, args: %v, error: %s", idsQuery, args, idsErr.Error())
+		return nil, 0, fmt.Errorf("error executing find query with SQL: %s, args: %v, error: %s", idsQuery, idsArgs, idsErr.Error())
 	}
 
 	return idsResult, countResult, nil

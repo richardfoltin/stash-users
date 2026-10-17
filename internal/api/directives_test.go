@@ -22,9 +22,10 @@ import (
 
 // Roles required for each mutation.
 //
-// READ (Viewer): no mutations, other than changing their own password.
-// MODIFY (Editor): creating and editing library metadata, ratings, o-counter,
-// play history and resume points, generating a cover screenshot.
+// READ (Viewer): recording their own viewing activity (o-counter, play history,
+// resume point and play duration) and changing their own password.
+// MODIFY (Editor): creating and editing library metadata, ratings, generating
+// a cover screenshot.
 // ADMIN: everything else - destroying, deleting and merging, configuration,
 // tasks and jobs, plugins and packages, SQL, DLNA, stash-box submissions and
 // user management.
@@ -45,17 +46,17 @@ var expectedMutationRoles = map[string]models.RoleEnum{
 	"sceneDestroy":            models.RoleEnumAdmin,
 	"scenesDestroy":           models.RoleEnumAdmin,
 	"scenesUpdate":            models.RoleEnumModify,
-	"sceneIncrementO":         models.RoleEnumModify,
-	"sceneDecrementO":         models.RoleEnumModify,
-	"sceneAddO":               models.RoleEnumModify,
-	"sceneDeleteO":            models.RoleEnumModify,
-	"sceneResetO":             models.RoleEnumModify,
-	"sceneSaveActivity":       models.RoleEnumModify,
-	"sceneResetActivity":      models.RoleEnumModify,
-	"sceneIncrementPlayCount": models.RoleEnumModify,
-	"sceneAddPlay":            models.RoleEnumModify,
-	"sceneDeletePlay":         models.RoleEnumModify,
-	"sceneResetPlayCount":     models.RoleEnumModify,
+	"sceneIncrementO":         models.RoleEnumRead,
+	"sceneDecrementO":         models.RoleEnumRead,
+	"sceneAddO":               models.RoleEnumRead,
+	"sceneDeleteO":            models.RoleEnumRead,
+	"sceneResetO":             models.RoleEnumRead,
+	"sceneSaveActivity":       models.RoleEnumRead,
+	"sceneResetActivity":      models.RoleEnumRead,
+	"sceneIncrementPlayCount": models.RoleEnumRead,
+	"sceneAddPlay":            models.RoleEnumRead,
+	"sceneDeletePlay":         models.RoleEnumRead,
+	"sceneResetPlayCount":     models.RoleEnumRead,
 	"sceneGenerateScreenshot": models.RoleEnumModify,
 	"sceneAssignFile":         models.RoleEnumAdmin,
 
@@ -72,9 +73,9 @@ var expectedMutationRoles = map[string]models.RoleEnum{
 	"imageDestroy":    models.RoleEnumAdmin,
 	"imagesDestroy":   models.RoleEnumAdmin,
 	"imagesUpdate":    models.RoleEnumModify,
-	"imageIncrementO": models.RoleEnumModify,
-	"imageDecrementO": models.RoleEnumModify,
-	"imageResetO":     models.RoleEnumModify,
+	"imageIncrementO": models.RoleEnumRead,
+	"imageDecrementO": models.RoleEnumRead,
+	"imageResetO":     models.RoleEnumRead,
 
 	// galleries
 	"galleryCreate":         models.RoleEnumModify,
@@ -463,6 +464,10 @@ func TestMutationRoleMiddleware(t *testing.T) {
 
 	const tagCreate = `mutation { tagCreate(input: {name: "tag"}) { id } }`
 	const findTags = `query { findTags { count } }`
+	const sceneAddO = `mutation { sceneAddO(id: "1") { count } }`
+	const sceneSaveActivity = `mutation { sceneSaveActivity(id: "1", resume_time: 1) }`
+	const imageIncrementO = `mutation { imageIncrementO(id: "1") }`
+	const sceneRate = `mutation { sceneUpdate(input: {id: "1", rating100: 50}) { id } }`
 
 	// run executes the operation and returns whether its root field was
 	// resolved, and the required role of a permission denied error
@@ -519,6 +524,11 @@ func TestMutationRoleMiddleware(t *testing.T) {
 			{"mutation as editor", tagCreate, &modify, true, ""},
 			{"mutation as admin", tagCreate, &admin, true, ""},
 			{"query as viewer", findTags, &read, true, ""},
+			// viewing activity is personal: viewers record their own
+			{"activity as viewer", sceneAddO, &read, true, ""},
+			{"resume point as viewer", sceneSaveActivity, &read, true, ""},
+			{"image activity as viewer", imageIncrementO, &read, true, ""},
+			{"rating as viewer", sceneRate, &read, false, models.RoleEnumModify},
 		})
 	})
 

@@ -297,11 +297,12 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   useEffect(() => {
     Mousetrap.bind("a", () => setActiveTabKey("image-details-panel"));
     Mousetrap.bind("f", () => setActiveTabKey("image-file-info-panel"));
+    // every user records their own o-counter
+    Mousetrap.bind("o", () => {
+      onIncrementClick();
+    });
     if (canModify) {
       Mousetrap.bind("e", () => setActiveTabKey("image-edit-panel"));
-      Mousetrap.bind("o", () => {
-        onIncrementClick();
-      });
     }
 
     return () => {

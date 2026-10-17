@@ -1,7 +1,7 @@
 enum RoleEnum {
   "Everything, including deleting, merging, configuration and tasks"
   ADMIN
-  "Browse and play content"
+  "Browse and play content, and record their own viewing activity"
   READ
   "READ, plus create and edit library metadata"
   MODIFY

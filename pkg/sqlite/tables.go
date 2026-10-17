@@ -231,18 +231,18 @@ var (
 
 	scenesViewTableMgr = &viewHistoryTable{
 		table: table{
-			table:    goqu.T(scenesViewDatesTable),
-			idColumn: goqu.T(scenesViewDatesTable).Col(sceneIDColumn),
+			table:    goqu.T(userSceneViewsTable),
+			idColumn: goqu.T(userSceneViewsTable).Col(sceneIDColumn),
 		},
-		dateColumn: goqu.T(scenesViewDatesTable).Col(sceneViewDateColumn),
+		dateColumn: goqu.T(userSceneViewsTable).Col(sceneViewDateColumn),
 	}
 
 	scenesOTableMgr = &viewHistoryTable{
 		table: table{
-			table:    goqu.T(scenesODatesTable),
-			idColumn: goqu.T(scenesODatesTable).Col(sceneIDColumn),
+			table:    goqu.T(userSceneODatesTable),
+			idColumn: goqu.T(userSceneODatesTable).Col(sceneIDColumn),
 		},
-		dateColumn: goqu.T(scenesODatesTable).Col(sceneODateColumn),
+		dateColumn: goqu.T(userSceneODatesTable).Col(sceneODateColumn),
 	}
 )
 

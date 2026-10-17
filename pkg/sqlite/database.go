@@ -91,6 +91,8 @@ type Database struct {
 	schemaVersion uint
 
 	lockChan chan struct{}
+
+	userActivity userActivityState
 }
 
 func NewDatabase() *Database {
@@ -270,6 +272,9 @@ func (db *Database) initialise() error {
 		return fmt.Errorf("opening write database: %w", err)
 	}
 	if err := ensureSceneVisibilityTable(db.writeDB); err != nil {
+		return err
+	}
+	if err := db.ensureUserActivity(); err != nil {
 		return err
 	}
 

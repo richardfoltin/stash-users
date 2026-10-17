@@ -13,10 +13,11 @@ Some shortcuts only work for users whose role allows the action. For other users
 | `s s` | Save in an edit tab or edit mode | `Editor` |
 | `c c`, `c d` | Generate scene screenshot | `Editor` |
 | `r ...` | Set or unset rating | `Editor` |
-| `o` | Increment O count | `Editor` |
 | `f` | Toggle favourite on performer, studio and tag pages | `Editor` |
 | `v t` | Set view to tagger | `Editor` |
 | `Ctrl + v` | Paste image in an edit tab or edit mode | `Editor` |
+
+`o` increments the O count of the signed-in user, for every role.
 
 ## Global shortcuts
 

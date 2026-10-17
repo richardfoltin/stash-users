@@ -582,7 +582,7 @@ func (qb *StudioStore) makeQuery(ctx context.Context, studioFilter *models.Studi
 	}
 
 	var err error
-	query.sortAndPagination, err = qb.getStudioSort(ctx, findFilter)
+	query.sortAndPagination, err = qb.getStudioSort(ctx, &query, findFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -682,20 +682,29 @@ func (qb *StudioStore) sortByPerformerCountAll(ctx context.Context, direction st
 	) %[5]s`, studioTable, performersScenesTable, studioIDColumn, sceneTable, getSortDirection(direction), andSceneVisible(ctx, "sc.id"))
 }
 
-func (qb *StudioStore) sortByOCounter(ctx context.Context, direction string) string {
+func (qb *StudioStore) sortByOCounter(ctx context.Context, query *queryBuilder, direction string) string {
+	oDates, oDatesArgs := sceneODatesSQL(ctx)
+	oCounters, oCountersArgs := imageOCountersSQL(ctx)
+	query.sortArgs = append(query.sortArgs, oDatesArgs...)
+	query.sortArgs = append(query.sortArgs, oCountersArgs...)
 	return fmt.Sprintf(` ORDER BY (
 		SELECT COALESCE((
 			SELECT COUNT(*) FROM %[3]s
-			INNER JOIN %[4]s ON %[3]s.id = %[4]s.scene_id
+			INNER JOIN %[8]s AS %[4]s ON %[3]s.id = %[4]s.scene_id
 			WHERE %[3]s.%[2]s = %[1]s.id%[7]s
 		), 0) + COALESCE((
-			SELECT SUM(o_counter) FROM %[5]s
+			SELECT SUM(image_o.o_counter) FROM %[5]s
+			INNER JOIN %[9]s AS image_o ON image_o.id = %[5]s.id
 			WHERE %[5]s.%[2]s = %[1]s.id
 		), 0)
-	) %[6]s`, studioTable, studioIDColumn, sceneTable, scenesODatesTable, imageTable, getSortDirection(direction), andSceneVisible(ctx, sceneTable+".id"))
+	) %[6]s`, studioTable, studioIDColumn, sceneTable, scenesODatesTable, imageTable, getSortDirection(direction), andSceneVisible(ctx, sceneTable+".id"), oDates, oCounters)
 }
 
-func (qb *StudioStore) sortByOCounterAll(ctx context.Context, direction string) string {
+func (qb *StudioStore) sortByOCounterAll(ctx context.Context, query *queryBuilder, direction string) string {
+	oDates, oDatesArgs := sceneODatesSQL(ctx)
+	oCounters, oCountersArgs := imageOCountersSQL(ctx)
+	query.sortArgs = append(query.sortArgs, oDatesArgs...)
+	query.sortArgs = append(query.sortArgs, oCountersArgs...)
 	return fmt.Sprintf(` ORDER BY (
 		WITH RECURSIVE sub_studios AS (
 			SELECT s.id FROM %[1]s s WHERE s.id = %[1]s.id
@@ -705,13 +714,14 @@ func (qb *StudioStore) sortByOCounterAll(ctx context.Context, direction string) 
 		)
 		SELECT COALESCE((
 			SELECT COUNT(*) FROM %[3]s
-			INNER JOIN %[4]s ON %[3]s.id = %[4]s.scene_id
+			INNER JOIN %[8]s AS %[4]s ON %[3]s.id = %[4]s.scene_id
 			WHERE %[3]s.%[2]s IN (SELECT id FROM sub_studios)%[7]s
 		), 0) + COALESCE((
-			SELECT SUM(o_counter) FROM %[5]s
+			SELECT SUM(image_o.o_counter) FROM %[5]s
+			INNER JOIN %[9]s AS image_o ON image_o.id = %[5]s.id
 			WHERE %[5]s.%[2]s IN (SELECT id FROM sub_studios)
 		), 0)
-	) %[6]s`, studioTable, studioIDColumn, sceneTable, scenesODatesTable, imageTable, getSortDirection(direction), andSceneVisible(ctx, sceneTable+".id"))
+	) %[6]s`, studioTable, studioIDColumn, sceneTable, scenesODatesTable, imageTable, getSortDirection(direction), andSceneVisible(ctx, sceneTable+".id"), oDates, oCounters)
 }
 
 var studioSortOptions = sortOptions{
@@ -736,7 +746,7 @@ var studioSortOptions = sortOptions{
 	"updated_at",
 }
 
-func (qb *StudioStore) getStudioSort(ctx context.Context, findFilter *models.FindFilterType) (string, error) {
+func (qb *StudioStore) getStudioSort(ctx context.Context, query *queryBuilder, findFilter *models.FindFilterType) (string, error) {
 	var sort string
 	var direction string
 	if findFilter == nil {
@@ -773,9 +783,9 @@ func (qb *StudioStore) getStudioSort(ctx context.Context, findFilter *models.Fin
 	case "latest_scene":
 		sortQuery += qb.sortByLatestScene(ctx, direction)
 	case "o_counter":
-		sortQuery += qb.sortByOCounter(ctx, direction)
+		sortQuery += qb.sortByOCounter(ctx, query, direction)
 	case "o_counter_all":
-		sortQuery += qb.sortByOCounterAll(ctx, direction)
+		sortQuery += qb.sortByOCounterAll(ctx, query, direction)
 	case "performer_count":
 		sortQuery += qb.sortByPerformerCount(ctx, direction)
 	case "performer_count_all":

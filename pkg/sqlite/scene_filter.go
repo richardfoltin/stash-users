@@ -162,15 +162,17 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 
 		qb.captionCriterionHandler(sceneFilter.Captions),
 
-		floatIntCriterionHandler(sceneFilter.ResumeTime, "scenes.resume_time", nil),
-		floatIntCriterionHandler(sceneFilter.PlayDuration, "scenes.play_duration", nil),
+		sceneActivityCriterionHandler(sceneFilter.ResumeTime, "resume_time"),
+		sceneActivityCriterionHandler(sceneFilter.PlayDuration, "play_duration"),
 		qb.playCountCriterionHandler(sceneFilter.PlayCount),
 		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
 			if sceneFilter.LastPlayedAt != nil {
+				views, args := sceneViewsSQL(ctx)
 				f.addLeftJoin(
-					fmt.Sprintf("(SELECT %s, MAX(%s) as last_played_at FROM %s GROUP BY %s)", sceneIDColumn, sceneViewDateColumn, scenesViewDatesTable, sceneIDColumn),
+					fmt.Sprintf("(SELECT %s, MAX(%s) as last_played_at FROM %s GROUP BY %s)", sceneIDColumn, sceneViewDateColumn, views, sceneIDColumn),
 					"scene_last_view",
 					fmt.Sprintf("scene_last_view.%s = scenes.id", sceneIDColumn),
+					args...,
 				)
 				h := timestampCriterionHandler{sceneFilter.LastPlayedAt, "IFNULL(last_played_at, datetime(0))", nil}
 				h.handle(ctx, f)
@@ -292,23 +294,11 @@ func (qb *sceneFilterHandler) addVideoFilesTable(f *filterBuilder, joinType join
 }
 
 func (qb *sceneFilterHandler) playCountCriterionHandler(count *models.IntCriterionInput) criterionHandlerFunc {
-	h := countCriterionHandlerBuilder{
-		primaryTable: sceneTable,
-		joinTable:    scenesViewDatesTable,
-		primaryFK:    sceneIDColumn,
-	}
-
-	return h.handler(count)
+	return activityCountCriterionHandler(count, sceneViewsSQL)
 }
 
 func (qb *sceneFilterHandler) oCountCriterionHandler(count *models.IntCriterionInput) criterionHandlerFunc {
-	h := countCriterionHandlerBuilder{
-		primaryTable: sceneTable,
-		joinTable:    scenesODatesTable,
-		primaryFK:    sceneIDColumn,
-	}
-
-	return h.handler(count)
+	return activityCountCriterionHandler(count, sceneODatesSQL)
 }
 
 func (qb *sceneFilterHandler) fileCountCriterionHandler(fileCount *models.IntCriterionInput) criterionHandlerFunc {

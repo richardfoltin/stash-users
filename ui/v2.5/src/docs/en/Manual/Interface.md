@@ -31,7 +31,9 @@ The maximum loop duration option allows looping of shorter videos. Set this valu
 
 ### Activity tracking
 
-The "Track Activity" option allows tracking of scene play count and duration, and sets the resume point when a scene video is not finished.
+The "Enable scene play history" option allows tracking of scene play count and duration, and sets the resume point when a scene video is not finished.
+
+The play count, play duration, resume point and O count belong to the signed-in user: each user has their own. Requests that are signed in automatically from the local network record the activity of the user that logs in automatically. See [Users and Permissions](/help/Users.md).
 
 The "Minimum play percent" gives the minimum proportion of a video that must be played before the play count of the scene is incremented.
 

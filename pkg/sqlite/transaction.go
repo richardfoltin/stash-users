@@ -26,6 +26,7 @@ func (db *Database) WithDatabase(ctx context.Context) (context.Context, error) {
 		return ctx, nil
 	}
 
+	ctx = db.withUserActivity(ctx)
 	return context.WithValue(ctx, dbKey, db.readDB), nil
 }
 
@@ -48,6 +49,7 @@ func (db *Database) Begin(ctx context.Context, writable bool) (context.Context, 
 	}
 
 	ctx = context.WithValue(ctx, writableKey, writable)
+	ctx = db.withUserActivity(ctx)
 
 	return context.WithValue(ctx, txnKey, tx), nil
 }

@@ -874,7 +874,8 @@ func (t *relatedFilesTable) setPrimary(ctx context.Context, id int, fileID model
 }
 
 // viewHistoryTable stores the view and o dates of scenes. The dates of scenes
-// that are hidden in the context are not counted, and cannot be changed.
+// that are hidden in the context are not counted, and cannot be changed. Only
+// the dates of the activity user are read and written (see byUser).
 type viewHistoryTable struct {
 	table
 	dateColumn exp.IdentifierExpression
@@ -892,6 +893,7 @@ func (t *viewHistoryTable) getDates(ctx context.Context, id int) ([]time.Time, e
 		t.dateColumn,
 	).From(table).Where(
 		t.idColumn.Eq(id),
+		t.byUser(ctx),
 	).Order(t.dateColumn.Desc())
 
 	const single = false
@@ -918,6 +920,7 @@ func (t *viewHistoryTable) getManyDates(ctx context.Context, ids []int) ([][]tim
 		t.dateColumn,
 	).From(table).Where(
 		t.idColumn.In(ids),
+		t.byUser(ctx),
 	).Order(t.dateColumn.Desc())
 
 	ret := make([][]time.Time, len(ids))
@@ -945,6 +948,7 @@ func (t *viewHistoryTable) getLastDate(ctx context.Context, id int) (*time.Time,
 	table := t.table.table
 	q := dialect.Select(t.dateColumn).From(table).Where(
 		t.idColumn.Eq(id),
+		t.byUser(ctx),
 	).Order(t.dateColumn.Desc()).Limit(1)
 
 	var date NullTimestamp
@@ -963,6 +967,7 @@ func (t *viewHistoryTable) getManyLastDate(ctx context.Context, ids []int) ([]*t
 		goqu.MAX(t.dateColumn),
 	).From(table).Where(
 		t.idColumn.In(ids),
+		t.byUser(ctx),
 	).GroupBy(t.idColumn)
 
 	ret := make([]*time.Time, len(ids))
@@ -996,7 +1001,7 @@ func (t *viewHistoryTable) getManyLastDate(ctx context.Context, ids []int) ([]*t
 
 func (t *viewHistoryTable) getCount(ctx context.Context, id int) (int, error) {
 	table := t.table.table
-	q := dialect.Select(goqu.COUNT("*")).From(table).Where(t.idColumn.Eq(id))
+	q := dialect.Select(goqu.COUNT("*")).From(table).Where(t.idColumn.Eq(id), t.byUser(ctx))
 
 	const single = true
 	var ret int
@@ -1020,6 +1025,7 @@ func (t *viewHistoryTable) getManyCount(ctx context.Context, ids []int) ([]int, 
 		goqu.COUNT(t.dateColumn),
 	).From(table).Where(
 		t.idColumn.In(ids),
+		t.byUser(ctx),
 	).GroupBy(t.idColumn)
 
 	ret := make([]int, len(ids))
@@ -1045,7 +1051,7 @@ func (t *viewHistoryTable) getManyCount(ctx context.Context, ids []int) ([]int, 
 
 func (t *viewHistoryTable) getAllCount(ctx context.Context) (int, error) {
 	table := t.table.table
-	q := dialect.Select(goqu.COUNT("*")).From(table)
+	q := dialect.Select(goqu.COUNT("*")).From(table).Where(t.byUser(ctx))
 	q = whereSceneVisible(ctx, q, t.sceneIDColumn())
 
 	const single = true
@@ -1064,7 +1070,7 @@ func (t *viewHistoryTable) getAllCount(ctx context.Context) (int, error) {
 
 func (t *viewHistoryTable) getUniqueCount(ctx context.Context) (int, error) {
 	table := t.table.table
-	q := dialect.Select(goqu.COUNT(goqu.DISTINCT(t.idColumn))).From(table)
+	q := dialect.Select(goqu.COUNT(goqu.DISTINCT(t.idColumn))).From(table).Where(t.byUser(ctx))
 	q = whereSceneVisible(ctx, q, t.sceneIDColumn())
 
 	const single = true
@@ -1093,9 +1099,9 @@ func (t *viewHistoryTable) addDates(ctx context.Context, id int, dates []time.Ti
 	}
 
 	for _, d := range dates {
-		q := dialect.Insert(table).Cols(t.idColumn.GetCol(), t.dateColumn.GetCol()).Vals(
+		q := dialect.Insert(table).Cols(t.idColumn.GetCol(), userNameColumn, t.dateColumn.GetCol()).Vals(
 			// convert all dates to UTC
-			goqu.Vals{id, UTCTimestamp{Timestamp{d}}},
+			goqu.Vals{id, activityUser(ctx), UTCTimestamp{Timestamp{d}}},
 		)
 
 		if _, err := exec(ctx, q); err != nil {
@@ -1125,10 +1131,12 @@ func (t *viewHistoryTable) deleteDates(ctx context.Context, id int, dates []time
 			// delete the most recent
 			subquery = dialect.Select("rowid").From(table).Where(
 				t.idColumn.Eq(id),
+				t.byUser(ctx),
 			).Order(t.dateColumn.Desc()).Limit(1)
 		} else {
 			subquery = dialect.Select("rowid").From(table).Where(
 				t.idColumn.Eq(id),
+				t.byUser(ctx),
 				t.dateColumn.Eq(UTCTimestamp{Timestamp{date}}),
 			).Limit(1)
 		}
@@ -1149,7 +1157,7 @@ func (t *viewHistoryTable) deleteAllDates(ctx context.Context, id int) (int, err
 	}
 
 	table := t.table.table
-	q := dialect.Delete(table).Where(t.idColumn.Eq(id))
+	q := dialect.Delete(table).Where(t.idColumn.Eq(id), t.byUser(ctx))
 
 	if _, err := exec(ctx, q); err != nil {
 		return 0, fmt.Errorf("resetting dates for id %v: %w", id, err)

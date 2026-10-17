@@ -49,6 +49,7 @@ func (db *Anonymiser) Anonymise(ctx context.Context) error {
 			func() error { return db.deleteStashIDs() },
 			func() error { return db.clearOHistory() },
 			func() error { return db.clearWatchHistory() },
+			func() error { return db.anonymiseUserNames(ctx) },
 			func() error { return db.anonymiseFolders(ctx) },
 			func() error { return db.anonymiseFiles(ctx) },
 			func() error { return db.anonymiseCaptions(ctx) },
@@ -109,12 +110,55 @@ func (db *Anonymiser) deleteStashIDs() error {
 func (db *Anonymiser) clearOHistory() error {
 	return utils.Do([]func() error{
 		func() error { return db.truncateTable(scenesODatesTable) },
+		func() error { return db.truncateTable(userSceneODatesTable) },
+		func() error { return db.truncateTable(userImageOCountersTable) },
 	})
 }
 
 func (db *Anonymiser) clearWatchHistory() error {
 	return utils.Do([]func() error{
 		func() error { return db.truncateTable(scenesViewDatesTable) },
+		func() error { return db.truncateTable(userSceneViewsTable) },
+		func() error { return db.truncateTable(userSceneActivityTable) },
+	})
+}
+
+func (db *Anonymiser) anonymiseUserNames(ctx context.Context) error {
+	logger.Infof("Anonymising user names")
+	tables := []string{userActivityAdoptionTable, userSceneViewsTable, userSceneODatesTable, userSceneActivityTable, userImageOCountersTable}
+
+	return txn.WithTxn(ctx, db, func(ctx context.Context) error {
+		var selects []string
+		for _, table := range tables {
+			selects = append(selects, "SELECT user_name FROM "+table+" WHERE user_name IS NOT NULL AND user_name != ''")
+		}
+
+		var names []string
+		if err := dbWrapper.Select(ctx, &names, strings.Join(selects, " UNION ")); err != nil {
+			return fmt.Errorf("reading user names: %w", err)
+		}
+
+		// each name is replaced by the same new name in every table
+		used := make(map[string]bool)
+		for _, name := range names {
+			used[name] = true
+		}
+
+		for _, name := range names {
+			anonymised := db.obfuscateString(name, letters)
+			for used[anonymised] {
+				anonymised = db.obfuscateString(name, letters)
+			}
+			used[anonymised] = true
+
+			for _, table := range tables {
+				if _, err := dbWrapper.Exec(ctx, "UPDATE "+table+" SET user_name = ? WHERE user_name = ?", anonymised, name); err != nil {
+					return fmt.Errorf("anonymising user names: %w", err)
+				}
+			}
+		}
+
+		return nil
 	})
 }
 

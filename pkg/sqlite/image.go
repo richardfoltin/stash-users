@@ -40,7 +40,7 @@ type imageRow struct {
 	Details       zero.String `db:"details"`
 	Photographer  zero.String `db:"photographer"`
 	Organized     bool        `db:"organized"`
-	OCounter      int         `db:"o_counter"`
+	OCounter      int         `db:"o_counter" goqu:"skipupdate"`
 	StudioID      null.Int    `db:"studio_id,omitempty"`
 	CreatedAt     Timestamp   `db:"created_at"`
 	UpdatedAt     Timestamp   `db:"updated_at"`
@@ -56,7 +56,6 @@ func (r *imageRow) fromImage(i models.Image) {
 	r.Details = zero.StringFrom(i.Details)
 	r.Photographer = zero.StringFrom(i.Photographer)
 	r.Organized = i.Organized
-	r.OCounter = i.OCounter
 	r.StudioID = intFromPtr(i.StudioID)
 	r.CreatedAt = Timestamp{Timestamp: i.CreatedAt}
 	r.UpdatedAt = Timestamp{Timestamp: i.UpdatedAt}
@@ -109,7 +108,6 @@ func (r *imageRowRecord) fromPartial(i models.ImagePartial) {
 	r.setNullString("details", i.Details)
 	r.setNullString("photographer", i.Photographer)
 	r.setBool("organized", i.Organized)
-	r.setInt("o_counter", i.OCounter)
 	r.setNullInt("studio_id", i.StudioID)
 	r.setTimestamp("created_at", i.CreatedAt)
 	r.setTimestamp("updated_at", i.UpdatedAt)
@@ -251,6 +249,12 @@ func (qb *ImageStore) Create(ctx context.Context, newObject *models.CreateImageI
 		return err
 	}
 
+	if newObject.Image.OCounter != 0 {
+		if err := setImageOCounter(ctx, id, newObject.Image.OCounter); err != nil {
+			return err
+		}
+	}
+
 	if len(newObject.FileIDs) > 0 {
 		const firstPrimary = true
 		if err := imagesFilesTableMgr.insertJoins(ctx, id, firstPrimary, newObject.FileIDs); err != nil {
@@ -313,6 +317,12 @@ func (qb *ImageStore) UpdatePartial(ctx context.Context, id int, partial models.
 		}
 	}
 
+	if partial.OCounter.Set {
+		if err := setImageOCounter(ctx, id, partial.OCounter.Value); err != nil {
+			return nil, err
+		}
+	}
+
 	if partial.GalleryIDs != nil {
 		if err := imageGalleriesTableMgr.modifyJoins(ctx, id, partial.GalleryIDs.IDs, partial.GalleryIDs.Mode); err != nil {
 			return nil, err
@@ -353,6 +363,10 @@ func (qb *ImageStore) Update(ctx context.Context, updatedObject *models.Image) e
 	r.fromImage(*updatedObject)
 
 	if err := qb.tableMgr.updateByID(ctx, updatedObject.ID, r); err != nil {
+		return err
+	}
+
+	if err := setImageOCounter(ctx, updatedObject.ID, updatedObject.OCounter); err != nil {
 		return err
 	}
 
@@ -493,6 +507,10 @@ func (qb *ImageStore) getMany(ctx context.Context, q *goqu.SelectDataset) ([]*mo
 		ret = append(ret, i)
 		return nil
 	}); err != nil {
+		return nil, err
+	}
+
+	if err := loadImageOCounters(ctx, ret); err != nil {
 		return nil, err
 	}
 
@@ -722,7 +740,7 @@ func (qb *ImageStore) CountByGalleryID(ctx context.Context, galleryID int) (int,
 func (qb *ImageStore) OCountByPerformerID(ctx context.Context, performerID int) (int, error) {
 	table := qb.table()
 	joinTable := performersImagesJoinTable
-	q := dialect.Select(goqu.COALESCE(goqu.SUM("o_counter"), 0)).From(table).InnerJoin(joinTable, goqu.On(table.Col(idColumn).Eq(joinTable.Col(imageIDColumn)))).Where(joinTable.Col(performerIDColumn).Eq(performerID))
+	q := dialect.Select(goqu.COALESCE(goqu.SUM("o_counter"), 0)).From(imageOCountersTable(ctx, imageTable)).InnerJoin(joinTable, goqu.On(table.Col(idColumn).Eq(joinTable.Col(imageIDColumn)))).Where(joinTable.Col(performerIDColumn).Eq(performerID))
 
 	var ret int
 	if err := querySimple(ctx, q, &ret); err != nil {
@@ -740,7 +758,11 @@ func (qb *ImageStore) OCountByStudioID(ctx context.Context, studioID int, depth 
 	}
 
 	table := qb.table()
-	q := dialect.Select(goqu.COALESCE(goqu.SUM("o_counter"), 0)).From(table).Where(
+	oCounters := goqu.T("image_o")
+	q := dialect.Select(goqu.COALESCE(goqu.SUM(oCounters.Col("o_counter")), 0)).From(table).InnerJoin(
+		imageOCountersTable(ctx, "image_o"),
+		goqu.On(oCounters.Col(idColumn).Eq(table.Col(idColumn))),
+	).Where(
 		table.Col(studioIDColumn).Eq(studioID),
 	)
 
@@ -752,9 +774,7 @@ func (qb *ImageStore) OCountByStudioID(ctx context.Context, studioID int, depth 
 }
 
 func (qb *ImageStore) OCount(ctx context.Context) (int, error) {
-	table := qb.table()
-
-	q := dialect.Select(goqu.COALESCE(goqu.SUM("o_counter"), 0)).From(table)
+	q := dialect.Select(goqu.COALESCE(goqu.SUM("o_counter"), 0)).From(imageOCountersTable(ctx, imageTable))
 	var ret int
 	if err := querySimple(ctx, q, &ret); err != nil {
 		return 0, err
@@ -764,6 +784,7 @@ func (qb *ImageStore) OCount(ctx context.Context) (int, error) {
 }
 
 func (qb *ImageStore) oCountByStudioIDRecursive(ctx context.Context, studioID int, depth int) (int, error) {
+	oCounters, oCountersArgs := imageOCountersSQL(ctx)
 	q := `
 	WITH RECURSIVE sub_studios AS (
 		SELECT id, 0 AS level FROM studios WHERE id = ?
@@ -772,10 +793,11 @@ func (qb *ImageStore) oCountByStudioIDRecursive(ctx context.Context, studioID in
 		INNER JOIN sub_studios ss ON s.parent_id = ss.id
 		WHERE ss.level < ? OR ? < 0
 	)
-	SELECT COALESCE(SUM(o_counter), 0) FROM images
+	SELECT COALESCE(SUM(image_o.o_counter), 0) FROM images
+	INNER JOIN ` + oCounters + ` AS image_o ON image_o.id = images.id
 	WHERE images.studio_id IN (SELECT id FROM sub_studios)`
 
-	rows, err := dbWrapper.QueryxContext(ctx, q, studioID, depth, depth)
+	rows, err := dbWrapper.QueryxContext(ctx, q, append([]interface{}{studioID, depth, depth}, oCountersArgs...)...)
 	if err != nil {
 		return 0, fmt.Errorf("querying image o_count by studio: %w", err)
 	}
@@ -916,7 +938,7 @@ func (qb *ImageStore) makeQuery(ctx context.Context, imageFilter *models.ImageFi
 		return nil, err
 	}
 
-	if err := qb.setImageSortAndPagination(&query, findFilter); err != nil {
+	if err := qb.setImageSortAndPagination(ctx, &query, findFilter); err != nil {
 		return nil, err
 	}
 
@@ -1037,7 +1059,7 @@ var imageSortOptions = sortOptions{
 	"updated_at",
 }
 
-func (qb *ImageStore) setImageSortAndPagination(q *queryBuilder, findFilter *models.FindFilterType) error {
+func (qb *ImageStore) setImageSortAndPagination(ctx context.Context, q *queryBuilder, findFilter *models.FindFilterType) error {
 	sortClause := ""
 
 	if findFilter != nil && findFilter.Sort != nil && *findFilter.Sort != "" {
@@ -1088,6 +1110,10 @@ func (qb *ImageStore) setImageSortAndPagination(q *queryBuilder, findFilter *mod
 			sortClause = getCountSort(imageTable, imagesTagsTable, imageIDColumn, direction)
 		case "performer_count":
 			sortClause = getCountSort(imageTable, performersImagesTable, imageIDColumn, direction)
+		case "o_counter":
+			oCounter, args := imageOCounterSQL(ctx, imageTable+".id")
+			sortClause = " ORDER BY " + oCounter + " " + getSortDirection(direction)
+			q.sortArgs = append(q.sortArgs, args...)
 		case "mod_time", "filesize":
 			addFilesJoin()
 			sortClause = getSort(sort, direction, "files")

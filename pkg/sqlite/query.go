@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/stashapp/stash/pkg/models"
@@ -26,6 +27,7 @@ type queryBuilder struct {
 	havingArgs []interface{}
 
 	sortAndPagination string
+	sortArgs          []interface{}
 }
 
 func (qb queryBuilder) allArgs() []interface{} {
@@ -68,13 +70,13 @@ func (qb queryBuilder) toSQL(includeSortPagination bool) string {
 func (qb queryBuilder) findIDs(ctx context.Context) ([]int, error) {
 	const includeSortPagination = true
 	sql := qb.toSQL(includeSortPagination)
-	return qb.repository.runIdsQuery(ctx, sql, qb.allArgs())
+	return qb.repository.runIdsQuery(ctx, sql, slices.Concat(qb.allArgs(), qb.sortArgs))
 }
 
 func (qb queryBuilder) executeFind(ctx context.Context) ([]int, int, error) {
 	const includeSortPagination = true
 	body := qb.body(includeSortPagination)
-	return qb.repository.executeFindQuery(ctx, body, qb.allArgs(), qb.sortAndPagination, qb.whereClauses, qb.havingClauses, qb.withClauses, qb.recursiveWith)
+	return qb.repository.executeFindQuery(ctx, body, qb.allArgs(), qb.sortAndPagination, qb.sortArgs, qb.whereClauses, qb.havingClauses, qb.withClauses, qb.recursiveWith)
 }
 
 func (qb queryBuilder) executeCount(ctx context.Context) (int, error) {

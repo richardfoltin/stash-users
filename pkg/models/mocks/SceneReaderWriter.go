@@ -1254,6 +1254,20 @@ func (_m *SceneReaderWriter) HasCover(ctx context.Context, sceneID int) (bool, e
 	return r0, r1
 }
 
+// MergeActivity provides a mock function with given fields: ctx, destinationID, sourceIDs, options
+func (_m *SceneReaderWriter) MergeActivity(ctx context.Context, destinationID int, sourceIDs []int, options models.SceneActivityMergeOptions) error {
+	ret := _m.Called(ctx, destinationID, sourceIDs, options)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, []int, models.SceneActivityMergeOptions) error); ok {
+		r0 = rf(ctx, destinationID, sourceIDs, options)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // OCountByGroupID provides a mock function with given fields: ctx, groupID
 func (_m *SceneReaderWriter) OCountByGroupID(ctx context.Context, groupID int) (int, error) {
 	ret := _m.Called(ctx, groupID)

@@ -38,6 +38,9 @@ func Initialize(cfg *config.Config, l *log.Logger) (*Manager, error) {
 
 	db := sqlite.NewDatabase()
 	db.SetDefaultSceneVisibility(cfg.GetDefaultSceneVisibility)
+	db.SetFirstAdmin(func(ctx context.Context) string {
+		return firstAdmin(ctx, cfg.UserStore)
+	})
 	repo := db.Repository()
 
 	// start with empty paths
@@ -108,7 +111,7 @@ func Initialize(cfg *config.Config, l *log.Logger) (*Manager, error) {
 		GalleryService: galleryService,
 		GroupService:   groupService,
 		UserService: &user.Service{
-			Store:        cfg.UserStore,
+			Store:        &activityUserSource{UserSource: cfg.UserStore, activity: db},
 			APIKeyUserID: GetUserIDFromAPIKey,
 		},
 

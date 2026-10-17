@@ -253,7 +253,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const [sceneSaveActivity] = useSceneSaveActivity();
     const [sceneIncrementPlayCount] = useSceneIncrementPlayCount();
     const [updateInterfaceConfig] = useConfigureInterface();
-    const { isAdmin, canModify } = usePermissions();
+    const { isAdmin } = usePermissions();
 
     const [time, setTime] = useState(0);
     const [ready, setReady] = useState(false);
@@ -865,12 +865,11 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       activity.saveActivity = saveActivity;
       activity.incrementPlayCount = incrementPlayCount;
       activity.minimumPlayPercent = minimumPlayPercent;
-      activity.setEnabled(trackActivity && canModify);
+      activity.setEnabled(trackActivity);
     }, [
       getPlayer,
       scene,
       trackActivity,
-      canModify,
       minimumPlayPercent,
       sceneIncrementPlayCount,
       sceneSaveActivity,

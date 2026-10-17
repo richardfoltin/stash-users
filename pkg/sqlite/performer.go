@@ -643,7 +643,7 @@ func (qb *PerformerStore) makeQuery(ctx context.Context, performerFilter *models
 	}
 
 	var err error
-	query.sortAndPagination, err = qb.getPerformerSort(ctx, findFilter)
+	query.sortAndPagination, err = qb.getPerformerSort(ctx, &query, findFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -680,14 +680,14 @@ func (qb *PerformerStore) QueryCount(ctx context.Context, performerFilter *model
 	return query.executeCount(ctx)
 }
 
-func (qb *PerformerStore) sortByOCounter(ctx context.Context, direction string) string {
+func (qb *PerformerStore) sortByOCounter(ctx context.Context, query *queryBuilder, direction string) string {
 	// need to sum the o_counter from scenes and images
-	return " ORDER BY (" + withSceneVisible(ctx, selectPerformerOCountSQL, "s."+sceneIDColumn) + ") " + direction
+	return sortByUserActivity(ctx, query, selectPerformerOCountSQL, direction)
 }
 
-func (qb *PerformerStore) sortByPlayCount(ctx context.Context, direction string) string {
+func (qb *PerformerStore) sortByPlayCount(ctx context.Context, query *queryBuilder, direction string) string {
 	// need to sum the o_counter from scenes and images
-	return " ORDER BY (" + withSceneVisible(ctx, selectPerformerPlayCountSQL, "s."+sceneIDColumn) + ") " + direction
+	return sortByUserActivity(ctx, query, selectPerformerPlayCountSQL, direction)
 }
 
 // used for sorting on performer last o_date
@@ -695,8 +695,8 @@ var selectPerformerLastOAtSQL = utils.StrFormat(
 	"SELECT MAX(o_date) FROM ("+
 		"SELECT {o_date} FROM {performers_scenes} s "+
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
-		"LEFT JOIN {scenes_o_dates} ON {scenes_o_dates}.{scene_id} = {scenes}.id "+
-		"WHERE s.{performer_id} = {performers}.id%s"+
+		"LEFT JOIN %[2]s AS {scenes_o_dates} ON {scenes_o_dates}.{scene_id} = {scenes}.id "+
+		"WHERE s.{performer_id} = {performers}.id%[4]s"+
 		")",
 	map[string]interface{}{
 		"performer_id":      performerIDColumn,
@@ -709,9 +709,9 @@ var selectPerformerLastOAtSQL = utils.StrFormat(
 	},
 )
 
-func (qb *PerformerStore) sortByLastOAt(ctx context.Context, direction string) string {
+func (qb *PerformerStore) sortByLastOAt(ctx context.Context, query *queryBuilder, direction string) string {
 	// need to get the o_dates from scenes
-	return " ORDER BY (" + withSceneVisible(ctx, selectPerformerLastOAtSQL, "s."+sceneIDColumn) + ") " + direction
+	return sortByUserActivity(ctx, query, selectPerformerLastOAtSQL, direction)
 }
 
 // used for sorting on performer latest scene
@@ -741,8 +741,8 @@ var selectPerformerLastPlayedAtSQL = utils.StrFormat(
 	"SELECT MAX(view_date) FROM ("+
 		"SELECT {view_date} FROM {performers_scenes} s "+
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
-		"LEFT JOIN {scenes_view_dates} ON {scenes_view_dates}.{scene_id} = {scenes}.id "+
-		"WHERE s.{performer_id} = {performers}.id%s"+
+		"LEFT JOIN %[3]s AS {scenes_view_dates} ON {scenes_view_dates}.{scene_id} = {scenes}.id "+
+		"WHERE s.{performer_id} = {performers}.id%[4]s"+
 		")",
 	map[string]interface{}{
 		"performer_id":      performerIDColumn,
@@ -755,9 +755,9 @@ var selectPerformerLastPlayedAtSQL = utils.StrFormat(
 	},
 )
 
-func (qb *PerformerStore) sortByLastPlayedAt(ctx context.Context, direction string) string {
+func (qb *PerformerStore) sortByLastPlayedAt(ctx context.Context, query *queryBuilder, direction string) string {
 	// need to get the view_dates from scenes
-	return " ORDER BY (" + withSceneVisible(ctx, selectPerformerLastPlayedAtSQL, "s."+sceneIDColumn) + ") " + direction
+	return sortByUserActivity(ctx, query, selectPerformerLastPlayedAtSQL, direction)
 }
 
 // used for sorting by total scene duration
@@ -831,7 +831,7 @@ var performerSortOptions = sortOptions{
 	"weight",
 }
 
-func (qb *PerformerStore) getPerformerSort(ctx context.Context, findFilter *models.FindFilterType) (string, error) {
+func (qb *PerformerStore) getPerformerSort(ctx context.Context, query *queryBuilder, findFilter *models.FindFilterType) (string, error) {
 	var sort string
 	var direction string
 	if findFilter == nil {
@@ -862,13 +862,13 @@ func (qb *PerformerStore) getPerformerSort(ctx context.Context, findFilter *mode
 	case "galleries_count":
 		sortQuery += getCountSort(performerTable, performersGalleriesTable, performerIDColumn, direction)
 	case "play_count":
-		sortQuery += qb.sortByPlayCount(ctx, direction)
+		sortQuery += qb.sortByPlayCount(ctx, query, direction)
 	case "o_counter":
-		sortQuery += qb.sortByOCounter(ctx, direction)
+		sortQuery += qb.sortByOCounter(ctx, query, direction)
 	case "last_played_at":
-		sortQuery += qb.sortByLastPlayedAt(ctx, direction)
+		sortQuery += qb.sortByLastPlayedAt(ctx, query, direction)
 	case "last_o_at":
-		sortQuery += qb.sortByLastOAt(ctx, direction)
+		sortQuery += qb.sortByLastOAt(ctx, query, direction)
 	case "latest_scene":
 		sortQuery += qb.sortByLatestScene(ctx, direction)
 	default:

@@ -7,6 +7,7 @@ type contextKey int
 const (
 	currentUserKey contextKey = iota
 	viewerRoleKey
+	firstAdminActivityKey
 )
 
 func SetCurrentUser(ctx context.Context, u User) context.Context {
@@ -44,4 +45,15 @@ func ViewerRole(ctx context.Context) (RoleEnum, bool) {
 	default:
 		return RoleEnumRead, true
 	}
+}
+
+// WithFirstAdminActivity reads and writes the viewing activity of the first
+// admin, whoever the current user is.
+func WithFirstAdminActivity(ctx context.Context) context.Context {
+	return context.WithValue(ctx, firstAdminActivityKey, true)
+}
+
+func IsFirstAdminActivity(ctx context.Context) bool {
+	v, _ := ctx.Value(firstAdminActivityKey).(bool)
+	return v
 }

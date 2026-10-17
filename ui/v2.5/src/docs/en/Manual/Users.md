@@ -1,6 +1,6 @@
 # Users and Permissions
 
-Stash always has at least one user. Each user has a role, which decides what they may do and which scenes they can see.
+Stash always has at least one user. Each user has a role, which decides what they may do and which scenes they can see, and each user has their own viewing activity.
 
 Administrators manage users in the `Users` section of `Settings > Security`. `Manage users` in the account menu opens it.
 
@@ -8,8 +8,8 @@ Administrators manage users in the `Users` section of `Settings > Security`. `Ma
 
 | Role | Permissions |
 |------|-------------|
-| `Viewer` | Browse, search and play content. See the system status and the queue of running tasks. Viewers cannot change library data, ratings, play history or settings. |
-| `Editor` | Everything a viewer can do, plus creating and editing library metadata (scenes, images, galleries, performers, studios, tags, groups, markers and gallery chapters), ratings, plays, O counts and resume times, and the play and O history, running the installed scrapers to fill in the edit forms, generating cover screenshots, using the `Tagger` view and saving filters. Editors cannot delete or merge objects, change settings, run tasks, or install and manage plugins, scrapers and users. |
+| `Viewer` | Browse, search and play content. Record their own viewing activity: plays, O counts and resume times, and their own play and O history. See the system status and the queue of running tasks. Viewers cannot change library data, ratings or settings. |
+| `Editor` | Everything a viewer can do, plus creating and editing library metadata (scenes, images, galleries, performers, studios, tags, groups, markers and gallery chapters), ratings, running the installed scrapers to fill in the edit forms, generating cover screenshots, using the `Tagger` view and saving filters. Editors cannot delete or merge objects, change settings, run tasks, or install and manage plugins, scrapers and users. |
 | `Admin` | Everything, including settings, tasks, deleting and merging objects, managing users, scene visibility, the API key, deleting saved filters and setting default filters. |
 
 The interface hides the actions that the role of the signed-in user does not allow.
@@ -69,6 +69,28 @@ New scenes, including scanned, imported and created scenes, get the `Default vis
 
 Scans and scheduled tasks see every scene. The DLNA server only serves scenes visible to everyone.
 
+## Personal viewing activity
+
+Each user has their own:
+
+- `Play Count` and play history, and `Last Played At`
+- `O Count` and O history, and `Last O At`
+- `Resume Time`
+- `Play Duration`
+- `O Count` of images
+
+Every count, filter, sort and statistic based on these shows the activity of the signed-in user. Ratings and all other data are shared.
+
+Viewers record their own activity, and can edit their own play and O history.
+
+Activity that is not recorded by a signed-in user belongs to the first admin: the first user with the `Admin` role in the users list. This includes the activity of tasks, of plugin hooks that no user triggered, and of the DLNA server. The activity recorded before users existed also belongs to the first admin. Requests made with the API key record the activity of the administrator who generated the key.
+
+A scene merge keeps the play and O history of every user when the merge keeps that history. When the merge sets the play duration, the play durations of the other users are added to theirs.
+
+Export and import carry the activity of the first admin only. A full import replaces the activity of every user with the imported activity, which belongs to the first admin. See [Tasks](/help/Tasks.md).
+
+Removing a user deletes their activity. Renaming a user moves their activity to the new name.
+
 ## API key
 
 There is one API key for the whole system. An administrator generates it with `Generate API key` in `Settings > Security`. Generating a new key replaces the old one, and `Clear API key` removes it.
@@ -86,7 +108,7 @@ If no administrator can sign in:
 3. Start Stash. Because there are no users, it creates the user `admin` with no password and automatic login from the local network.
 4. Open Stash from the local network, and set a password with `Change password` in the account menu.
 
-All other users are removed along with the `users` section, so add them again. The API key only works again if the administrator who generated it is added again with the same name and the `Admin` role. Otherwise, generate a new key.
+All other users are removed along with the `users` section, so add them again. Their viewing activity stays in the database, and belongs again to a user added with the same name. The API key only works again if the administrator who generated it is added again with the same name and the `Admin` role. Otherwise, generate a new key.
 
 ## Upgrading
 
@@ -95,3 +117,5 @@ Installs that used Stash without credentials get the user `admin` with no passwo
 `public_whitelist` no longer allows access from public addresses without signing in. Requests from public addresses must sign in, and `admin` cannot sign in until it has a password. Set a password for `admin` from the local network, then sign in.
 
 A `username` and `password` set in `config.yml` by an earlier version of Stash are treated as a user with the `Admin` role. This user is moved into the `users` section the first time users are changed.
+
+The viewing activity recorded before the upgrade belongs to the first admin.

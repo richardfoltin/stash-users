@@ -547,7 +547,7 @@ func (qb *GroupStore) setGroupSort(ctx context.Context, query *queryBuilder, fin
 	case "scenes_count": // generic getSort won't work for this
 		query.sortAndPagination += getSceneCountSort(ctx, groupTable, groupsScenesTable, groupIDColumn, sceneIDColumn, direction)
 	case "o_counter":
-		query.sortAndPagination += qb.sortByOCounter(ctx, direction)
+		query.sortAndPagination += qb.sortByOCounter(ctx, query, direction)
 	default:
 		query.sortAndPagination += getSort(sort, direction, "groups")
 	}
@@ -726,7 +726,7 @@ func (qb *GroupStore) FindInAncestors(ctx context.Context, ascestorIDs []int, id
 	return ret, nil
 }
 
-func (qb *GroupStore) sortByOCounter(ctx context.Context, direction string) string {
+func (qb *GroupStore) sortByOCounter(ctx context.Context, query *queryBuilder, direction string) string {
 	// need to sum the o_counter from scenes and images
-	return " ORDER BY (" + withSceneVisible(ctx, selectGroupOCountSQL, "s."+sceneIDColumn) + ") " + direction
+	return sortByUserActivity(ctx, query, selectGroupOCountSQL, direction)
 }
