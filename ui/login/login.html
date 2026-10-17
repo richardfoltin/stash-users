@@ -3,84 +3,161 @@
 <head>
     <base href="/%BASE_URL%/">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="{{.ThemeColor}}">
+    <title>Sign in | Stash</title>
 
-    <link rel="shortcut icon" href="data:,">
-    <link rel="stylesheet" href="login/login.css">
-    <link rel="stylesheet" href="css">
+    <link rel="icon" href="favicon.ico">
+    <!-- the app stylesheets, so that the page follows the theme -->
+    {{range .AppStylesheets}}{{.}}
+    {{end}}<link rel="stylesheet" href="login/login.css">
+    {{range .PluginStylesheets}}<link rel="stylesheet" href="{{.}}">
+    {{end}}<link rel="stylesheet" href="css">
 
     <!-- load locale -->
     <script>
-        var localeStrings = {
+        var defaultLocaleStrings = {
+            title: "Sign in",
             username: "Username",
             password: "Password",
-            login: "Login",
-            invalid_credentials: "Invalid credentials",
-            internal_error: "Unexpected internal error. See logs for more details"
+            login: "Sign in",
+            signing_in: "Signing in…",
+            or: "or",
+            invalid_credentials: "Invalid username or password",
+            internal_error: "Unexpected internal error. See logs for more details",
+            continue_as: "Continue as {name}"
         };
+        var localeStrings = {};
     </script>
     <script src="login/locale"></script>
 </head>
 
-<script>
-    function login() {
-        var username = document.getElementById("username").value;
-        var password = document.getElementById("password").value;
-        var returnURL = document.getElementById("returnURL").value;
-
-        var xhr = new XMLHttpRequest();
-        xhr.open("POST", "login", true);
-        xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState == 4) {
-                if (xhr.status == 200) {
-                    window.location.replace(returnURL);
-                } else {
-                    document.getElementsByClassName("login-error")[0].innerHTML = localeStrings.invalid_credentials;
-                }
-            }
-        };
-        xhr.onerror = function() {
-            document.getElementsByClassName("login-error")[0].innerHTML = localeStrings.internal_error;
-        };
-        var body = "username=" + encodeURIComponent(username) + "&password=" + encodeURIComponent(password) + "&returnURL=" + encodeURIComponent(returnURL);
-        xhr.send(body);
-    }
-</script>
-
 <body class="login">
     <div class="dialog">
         <div class="card">
-            <form action="login" method="POST" onsubmit="event.preventDefault(); login();">
+            <div class="text-center mb-4">
+                <img class="login-logo" src="favicon.ico" alt="" width="56" height="56">
+                <div class="text-muted text-uppercase small font-weight-bold mt-2">Stash</div>
+            </div>
+
+            <h1 class="h4 text-center mb-4" id="login-title">Sign in</h1>
+
+            <div class="login-error alert alert-danger" id="login-error" role="alert" {{if not .Error}}hidden{{end}}>
+                <div class="d-flex align-items-start">
+                    <svg class="flex-shrink-0 mr-2 mt-1" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+                        <path fill-rule="evenodd" d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1zm-.85 3.25h1.7l-.25 5.25h-1.2zM8 10.75a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                    </svg>
+                    <span id="login-error-text">{{.Error}}</span>
+                </div>
+            </div>
+
+            <form id="login-form" action="login" method="POST" aria-labelledby="login-title" data-continue="{{.ContinueURL}}">
                 <div class="form-group">
                     <label for="username"><h6 id="username-heading">Username</h6></label>
-                    <input class="text-input form-control" id="username" name="username" type="text" placeholder="Username" />
+                    <input class="text-input form-control" id="username" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" autofocus>
                 </div>
                 <div class="form-group">
                     <label for="password"><h6 id="password-heading">Password</h6></label>
-                    <input class="text-input form-control" id="password" name="password" type="password" placeholder="Password" />
-                </div>
-                <div class="login-error">
-                    {{.Error}}
+                    <input class="text-input form-control" id="password" name="password" type="password" autocomplete="current-password">
                 </div>
 
-                <input type="hidden" id="returnURL" name="returnURL" value="{{.URL}}" />
+                <input type="hidden" id="returnURL" name="returnURL" value="{{.URL}}">
 
-                <div>
-                    <input id="login-button" class="btn btn-primary" type="submit" value="Login">
-                </div>
+                <button id="login-button" class="btn btn-primary btn-block mt-4" type="submit" aria-busy="false">
+                    <span class="spinner-border spinner-border-sm mr-2" aria-hidden="true"></span><span id="login-button-label">Sign in</span>
+                </button>
             </form>
+
+            {{if .AutoLoginUser}}
+            <p class="text-center text-muted text-uppercase small my-3" id="login-or">or</p>
+            <a id="auto-login-link" href="{{.ContinueURL}}" class="btn btn-secondary btn-block" data-name="{{.AutoLoginUser}}">
+                <svg class="mr-2" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+                    <path d="M8 8a3.25 3.25 0 1 0 0-6.5A3.25 3.25 0 0 0 8 8zm0 1.25c-3.1 0-5.75 1.6-5.75 4.1 0 .63.5 1.15 1.13 1.15h9.24c.63 0 1.13-.52 1.13-1.15 0-2.5-2.65-4.1-5.75-4.1z"/>
+                </svg><span id="auto-login-text" class="text-break">Continue as {{.AutoLoginUser}}</span>
+            </a>
+            {{end}}
         </div>
     </div>
 
-</body>
+    <script>
+        (function() {
+            function text(key) {
+                return localeStrings[key] || defaultLocaleStrings[key];
+            }
 
-<script>
-    document.getElementById("username-heading").innerText = localeStrings.username;
-    document.getElementById("password-heading").innerText = localeStrings.password;
-    document.getElementById("username").placeholder = localeStrings.username;
-    document.getElementById("password").placeholder = localeStrings.password;
-    document.getElementById("login-button").value = localeStrings.login;
-</script>
+            // only ever go to a page of this server
+            function sameOrigin(url) {
+                try {
+                    return new URL(url, document.baseURI).origin === window.location.origin;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            var form = document.getElementById("login-form");
+            var username = document.getElementById("username");
+            var password = document.getElementById("password");
+            var returnURL = document.getElementById("returnURL");
+            var button = document.getElementById("login-button");
+            var buttonLabel = document.getElementById("login-button-label");
+            var errorBox = document.getElementById("login-error");
+            var errorText = document.getElementById("login-error-text");
+            var continueURL = sameOrigin(form.dataset.continue) ? form.dataset.continue : document.baseURI;
+
+            var title = text("title");
+            document.title = title + " | Stash";
+            document.getElementById("login-title").textContent = title;
+            document.getElementById("username-heading").textContent = text("username");
+            document.getElementById("password-heading").textContent = text("password");
+            buttonLabel.textContent = text("login");
+
+            var autoLogin = document.getElementById("auto-login-link");
+            if (autoLogin) {
+                document.getElementById("login-or").textContent = text("or");
+                document.getElementById("auto-login-text").textContent = text("continue_as").replace("{name}", autoLogin.dataset.name);
+            }
+
+            function setBusy(busy) {
+                button.disabled = busy;
+                button.setAttribute("aria-busy", busy ? "true" : "false");
+                buttonLabel.textContent = text(busy ? "signing_in" : "login");
+            }
+
+            function showError(message) {
+                setBusy(false);
+                errorText.textContent = message;
+                errorBox.hidden = false;
+                password.focus();
+                password.select();
+            }
+
+            form.addEventListener("submit", function(event) {
+                event.preventDefault();
+                if (button.disabled) {
+                    return;
+                }
+
+                errorBox.hidden = true;
+                setBusy(true);
+
+                var xhr = new XMLHttpRequest();
+                xhr.open("POST", "login", true);
+                xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                xhr.onload = function() {
+                    if (xhr.status == 200) {
+                        // full page load, so the app starts as the new user
+                        window.location.replace(continueURL);
+                    } else {
+                        showError(text("invalid_credentials"));
+                    }
+                };
+                xhr.onerror = function() {
+                    showError(text("internal_error"));
+                };
+                var body = "username=" + encodeURIComponent(username.value) + "&password=" + encodeURIComponent(password.value) + "&returnURL=" + encodeURIComponent(returnURL.value);
+                xhr.send(body);
+            });
+        })();
+    </script>
+</body>
 </html>

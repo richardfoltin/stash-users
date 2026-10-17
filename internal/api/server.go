@@ -249,9 +249,22 @@ func Initialize() (*Server, error) {
 	r.HandleFunc("/javascript", javascriptHandler(cfg))
 	r.HandleFunc("/customlocales", customLocalesHandler(cfg))
 
+	var uiFS fs.FS
+	var staticUI *statigz.Server
+	customUILocation := cfg.GetUILocation()
+	if customUILocation != "" {
+		logger.Debugf("Serving UI from %s", customUILocation)
+		uiFS = osFS(customUILocation)
+		staticUI = statigz.FileServer(uiFS.(fs.ReadDirFS))
+	} else {
+		logger.Debug("Serving embedded UI")
+		uiFS = ui.UIBox
+		staticUI = statigz.FileServer(ui.UIBox.(fs.ReadDirFS))
+	}
+
 	staticLoginUI := statigz.FileServer(ui.LoginUIBox.(fs.ReadDirFS))
 
-	r.Get(loginEndpoint, handleLogin(userService))
+	r.Get(loginEndpoint, handleLogin(userService, cfg, uiFS, pluginCache))
 	r.Post(loginEndpoint, handleLoginPost(getStore))
 	r.Get(logoutEndpoint, handleLogout(userService, getStore))
 	r.Get(loginLocaleEndpoint, handleLoginLocale(cfg))
@@ -265,19 +278,6 @@ func Initialize() (*Server, error) {
 	customServedFolders := cfg.GetCustomServedFolders()
 	if customServedFolders != nil {
 		r.Mount("/custom", getCustomRoutes(customServedFolders))
-	}
-
-	var uiFS fs.FS
-	var staticUI *statigz.Server
-	customUILocation := cfg.GetUILocation()
-	if customUILocation != "" {
-		logger.Debugf("Serving UI from %s", customUILocation)
-		uiFS = osFS(customUILocation)
-		staticUI = statigz.FileServer(uiFS.(fs.ReadDirFS))
-	} else {
-		logger.Debug("Serving embedded UI")
-		uiFS = ui.UIBox
-		staticUI = statigz.FileServer(ui.UIBox.(fs.ReadDirFS))
 	}
 
 	// handle favicon override

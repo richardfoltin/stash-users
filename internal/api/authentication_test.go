@@ -11,6 +11,7 @@ import (
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/models"
+	"github.com/stashapp/stash/pkg/plugin"
 	"github.com/stashapp/stash/pkg/session"
 	"github.com/stashapp/stash/pkg/user"
 	"github.com/stretchr/testify/assert"
@@ -181,8 +182,24 @@ func TestAuthenticateHandler_AutoLoginExcludedPaths(t *testing.T) {
 	a.createUser("editor", models.Roles{models.RoleEnumModify}, true)
 
 	// the login page and its assets, and logout, are not logged in
-	for _, path := range []string{"/login", "/login/login.css", "/login/locale", "/logout", "/css", "/assets/index.js"} {
+	for _, path := range []string{"/login", "/login/login.css", "/login/locale", "/logout", "/css", "/assets/index.js", "/favicon.ico", "/plugin/example-theme/css"} {
 		assertNoAutoLogin(t, a.serve(http.MethodGet, path, localAddr, nil), http.StatusOK)
+	}
+}
+
+func TestAllowUnauthenticated(t *testing.T) {
+	allowed := func(path string) bool {
+		return allowUnauthenticated(httptest.NewRequest(http.MethodGet, path, nil))
+	}
+
+	// the login page and what it loads
+	for _, path := range []string{"/login", "/login/login.css", "/logout", "/css", "/assets/index-b2.css", "/favicon.ico", "/plugin/example-theme/css"} {
+		assert.True(t, allowed(path), path)
+	}
+
+	// but not the javascript or the assets of plugins
+	for _, path := range []string{"/", "/javascript", "/plugin/example-theme/javascript", "/plugin/example-theme/assets/theme.css", "/plugin/example-theme/css/x", "/plugin/a/b/css", "/plugin/css"} {
+		assert.False(t, allowed(path), path)
 	}
 }
 
@@ -255,4 +272,45 @@ func TestAuthenticateHandler_AutoLoginUserChanges(t *testing.T) {
 	require.NoError(t, a.users.UpdateUser(ctx, "editor", models.User{Username: "editor", Roles: models.Roles{models.RoleEnumModify}, AutoLogin: true}))
 	require.NoError(t, a.users.DeleteUser(ctx, "editor"))
 	assertNoAutoLogin(t, a.serve(http.MethodGet, "/", localAddr, nil), http.StatusFound)
+}
+
+func TestHandleLogin_ContinueAsAutoLoginUser(t *testing.T) {
+	a := newAutoLoginTest(t)
+	a.createUser("admin", models.Roles{models.RoleEnumAdmin}, false)
+	a.createUser("editor", models.Roles{models.RoleEnumModify}, true)
+
+	// the login page behind the authentication middleware
+	handler := RequestIPMiddleware(authenticateHandler(a.users, func() *session.Store {
+		return a.store
+	})(handleLogin(a.users, a.cfg, testUI, plugin.NewCache(a.cfg))))
+
+	loginPage := func(target string, remoteAddr string, cookie *http.Cookie) string {
+		r := httptest.NewRequest(http.MethodGet, target, nil)
+		r.RemoteAddr = remoteAddr
+		rec := httptest.NewRecorder()
+		if cookie != nil {
+			r.AddCookie(cookie)
+			handler.ServeHTTP(rec, r)
+		} else {
+			handler.ServeHTTP(rec, r)
+			assert.Nil(t, newSessionCookie(rec), "the login page is not logged in")
+		}
+		require.Equal(t, http.StatusOK, rec.Code)
+		return rec.Body.String()
+	}
+
+	body := loginPage("/login", localAddr, nil)
+	assert.Contains(t, body, `id="auto-login-link" href="/"`)
+	assert.Contains(t, body, "Continue as editor")
+
+	body = loginPage("/login?"+url.Values{returnURLParam: {"/scenes?q=1"}}.Encode(), localAddr, nil)
+	assert.Contains(t, body, `id="auto-login-link" href="/scenes?q=1"`)
+
+	body = loginPage("/login", publicAddr, nil)
+	assert.NotContains(t, body, `id="auto-login-link"`)
+	assert.Contains(t, body, `id="login-button"`)
+
+	// a request with a valid session would not be logged in automatically
+	body = loginPage("/login", localAddr, a.loginCookie("admin", "adminpw"))
+	assert.NotContains(t, body, `id="auto-login-link"`)
 }

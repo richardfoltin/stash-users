@@ -1319,11 +1319,15 @@
     "plugins": "Loading plugins…"
   },
   "login": {
-    "login": "Login",
+    "login": "Sign in",
     "username": "Username",
     "password": "Password",
     "invalid_credentials": "Invalid username or password",
-    "internal_error": "Unexpected internal error. See logs for more details"
+    "internal_error": "Unexpected internal error. See logs for more details",
+    "continue_as": "Continue as {name}",
+    "or": "or",
+    "signing_in": "Signing in…",
+    "title": "Sign in"
   },
   "marker_count": "Marker Count",
   "markers": "Markers",

@@ -20,7 +20,14 @@ import (
 
 func allowUnauthenticated(r *http.Request) bool {
 	// #2715 - allow access to UI files
-	return strings.HasPrefix(r.URL.Path, loginEndpoint) || r.URL.Path == logoutEndpoint || r.URL.Path == "/css" || strings.HasPrefix(r.URL.Path, "/assets")
+	if strings.HasPrefix(r.URL.Path, loginEndpoint) || r.URL.Path == logoutEndpoint || r.URL.Path == "/css" || strings.HasPrefix(r.URL.Path, "/assets") {
+		return true
+	}
+
+	// the login page follows the theme: it loads the icon and the CSS of the
+	// UI plugins, but not their javascript or assets
+	pluginCSS, _ := path.Match("/plugin/*/css", r.URL.Path)
+	return pluginCSS || r.URL.Path == "/favicon.ico"
 }
 
 type UserAuthenticator interface {

@@ -2,16 +2,22 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
 	"net/http"
+	"net/url"
+	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/logger"
+	"github.com/stashapp/stash/pkg/models"
+	"github.com/stashapp/stash/pkg/plugin"
 	"github.com/stashapp/stash/pkg/session"
 	"github.com/stashapp/stash/pkg/utils"
 	"github.com/stashapp/stash/ui"
@@ -34,12 +40,145 @@ func getLoginPage() []byte {
 type loginTemplateData struct {
 	URL   string
 	Error string
+	// AutoLoginUser is the user that the request would be logged in as
+	// automatically, offered as a way to continue
+	AutoLoginUser string
+	ContinueURL   string
+
+	ThemeColor        string
+	AppStylesheets    []template.HTML
+	PluginStylesheets []string
 }
 
-func serveLoginPage(w http.ResponseWriter, r *http.Request, returnURL string, loginError string) {
+var (
+	linkTagRE       = regexp.MustCompile(`<link\b[^>]*>`)
+	relStylesheetRE = regexp.MustCompile(`\brel="stylesheet"`)
+	hrefRE          = regexp.MustCompile(`\bhref="([^"]*)"`)
+)
+
+// appStylesheets returns the stylesheet link tags under /assets of the index
+// page of the UI, which link the CSS bundle of the app by its hashed name.
+func appStylesheets(uiFS fs.FS) []template.HTML {
+	data, err := fs.ReadFile(uiFS, "index.html")
+	if err != nil {
+		logger.Debugf("error reading the index page of the UI: %v", err)
+		return nil
+	}
+
+	var ret []template.HTML
+	for _, tag := range linkTagRE.FindAllString(string(data), -1) {
+		href := hrefRE.FindStringSubmatch(tag)
+		if !relStylesheetRE.MatchString(tag) || href == nil {
+			continue
+		}
+
+		if p := strings.TrimLeft(strings.TrimPrefix(href[1], "."), "/"); strings.HasPrefix(p, "assets/") {
+			// the index page is served as is too
+			ret = append(ret, template.HTML(tag))
+		}
+	}
+
+	return ret
+}
+
+// sortPlugins orders the plugins as the UI does (sortPlugins in
+// ui/v2.5/src/plugins.tsx): each plugin after the plugins it requires.
+func sortPlugins(plugins []*plugin.Plugin) []*plugin.Plugin {
+	var ids []string
+	afters := make(map[string][]string)
+	addNode := func(id string) {
+		if _, found := afters[id]; !found {
+			afters[id] = nil
+			ids = append(ids, id)
+		}
+	}
+
+	for _, p := range plugins {
+		addNode(p.ID)
+		for _, required := range p.UI.Requires {
+			addNode(required)
+			if !slices.Contains(afters[required], p.ID) {
+				afters[required] = append(afters[required], p.ID)
+			}
+		}
+	}
+
+	var sorted []*plugin.Plugin
+	visited := make(map[string]bool)
+	var visit func(id string)
+	visit = func(id string) {
+		if visited[id] {
+			return
+		}
+		visited[id] = true
+
+		for _, after := range afters[id] {
+			visit(after)
+		}
+
+		if i := slices.IndexFunc(plugins, func(p *plugin.Plugin) bool { return p.ID == id }); i >= 0 {
+			sorted = slices.Insert(sorted, 0, plugins[i])
+		}
+	}
+
+	for _, id := range ids {
+		visit(id)
+	}
+
+	return sorted
+}
+
+// pluginStylesheets returns the CSS URLs of the enabled UI plugins, in the
+// order that the UI loads them (see ui/v2.5/src/plugins.tsx).
+func pluginStylesheets(ctx context.Context, plugins []*plugin.Plugin) []string {
+	baseURL, _ := ctx.Value(BaseURLCtxKey).(string)
+
+	var ret []string
+	for _, p := range sortPlugins(plugins) {
+		if !p.Enabled {
+			continue
+		}
+
+		for _, u := range (pluginURLBuilder{BaseURL: baseURL, Plugin: p}).css() {
+			if !slices.Contains(ret, u) {
+				ret = append(ret, u)
+			}
+		}
+	}
+
+	return ret
+}
+
+// sameOriginURL returns u if it is a path on this server, and "" otherwise,
+// so that the login page never redirects to another site.
+func sameOriginURL(u string) string {
+	// browsers read a backslash as a slash, and drop tabs and newlines
+	if u == "" || strings.ContainsAny(u, `\`+"\t\r\n") {
+		return ""
+	}
+
+	parsed, err := url.Parse(u)
+	if err != nil || parsed.Scheme != "" || parsed.Host != "" || parsed.User != nil {
+		return ""
+	}
+
+	// a path, but not a protocol-relative URL
+	if !strings.HasPrefix(u, "/") || strings.HasPrefix(u, "//") {
+		return ""
+	}
+
+	return u
+}
+
+func serveLoginPage(w http.ResponseWriter, r *http.Request, data loginTemplateData, plugins []*plugin.Plugin) {
 	loginPage := string(getLoginPage())
 	prefix := getProxyPrefix(r)
 	loginPage = strings.ReplaceAll(loginPage, "/%BASE_URL%", prefix)
+
+	data.ContinueURL = data.URL
+	if data.ContinueURL == "" {
+		data.ContinueURL = prefix + "/"
+	}
 
 	templ, err := template.New("Login").Parse(loginPage)
 	if err != nil {
@@ -48,7 +187,7 @@ func serveLoginPage(w http.ResponseWriter, r *http.Request, returnURL string, lo
 	}
 
 	buffer := bytes.Buffer{}
-	err = templ.Execute(&buffer, loginTemplateData{URL: returnURL, Error: loginError})
+	err = templ.Execute(&buffer, data)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error: %s", err), http.StatusInternalServerError)
 		return
@@ -56,8 +195,8 @@ func serveLoginPage(w http.ResponseWriter, r *http.Request, returnURL string, lo
 
 	w.Header().Set("Content-Type", "text/html")
 
-	// we shouldn't need to set plugin exceptions here
-	setPageSecurityHeaders(w, r, nil)
+	// the page loads the CSS of the plugins
+	setPageSecurityHeaders(w, r, plugins)
 
 	utils.ServeStaticContent(w, r, buffer.Bytes())
 }
@@ -103,11 +242,12 @@ func getLoginLocale(lang string) ([]byte, error) {
 	return data, nil
 }
 
-func handleLogin(s manager.UserService) http.HandlerFunc {
+func handleLogin(s manager.UserService, cfg *config.Config, uiFS fs.FS, pluginCache *plugin.Cache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		returnURL := r.URL.Query().Get(returnURLParam)
+		ctx := r.Context()
+		returnURL := sameOriginURL(r.URL.Query().Get(returnURLParam))
 
-		if !s.LoginRequired(r.Context()) {
+		if !s.LoginRequired(ctx) {
 			if returnURL != "" {
 				http.Redirect(w, r, returnURL, http.StatusFound)
 			} else {
@@ -117,7 +257,26 @@ func handleLogin(s manager.UserService) http.HandlerFunc {
 			return
 		}
 
-		serveLoginPage(w, r, returnURL, "")
+		data := loginTemplateData{URL: returnURL}
+
+		// the login page is never logged in automatically, so that another
+		// user can log in. Without a session, it links to the return URL
+		// instead, which is logged in automatically.
+		if models.GetCurrentUser(ctx) == nil {
+			if u, _, err := autoLoginUser(ctx, s); err == nil && u != nil {
+				data.AutoLoginUser = u.Username
+			}
+		}
+
+		// the stylesheets of the app; the page links the custom CSS itself
+		plugins := pluginCache.ListPlugins()
+		data.ThemeColor = cfg.GetThemeColor()
+		data.AppStylesheets = appStylesheets(uiFS)
+		if !cfg.GetDisableCustomizations() {
+			data.PluginStylesheets = pluginStylesheets(ctx, plugins)
+		}
+
+		serveLoginPage(w, r, data, plugins)
 	}
 }
 

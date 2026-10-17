@@ -39,9 +39,9 @@ Changing a password ends all sessions of that user. Passwords cannot be longer t
 
 ## Signing in and logging out
 
-The user icon in the navigation bar shows the signed-in user and their role when you point at it, and opens `Change password`. The `Log out` button next to it ends the session and opens the login page. On the local network, while a user is set to log in automatically, opening any other page signs you in as that user again.
+The user icon in the navigation bar shows the signed-in user and their role when you point at it, and opens `Change password`. The `Log out` button next to it ends the session and opens the `Sign in` page. On the local network, while a user is set to log in automatically, opening any other page signs you in as that user again.
 
-The login page asks for a username and password. The login page itself is never signed in automatically, so another user can sign in there.
+The `Sign in` page asks for a username and password. On the local network, while a user is set to log in automatically, it also offers `Continue as` that user, which signs in without a password. The `Sign in` page itself is never signed in automatically, so another user can sign in there.
 
 A session ends after the `Maximum session age` of idle time, set in `Settings > Security`.
 
