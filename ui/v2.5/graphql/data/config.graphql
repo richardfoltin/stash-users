@@ -34,6 +34,7 @@ fragment ConfigGeneralData on ConfigGeneralResult {
   createImageClipsFromVideos
   apiKey
   maxSessionAge
+  defaultSceneVisibility
   logFile
   logOut
   logLevel

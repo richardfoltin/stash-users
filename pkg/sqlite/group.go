@@ -453,7 +453,7 @@ func (qb *GroupStore) makeQuery(ctx context.Context, groupFilter *models.GroupFi
 		return nil, err
 	}
 
-	if err := qb.setGroupSort(&query, findFilter); err != nil {
+	if err := qb.setGroupSort(ctx, &query, findFilter); err != nil {
 		return nil, err
 	}
 
@@ -506,7 +506,7 @@ var groupSortOptions = sortOptions{
 	"updated_at",
 }
 
-func (qb *GroupStore) setGroupSort(query *queryBuilder, findFilter *models.FindFilterType) error {
+func (qb *GroupStore) setGroupSort(ctx context.Context, query *queryBuilder, findFilter *models.FindFilterType) error {
 	var sort string
 	var direction string
 	if findFilter == nil {
@@ -545,9 +545,9 @@ func (qb *GroupStore) setGroupSort(query *queryBuilder, findFilter *models.FindF
 	case "tag_count":
 		query.sortAndPagination += getCountSort(groupTable, groupsTagsTable, groupIDColumn, direction)
 	case "scenes_count": // generic getSort won't work for this
-		query.sortAndPagination += getCountSort(groupTable, groupsScenesTable, groupIDColumn, direction)
+		query.sortAndPagination += getSceneCountSort(ctx, groupTable, groupsScenesTable, groupIDColumn, sceneIDColumn, direction)
 	case "o_counter":
-		query.sortAndPagination += qb.sortByOCounter(direction)
+		query.sortAndPagination += qb.sortByOCounter(ctx, direction)
 	default:
 		query.sortAndPagination += getSort(sort, direction, "groups")
 	}
@@ -617,7 +617,7 @@ func (qb *GroupStore) FindByPerformerID(ctx context.Context, performerID int) ([
 FROM groups
 INNER JOIN groups_scenes ON groups.id = groups_scenes.group_id
 INNER JOIN performers_scenes ON performers_scenes.scene_id = groups_scenes.scene_id
-WHERE performers_scenes.performer_id = ?
+WHERE performers_scenes.performer_id = ?` + andSceneVisible(ctx, "groups_scenes.scene_id") + `
 `
 	args := []interface{}{performerID}
 	return qb.queryGroups(ctx, query, args)
@@ -627,7 +627,7 @@ func (qb *GroupStore) CountByPerformerID(ctx context.Context, performerID int) (
 	query := `SELECT COUNT(DISTINCT groups_scenes.group_id) AS count
 FROM groups_scenes
 INNER JOIN performers_scenes ON performers_scenes.scene_id = groups_scenes.scene_id
-WHERE performers_scenes.performer_id = ?
+WHERE performers_scenes.performer_id = ?` + andSceneVisible(ctx, "groups_scenes.scene_id") + `
 `
 	args := []interface{}{performerID}
 	return groupRepository.runCountQuery(ctx, query, args)
@@ -726,7 +726,7 @@ func (qb *GroupStore) FindInAncestors(ctx context.Context, ascestorIDs []int, id
 	return ret, nil
 }
 
-func (qb *GroupStore) sortByOCounter(direction string) string {
+func (qb *GroupStore) sortByOCounter(ctx context.Context, direction string) string {
 	// need to sum the o_counter from scenes and images
-	return " ORDER BY (" + selectGroupOCountSQL + ") " + direction
+	return " ORDER BY (" + withSceneVisible(ctx, selectGroupOCountSQL, "s."+sceneIDColumn) + ") " + direction
 }

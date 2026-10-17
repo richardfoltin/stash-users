@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"regexp"
@@ -146,6 +147,13 @@ func getRandomSort(tableName string, direction string, seed uint64) string {
 
 func getCountSort(primaryTable, joinTable, primaryFK, direction string) string {
 	return fmt.Sprintf(" ORDER BY (SELECT COUNT(*) FROM %s AS sort WHERE sort.%s = %s.id) %s", joinTable, primaryFK, primaryTable, getSortDirection(direction))
+}
+
+// getSceneCountSort is getCountSort for a table of scenes, where sceneFK is
+// the scene id column. Only the scenes that are visible in the context are
+// counted.
+func getSceneCountSort(ctx context.Context, primaryTable, joinTable, primaryFK, sceneFK, direction string) string {
+	return fmt.Sprintf(" ORDER BY (SELECT COUNT(*) FROM %s AS sort WHERE sort.%s = %s.id%s) %s", joinTable, primaryFK, primaryTable, andSceneVisible(ctx, "sort."+sceneFK), getSortDirection(direction))
 }
 
 // getStringSearchClause returns a sqlClause for searching strings in the provided columns.
@@ -366,8 +374,10 @@ func getMultiCriterionClause(primaryTable, foreignTable, joinTable, primaryFK, f
 	return whereClause, havingClause
 }
 
-func getCountCriterionClause(primaryTable, joinTable, primaryFK string, criterion models.IntCriterionInput) (string, []interface{}) {
-	lhs := fmt.Sprintf("(SELECT COUNT(*) FROM %s s WHERE s.%s = %s.id)", joinTable, primaryFK, primaryTable)
+// getCountCriterionClause returns the where clause for a count criterion. The
+// filter is appended to the where clause of the count, and may be empty.
+func getCountCriterionClause(primaryTable, joinTable, primaryFK, filter string, criterion models.IntCriterionInput) (string, []interface{}) {
+	lhs := fmt.Sprintf("(SELECT COUNT(*) FROM %s s WHERE s.%s = %s.id%s)", joinTable, primaryFK, primaryTable, filter)
 	return getIntCriterionWhereClause(lhs, criterion)
 }
 

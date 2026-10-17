@@ -359,6 +359,9 @@ input SceneFilterType {
   created_at: TimestampCriterionInput
   "Filter by last update time"
   updated_at: TimestampCriterionInput
+  "Filter by visibility: the minimum role that can see the scene"
+  # not restricted to admins: it only matches the scenes the user can see
+  visibility: RoleCriterionInput
 
   "Filter by related galleries that meet this criteria"
   galleries_filter: GalleryFilterType
@@ -944,6 +947,11 @@ input GenderCriterionInput {
 
 input CircumcisionCriterionInput {
   value: [CircumcisedEnum!]
+  modifier: CriterionModifier!
+}
+
+input RoleCriterionInput {
+  value: [RoleEnum!]!
   modifier: CriterionModifier!
 }
 

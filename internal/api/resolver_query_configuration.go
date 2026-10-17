@@ -148,6 +148,7 @@ func makeConfigGeneralResult() *ConfigGeneralResult {
 		Username:                      config.GetUsername(),
 		Password:                      config.GetPasswordHash(),
 		MaxSessionAge:                 config.GetMaxSessionAge(),
+		DefaultSceneVisibility:        config.GetDefaultSceneVisibility(),
 		LogFile:                       &logFile,
 		LogOut:                        config.GetLogOut(),
 		LogLevel:                      config.GetLogLevel(),

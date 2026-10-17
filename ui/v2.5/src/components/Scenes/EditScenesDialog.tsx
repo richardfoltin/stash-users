@@ -21,6 +21,11 @@ import { IndeterminateCheckbox } from "../Shared/IndeterminateCheckbox";
 import { BulkUpdateFormGroup, BulkUpdateTextInput } from "../Shared/BulkUpdate";
 import { BulkUpdateDateInput } from "../Shared/DateInput";
 import { getDateError } from "src/utils/yup";
+import { usePermissions } from "src/hooks/Permissions";
+import {
+  sceneVisibilities,
+  sceneVisibilityMessageID,
+} from "src/utils/sceneVisibility";
 
 interface IListOperationProps {
   selected: GQL.SlimSceneDataFragment[];
@@ -42,6 +47,7 @@ export const EditScenesDialog: React.FC<IListOperationProps> = (
 ) => {
   const intl = useIntl();
   const Toast = useToast();
+  const { isAdmin } = usePermissions();
 
   const [updateInput, setUpdateInput] = useState<GQL.BulkSceneUpdateInput>({
     ids: props.selected.map((scene) => {
@@ -293,6 +299,34 @@ export const EditScenesDialog: React.FC<IListOperationProps> = (
               as="textarea"
             />
           </BulkUpdateFormGroup>
+
+          {isAdmin && (
+            <BulkUpdateFormGroup
+              name="visibility"
+              messageId="scene_visibility.visible_to"
+            >
+              <Form.Control
+                as="select"
+                className="input-control"
+                value={updateInput.visibility ?? ""}
+                onChange={(event) =>
+                  setUpdateField({
+                    visibility:
+                      (event.currentTarget.value as GQL.RoleEnum) || undefined,
+                  })
+                }
+              >
+                <option value="">{`<${intl.formatMessage({
+                  id: "existing_value",
+                })}>`}</option>
+                {sceneVisibilities.map((v) => (
+                  <option key={v} value={v}>
+                    {intl.formatMessage({ id: sceneVisibilityMessageID(v) })}
+                  </option>
+                ))}
+              </Form.Control>
+            </BulkUpdateFormGroup>
+          )}
 
           <Form.Group controlId="organized">
             <IndeterminateCheckbox

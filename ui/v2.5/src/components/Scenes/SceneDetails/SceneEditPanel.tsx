@@ -61,6 +61,11 @@ import {
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
 import cloneDeep from "lodash-es/cloneDeep";
+import { usePermissions } from "src/hooks/Permissions";
+import {
+  sceneVisibilities,
+  sceneVisibilityMessageID,
+} from "src/utils/sceneVisibility";
 
 const SceneScrapeDialog = lazyComponent(() => import("./SceneScrapeDialog"));
 const SceneQueryModal = lazyComponent(() => import("./SceneQueryModal"));
@@ -145,6 +150,10 @@ export const SceneEditPanel: React.FC<IProps> = ({
 
   const { configuration: stashConfig } = useConfigurationContext();
 
+  // new scenes get the default visibility
+  const { isAdmin } = usePermissions();
+  const editVisibility = isAdmin && !isNew;
+
   // Network state
   const [isLoading, setIsLoading] = useState(false);
 
@@ -171,6 +180,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
     details: yup.string().ensure(),
     cover_image: yup.string().nullable().optional(),
     custom_fields: yup.object().required().defined(),
+    visibility: yup.mixed<GQL.RoleEnum>(),
   });
 
   const initialValues = useMemo(
@@ -192,8 +202,12 @@ export const SceneEditPanel: React.FC<IProps> = ({
       details: scene.details ?? "",
       cover_image: initialCoverImage,
       custom_fields: cloneDeep(scene.custom_fields ?? {}),
+      // left out of the input unless it can be changed
+      visibility: editVisibility
+        ? (scene.visibility ?? GQL.RoleEnum.Read)
+        : undefined,
     }),
-    [scene, initialCoverImage]
+    [scene, initialCoverImage, editVisibility]
   );
 
   type InputValues = yup.InferType<typeof schema>;
@@ -766,6 +780,30 @@ export const SceneEditPanel: React.FC<IProps> = ({
     return renderField("tag_ids", title, tagsControl(), fullWidthProps);
   }
 
+  function renderVisibilityField() {
+    if (!editVisibility) return;
+
+    const title = intl.formatMessage({ id: "scene_visibility.visible_to" });
+    const control = (
+      <Form.Control
+        as="select"
+        className="input-control"
+        value={formik.values.visibility}
+        onChange={(e) =>
+          formik.setFieldValue("visibility", e.currentTarget.value)
+        }
+      >
+        {sceneVisibilities.map((v) => (
+          <option key={v} value={v}>
+            {intl.formatMessage({ id: sceneVisibilityMessageID(v) })}
+          </option>
+        ))}
+      </Form.Control>
+    );
+
+    return renderField("visibility", title, control);
+  }
+
   function renderDetailsField() {
     const props = {
       labelProps: {
@@ -907,6 +945,8 @@ export const SceneEditPanel: React.FC<IProps> = ({
                 <Icon icon={faPlus} />
               </Button>
             )}
+
+            {renderVisibilityField()}
           </Col>
           <Col lg={5} xl={12}>
             {renderDetailsField()}

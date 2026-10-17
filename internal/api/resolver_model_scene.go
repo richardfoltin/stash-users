@@ -471,3 +471,7 @@ func (r *sceneResolver) CustomFields(ctx context.Context, obj *models.Scene) (ma
 
 	return m, nil
 }
+
+func (r *sceneResolver) Visibility(ctx context.Context, obj *models.Scene) (models.RoleEnum, error) {
+	return loaders.From(ctx).SceneVisibility.Load(obj.ID)
+}

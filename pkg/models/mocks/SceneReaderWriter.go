@@ -1189,6 +1189,50 @@ func (_m *SceneReaderWriter) GetViewDates(ctx context.Context, relatedID int) ([
 	return r0, r1
 }
 
+// GetManyVisibility provides a mock function with given fields: ctx, ids
+func (_m *SceneReaderWriter) GetManyVisibility(ctx context.Context, ids []int) ([]models.RoleEnum, error) {
+	ret := _m.Called(ctx, ids)
+
+	var r0 []models.RoleEnum
+	if rf, ok := ret.Get(0).(func(context.Context, []int) []models.RoleEnum); ok {
+		r0 = rf(ctx, ids)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.RoleEnum)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, []int) error); ok {
+		r1 = rf(ctx, ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetVisibility provides a mock function with given fields: ctx, id
+func (_m *SceneReaderWriter) GetVisibility(ctx context.Context, id int) (models.RoleEnum, error) {
+	ret := _m.Called(ctx, id)
+
+	var r0 models.RoleEnum
+	if rf, ok := ret.Get(0).(func(context.Context, int) models.RoleEnum); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Get(0).(models.RoleEnum)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // HasCover provides a mock function with given fields: ctx, sceneID
 func (_m *SceneReaderWriter) HasCover(ctx context.Context, sceneID int) (bool, error) {
 	ret := _m.Called(ctx, sceneID)

@@ -573,12 +573,19 @@ type countCriterionHandlerBuilder struct {
 	primaryTable string
 	joinTable    string
 	primaryFK    string
+	// if set, only the rows of scenes that are visible in the context are
+	// counted
+	sceneFK string
 }
 
 func (m *countCriterionHandlerBuilder) handler(criterion *models.IntCriterionInput) criterionHandlerFunc {
 	return func(ctx context.Context, f *filterBuilder) {
 		if criterion != nil {
-			clause, args := getCountCriterionClause(m.primaryTable, m.joinTable, m.primaryFK, *criterion)
+			var visible string
+			if m.sceneFK != "" {
+				visible = andSceneVisible(ctx, "s."+m.sceneFK)
+			}
+			clause, args := getCountCriterionClause(m.primaryTable, m.joinTable, m.primaryFK, visible, *criterion)
 
 			f.addWhere(clause, args...)
 		}
@@ -1204,6 +1211,8 @@ func (h *relatedFilterHandler) handle(ctx context.Context, f *filterBuilder) {
 		f.setError(err)
 		return
 	}
+	// related objects that are hidden in the context do not match
+	subQuery.addWhere(visibleClause(ctx, subQuery.repository.tableName))
 
 	f.addWhere(fmt.Sprintf("%s IN ("+subQuery.toSQL(false)+")", h.relatedIDCol), subQuery.allArgs()...)
 }

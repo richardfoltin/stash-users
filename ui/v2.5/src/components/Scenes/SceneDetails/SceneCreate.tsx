@@ -8,11 +8,16 @@ import ImageUtils from "src/utils/image";
 import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { useToast } from "src/hooks/Toast";
 import { PatchComponent } from "src/patch";
+import { useConfigurationContext } from "src/hooks/Config";
+import { usePermissions } from "src/hooks/Permissions";
 
 const SceneCreate: React.FC = PatchComponent("SceneCreate", () => {
   const history = useHistory();
   const intl = useIntl();
   const Toast = useToast();
+  const { configuration } = useConfigurationContext();
+  const { isAdmin } = usePermissions();
+  const visibility = configuration.general.defaultSceneVisibility;
 
   const location = useLocation();
   const query = useMemo(() => new URLSearchParams(location.search), [location]);
@@ -72,6 +77,21 @@ const SceneCreate: React.FC = PatchComponent("SceneCreate", () => {
         intl.formatMessage(
           { id: "toast.created_entity" },
           { entity: intl.formatMessage({ id: "scene" }).toLocaleLowerCase() }
+        )
+      );
+    } else if (
+      result.data?.sceneCreate === null &&
+      visibility === GQL.RoleEnum.Admin &&
+      !isAdmin
+    ) {
+      // created, but hidden from the current user by the default visibility
+      if (!andNew) {
+        history.push("/scenes");
+      }
+      Toast.success(
+        intl.formatMessage(
+          { id: "scene_visibility.created_hidden" },
+          { visibility }
         )
       );
     }

@@ -435,6 +435,7 @@ func (qb *performerFilterHandler) sceneCountCriterionHandler(count *models.IntCr
 		primaryTable: performerTable,
 		joinTable:    performersScenesTable,
 		primaryFK:    performerIDColumn,
+		sceneFK:      sceneIDColumn,
 	}
 
 	return h.handler(count)
@@ -448,9 +449,9 @@ func (qb *performerFilterHandler) markerCountCriterionHandler(count *models.IntC
 			const query = `(SELECT COUNT(*) FROM scene_markers 
   INNER JOIN scenes ON scene_markers.scene_id = scenes.id
   INNER JOIN performers_scenes ON performers_scenes.scene_id = scenes.id
-  WHERE performers_scenes.performer_id = performers.id)`
+  WHERE performers_scenes.performer_id = performers.id%s)`
 
-			clause, args := getIntCriterionWhereClause(query, *count)
+			clause, args := getIntCriterionWhereClause(withSceneVisible(ctx, query, "scenes.id"), *count)
 			f.addWhere(clause, args...)
 		}
 	}
@@ -487,7 +488,7 @@ var selectPerformerOCountSQL = utils.StrFormat(
 		"SELECT COUNT({scenes_o_dates}.{o_date}) as o_counter from {performers_scenes} s "+
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
 		"LEFT JOIN {scenes_o_dates} ON {scenes_o_dates}.{scene_id} = {scenes}.id "+
-		"WHERE s.{performer_id} = {performers}.id "+
+		"WHERE s.{performer_id} = {performers}.id%s "+
 		")",
 	map[string]interface{}{
 		"performers_images": performersImagesTable,
@@ -509,7 +510,7 @@ var selectPerformerPlayCountSQL = utils.StrFormat(
 		"SELECT {view_date} FROM {performers_scenes} s "+
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
 		"LEFT JOIN {scenes_view_dates} ON {scenes_view_dates}.{scene_id} = {scenes}.id "+
-		"WHERE s.{performer_id} = {performers}.id"+
+		"WHERE s.{performer_id} = {performers}.id%s"+
 		")",
 	map[string]interface{}{
 		"performer_id":      performerIDColumn,
@@ -528,7 +529,7 @@ func (qb *performerFilterHandler) oCounterCriterionHandler(count *models.IntCrit
 			return
 		}
 
-		lhs := "(" + selectPerformerOCountSQL + ")"
+		lhs := "(" + withSceneVisible(ctx, selectPerformerOCountSQL, "s."+sceneIDColumn) + ")"
 		clause, args := getIntCriterionWhereClause(lhs, *count)
 
 		f.addWhere(clause, args...)
@@ -541,7 +542,7 @@ func (qb *performerFilterHandler) playCounterCriterionHandler(count *models.IntC
 			return
 		}
 
-		lhs := "(" + selectPerformerPlayCountSQL + ")"
+		lhs := "(" + withSceneVisible(ctx, selectPerformerPlayCountSQL, "s."+sceneIDColumn) + ")"
 		clause, args := getIntCriterionWhereClause(lhs, *count)
 
 		f.addWhere(clause, args...)
@@ -556,16 +557,19 @@ func (qb *performerFilterHandler) studiosCriterionHandler(studios *models.Hierar
 					"primaryTable": sceneTable,
 					"joinTable":    performersScenesTable,
 					"primaryFK":    sceneIDColumn,
+					"visible":      andSceneVisible(ctx, sceneTable+".id"),
 				},
 				{
 					"primaryTable": imageTable,
 					"joinTable":    performersImagesTable,
 					"primaryFK":    imageIDColumn,
+					"visible":      "",
 				},
 				{
 					"primaryTable": galleryTable,
 					"joinTable":    performersGalleriesTable,
 					"primaryFK":    galleryIDColumn,
+					"visible":      "",
 				},
 			}
 
@@ -615,7 +619,7 @@ func (qb *performerFilterHandler) studiosCriterionHandler(studios *models.Hierar
 
 				templStr := `SELECT performer_id FROM {primaryTable}
 		INNER JOIN {joinTable} ON {primaryTable}.id = {joinTable}.{primaryFK}
-		INNER JOIN studio ON {primaryTable}.studio_id = studio.item_id`
+		INNER JOIN studio ON {primaryTable}.studio_id = studio.item_id{visible}`
 
 				var unions []string
 				for _, c := range formatMaps {
@@ -639,7 +643,7 @@ func (qb *performerFilterHandler) studiosCriterionHandler(studios *models.Hierar
 
 				excludeTemplStr := `SELECT performer_id FROM {primaryTable}
 	INNER JOIN {joinTable} ON {primaryTable}.id = {joinTable}.{primaryFK}
-	INNER JOIN exclude_studio ON {primaryTable}.studio_id = exclude_studio.item_id`
+	INNER JOIN exclude_studio ON {primaryTable}.studio_id = exclude_studio.item_id{visible}`
 
 				var unions []string
 				for _, c := range formatMaps {
@@ -709,7 +713,7 @@ func (qb *performerFilterHandler) groupsCriterionHandler(groups *models.Hierarch
 
 				templStr := `SELECT performer_id FROM {joinTable}
 	INNER JOIN {primaryTable} ON {joinTable}.scene_id = {primaryTable}.scene_id
-	INNER JOIN group_values ON {primaryTable}.{groupFK} = group_values.id`
+	INNER JOIN group_values ON {primaryTable}.{groupFK} = group_values.id{visible}`
 
 				formatMaps := []utils.StrFormatMap{
 					{
@@ -717,6 +721,7 @@ func (qb *performerFilterHandler) groupsCriterionHandler(groups *models.Hierarch
 						"joinTable":    performersScenesTable,
 						"primaryFK":    sceneIDColumn,
 						"groupFK":      groupIDColumn,
+						"visible":      andSceneVisible(ctx, performersScenesTable+"."+sceneIDColumn),
 					},
 				}
 
@@ -744,7 +749,7 @@ SELECT root_id, sub_id, depth + 1 FROM groups_relations INNER JOIN group_hierarc
 
 				templStr := `SELECT performer_id FROM {joinTable}
 	INNER JOIN {primaryTable} ON {joinTable}.scene_id = {primaryTable}.scene_id
-	INNER JOIN group_hierarchy ON {primaryTable}.{groupFK} = group_hierarchy.item_id`
+	INNER JOIN group_hierarchy ON {primaryTable}.{groupFK} = group_hierarchy.item_id{visible}`
 
 				formatMaps := []utils.StrFormatMap{
 					{
@@ -752,6 +757,7 @@ SELECT root_id, sub_id, depth + 1 FROM groups_relations INNER JOIN group_hierarc
 						"joinTable":    performersScenesTable,
 						"primaryFK":    sceneIDColumn,
 						"groupFK":      groupIDColumn,
+						"visible":      andSceneVisible(ctx, performersScenesTable+"."+sceneIDColumn),
 					},
 				}
 
@@ -777,16 +783,19 @@ func (qb *performerFilterHandler) appearsWithCriterionHandler(performers *models
 					"primaryTable": performersScenesTable,
 					"joinTable":    performersScenesTable,
 					"primaryFK":    sceneIDColumn,
+					"visible":      andSceneVisible(ctx, performersScenesTable+"."+sceneIDColumn),
 				},
 				{
 					"primaryTable": performersImagesTable,
 					"joinTable":    performersImagesTable,
 					"primaryFK":    imageIDColumn,
+					"visible":      "",
 				},
 				{
 					"primaryTable": performersGalleriesTable,
 					"joinTable":    performersGalleriesTable,
 					"primaryFK":    galleryIDColumn,
+					"visible":      "",
 				},
 			}
 
@@ -803,7 +812,7 @@ func (qb *performerFilterHandler) appearsWithCriterionHandler(performers *models
 			templStr := `SELECT {primaryTable}2.performer_id FROM {primaryTable}
 			INNER JOIN {primaryTable} AS {primaryTable}2 ON {primaryTable}.{primaryFK} = {primaryTable}2.{primaryFK}
 			INNER JOIN performer ON {primaryTable}.performer_id = performer.id
-			WHERE {primaryTable}2.performer_id != performer.id`
+			WHERE {primaryTable}2.performer_id != performer.id{visible}`
 
 			if performers.Modifier == models.CriterionModifierIncludesAll && len(performers.Value) > 1 {
 				templStr += `

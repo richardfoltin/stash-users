@@ -341,6 +341,9 @@ func (r *mutationResolver) ConfigureGeneral(ctx context.Context, input ConfigGen
 	}
 
 	r.setConfigInt(config.MaxSessionAge, input.MaxSessionAge)
+	if input.DefaultSceneVisibility != nil {
+		c.SetString(config.DefaultSceneVisibility, input.DefaultSceneVisibility.String())
+	}
 	r.setConfigString(config.LogFile, input.LogFile)
 	r.setConfigBool(config.LogOut, input.LogOut)
 	r.setConfigBool(config.LogAccess, input.LogAccess)

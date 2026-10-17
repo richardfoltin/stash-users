@@ -8,10 +8,11 @@ enum RoleEnum {
 }
 
 """
-Restricts the field to users with the given role.
+Restricts the field to users with the given role. On an input field, sending
+the field requires the role.
 Mutations without this directive are restricted to the ADMIN role.
 """
-directive @hasRole(role: RoleEnum!) on FIELD_DEFINITION
+directive @hasRole(role: RoleEnum!) on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 directive @isUserOwner on FIELD_DEFINITION
 
 type User {

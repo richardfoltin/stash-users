@@ -771,7 +771,7 @@ func (qb *TagStore) Query(ctx context.Context, tagFilter *models.TagFilterType, 
 	}
 
 	var err error
-	query.sortAndPagination, err = qb.getTagSort(&query, findFilter)
+	query.sortAndPagination, err = qb.getTagSort(ctx, &query, findFilter)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -807,33 +807,33 @@ var tagSortOptions = sortOptions{
 	"updated_at",
 }
 
-func (qb *TagStore) sortByScenesDuration(direction string) string {
+func (qb *TagStore) sortByScenesDuration(ctx context.Context, direction string) string {
 	return fmt.Sprintf(` ORDER BY (
 		SELECT COALESCE(SUM(video_files.duration), 0)
 		FROM %s
 		LEFT JOIN %s ON %s.id = %s.%s
 		LEFT JOIN %s ON %s.%s = %s.id
 		LEFT JOIN video_files ON video_files.file_id = %s.file_id
-		WHERE %s.%s = %s.id
-	) %s`, scenesTagsTable, sceneTable, sceneTable, scenesTagsTable, sceneIDColumn, scenesFilesTable, scenesFilesTable, sceneIDColumn, sceneTable, scenesFilesTable, scenesTagsTable, tagIDColumn, tagTable, getSortDirection(direction))
+		WHERE %s.%s = %s.id%s
+	) %s`, scenesTagsTable, sceneTable, sceneTable, scenesTagsTable, sceneIDColumn, scenesFilesTable, scenesFilesTable, sceneIDColumn, sceneTable, scenesFilesTable, scenesTagsTable, tagIDColumn, tagTable, andSceneVisible(ctx, scenesTagsTable+"."+sceneIDColumn), getSortDirection(direction))
 }
 
-func (qb *TagStore) sortByScenesSize(direction string) string {
+func (qb *TagStore) sortByScenesSize(ctx context.Context, direction string) string {
 	return fmt.Sprintf(` ORDER BY (
 		SELECT COALESCE(SUM(%s.size), 0)
 		FROM %s
 		LEFT JOIN %s ON %s.id = %s.%s
 		LEFT JOIN %s ON %s.%s = %s.id
 		LEFT JOIN %s ON %s.id = %s.file_id
-		WHERE %s.%s = %s.id
-	) %s`, fileTable, scenesTagsTable, sceneTable, sceneTable, scenesTagsTable, sceneIDColumn, scenesFilesTable, scenesFilesTable, sceneIDColumn, sceneTable, fileTable, fileTable, scenesFilesTable, scenesTagsTable, tagIDColumn, tagTable, getSortDirection(direction))
+		WHERE %s.%s = %s.id%s
+	) %s`, fileTable, scenesTagsTable, sceneTable, sceneTable, scenesTagsTable, sceneIDColumn, scenesFilesTable, scenesFilesTable, sceneIDColumn, sceneTable, fileTable, fileTable, scenesFilesTable, scenesTagsTable, tagIDColumn, tagTable, andSceneVisible(ctx, scenesTagsTable+"."+sceneIDColumn), getSortDirection(direction))
 }
 
 func (qb *TagStore) getDefaultTagSort() string {
 	return getSort("name", "ASC", "tags")
 }
 
-func (qb *TagStore) getTagSort(query *queryBuilder, findFilter *models.FindFilterType) (string, error) {
+func (qb *TagStore) getTagSort(ctx context.Context, query *queryBuilder, findFilter *models.FindFilterType) (string, error) {
 	var sort string
 	var direction string
 	if findFilter == nil {
@@ -854,13 +854,16 @@ func (qb *TagStore) getTagSort(query *queryBuilder, findFilter *models.FindFilte
 	case "name":
 		sortQuery += fmt.Sprintf(" ORDER BY COALESCE(tags.sort_name, tags.name) COLLATE NATURAL_CI %s", getSortDirection(direction))
 	case "scenes_count":
-		sortQuery += getCountSort(tagTable, scenesTagsTable, tagIDColumn, direction)
+		sortQuery += getSceneCountSort(ctx, tagTable, scenesTagsTable, tagIDColumn, sceneIDColumn, direction)
 	case "scenes_duration":
-		sortQuery += qb.sortByScenesDuration(direction)
+		sortQuery += qb.sortByScenesDuration(ctx, direction)
 	case "scenes_size":
-		sortQuery += qb.sortByScenesSize(direction)
+		sortQuery += qb.sortByScenesSize(ctx, direction)
 	case "scene_markers_count":
-		sortQuery += fmt.Sprintf(" ORDER BY (SELECT COUNT(*) FROM scene_markers_tags WHERE tags.id = scene_markers_tags.tag_id)+(SELECT COUNT(*) FROM scene_markers WHERE tags.id = scene_markers.primary_tag_id) %s", getSortDirection(direction))
+		sortQuery += fmt.Sprintf(" ORDER BY (SELECT COUNT(*) FROM scene_markers_tags WHERE tags.id = scene_markers_tags.tag_id%s)+(SELECT COUNT(*) FROM scene_markers WHERE tags.id = scene_markers.primary_tag_id%s) %s",
+			andSceneVisible(ctx, "(SELECT scene_markers.scene_id FROM scene_markers WHERE scene_markers.id = scene_markers_tags.scene_marker_id)"),
+			andSceneVisible(ctx, "scene_markers.scene_id"),
+			getSortDirection(direction))
 	case "images_count":
 		sortQuery += getCountSort(tagTable, imagesTagsTable, tagIDColumn, direction)
 	case "galleries_count":

@@ -270,6 +270,9 @@ func (qb *GalleryStore) Create(ctx context.Context, newObject *models.CreateGall
 		}
 	}
 	if newObject.SceneIDs.Loaded() {
+		if err := checkScenesVisible(ctx, newObject.SceneIDs.List()...); err != nil {
+			return err
+		}
 		if err := galleriesScenesTableMgr.insertJoins(ctx, id, newObject.SceneIDs.List()); err != nil {
 			return err
 		}
@@ -368,7 +371,11 @@ func (qb *GalleryStore) UpdatePartial(ctx context.Context, id int, partial model
 		}
 	}
 	if partial.SceneIDs != nil {
-		if err := galleriesScenesTableMgr.modifyJoins(ctx, id, partial.SceneIDs.IDs, partial.SceneIDs.Mode); err != nil {
+		sceneIDs, err := updateSceneIDs(ctx, *partial.SceneIDs, galleriesScenesTableMgr, id)
+		if err != nil {
+			return nil, err
+		}
+		if err := galleriesScenesTableMgr.modifyJoins(ctx, id, sceneIDs.IDs, sceneIDs.Mode); err != nil {
 			return nil, err
 		}
 	}
@@ -985,7 +992,12 @@ func (qb *GalleryStore) ResetCover(ctx context.Context, galleryID int) error {
 }
 
 func (qb *GalleryStore) GetSceneIDs(ctx context.Context, id int) ([]int, error) {
-	return galleryRepository.scenes.getIDs(ctx, id)
+	ids, err := galleryRepository.scenes.getIDs(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return visibleSceneIDs(ctx, ids)
 }
 
 func (qb *GalleryStore) AddSceneIDs(ctx context.Context, galleryID int, sceneIDs []int) error {

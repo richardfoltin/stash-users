@@ -24,7 +24,7 @@ const (
 const countSceneMarkersForTagQuery = `
 SELECT scene_markers.id FROM scene_markers
 LEFT JOIN scene_markers_tags as tags_join on tags_join.scene_marker_id = scene_markers.id
-WHERE tags_join.tag_id = ? OR scene_markers.primary_tag_id = ?
+WHERE (tags_join.tag_id = ? OR scene_markers.primary_tag_id = ?)%s
 GROUP BY scene_markers.id
 `
 
@@ -128,6 +128,10 @@ func (qb *SceneMarkerStore) selectDataset() *goqu.SelectDataset {
 }
 
 func (qb *SceneMarkerStore) Create(ctx context.Context, newObject *models.SceneMarker) error {
+	if err := checkScenesVisible(ctx, newObject.SceneID); err != nil {
+		return err
+	}
+
 	var r sceneMarkerRow
 	r.fromSceneMarker(*newObject)
 
@@ -147,6 +151,20 @@ func (qb *SceneMarkerStore) Create(ctx context.Context, newObject *models.SceneM
 }
 
 func (qb *SceneMarkerStore) UpdatePartial(ctx context.Context, id int, partial models.SceneMarkerPartial) (*models.SceneMarker, error) {
+	// markers of hidden scenes are not found, and cannot be moved to them
+	if visibleClause(ctx, sceneMarkerTable) != "" {
+		if _, err := qb.find(ctx, id); errors.Is(err, sql.ErrNoRows) {
+			return nil, &NotFoundError{ID: id, Table: sceneMarkerTable}
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	if partial.SceneID.Set {
+		if err := checkScenesVisible(ctx, partial.SceneID.Value); err != nil {
+			return nil, err
+		}
+	}
+
 	r := sceneMarkerRowRecord{
 		updateRecord{
 			Record: make(exp.Record),
@@ -245,6 +263,8 @@ func (qb *SceneMarkerStore) get(ctx context.Context, q *goqu.SelectDataset) (*mo
 }
 
 func (qb *SceneMarkerStore) getMany(ctx context.Context, q *goqu.SelectDataset) ([]*models.SceneMarker, error) {
+	q = whereSceneVisible(ctx, q, sceneMarkerTable+".scene_id")
+
 	const single = false
 	var ret []*models.SceneMarker
 	if err := queryFunc(ctx, q, single, func(r *sqlx.Rows) error {
@@ -267,7 +287,7 @@ func (qb *SceneMarkerStore) getMany(ctx context.Context, q *goqu.SelectDataset) 
 func (qb *SceneMarkerStore) FindBySceneID(ctx context.Context, sceneID int) ([]*models.SceneMarker, error) {
 	query := `
 		SELECT scene_markers.* FROM scene_markers
-		WHERE scene_markers.scene_id = ?
+		WHERE scene_markers.scene_id = ?` + andSceneVisible(ctx, "scene_markers.scene_id") + `
 		GROUP BY scene_markers.id
 		ORDER BY scene_markers.seconds ASC
 	`
@@ -277,13 +297,21 @@ func (qb *SceneMarkerStore) FindBySceneID(ctx context.Context, sceneID int) ([]*
 
 func (qb *SceneMarkerStore) CountByTagID(ctx context.Context, tagID int) (int, error) {
 	args := []interface{}{tagID, tagID}
-	return sceneMarkerRepository.runCountQuery(ctx, sceneMarkerRepository.buildCountQuery(countSceneMarkersForTagQuery), args)
+	query := withSceneVisible(ctx, countSceneMarkersForTagQuery, "scene_markers.scene_id")
+	return sceneMarkerRepository.runCountQuery(ctx, sceneMarkerRepository.buildCountQuery(query), args)
 }
 
 func (qb *SceneMarkerStore) GetMarkerStrings(ctx context.Context, q *string, sort *string) ([]*models.MarkerStringsResultType, error) {
 	query := "SELECT count(*) as `count`, scene_markers.id as id, scene_markers.title as title FROM scene_markers"
 	if q != nil {
 		query += " WHERE title LIKE '%" + *q + "%'"
+	}
+	if c := visibleClause(ctx, sceneMarkerTable); c != "" {
+		if q != nil {
+			query += " AND " + c
+		} else {
+			query += " WHERE " + c
+		}
 	}
 	query += " GROUP BY title"
 	if sort != nil && *sort == "count" {
@@ -316,6 +344,7 @@ func (qb *SceneMarkerStore) makeQuery(ctx context.Context, sceneMarkerFilter *mo
 
 	query := sceneMarkerRepository.newQuery()
 	distinctIDs(&query, sceneMarkerTable)
+	query.addWhere(visibleClause(ctx, sceneMarkerTable))
 
 	if q := findFilter.Q; q != nil && *q != "" {
 		query.join(sceneTable, "", "scenes.id = scene_markers.scene_id")
@@ -462,6 +491,7 @@ func (qb *SceneMarkerStore) UpdateTags(ctx context.Context, id int, tagIDs []int
 
 func (qb *SceneMarkerStore) Count(ctx context.Context) (int, error) {
 	q := dialect.Select(goqu.COUNT("*")).From(qb.table())
+	q = whereSceneVisible(ctx, q, sceneMarkerTable+".scene_id")
 	return count(ctx, q)
 }
 

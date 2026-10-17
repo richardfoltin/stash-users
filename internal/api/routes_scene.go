@@ -84,8 +84,8 @@ func (rs sceneRoutes) Routes() chi.Router {
 		r.Get("/scene_marker/{sceneMarkerId}/preview", rs.SceneMarkerPreview)
 		r.Get("/scene_marker/{sceneMarkerId}/screenshot", rs.SceneMarkerScreenshot)
 	})
-	r.Get("/{sceneHash}_thumbs.vtt", rs.VttThumbs)
-	r.Get("/{sceneHash}_sprite.jpg", rs.VttSprite)
+	r.With(rs.SceneHashCtx).Get("/{sceneHash}_thumbs.vtt", rs.VttThumbs)
+	r.With(rs.SceneHashCtx).Get("/{sceneHash}_sprite.jpg", rs.VttSprite)
 
 	return r
 }
@@ -598,5 +598,29 @@ func (rs sceneRoutes) SceneCtx(next http.Handler) http.Handler {
 
 		ctx := context.WithValue(r.Context(), sceneKey, scene)
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// SceneHashCtx responds with 404 unless the scene hash belongs to a scene that
+// is visible to the request.
+func (rs sceneRoutes) SceneHashCtx(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sceneHash := chi.URLParam(r, "sceneHash")
+
+		var scenes []*models.Scene
+		_ = rs.withReadTxn(r, func(ctx context.Context) error {
+			var err error
+			scenes, err = rs.sceneFinder.FindByOSHash(ctx, sceneHash)
+			if err == nil && len(scenes) == 0 {
+				scenes, err = rs.sceneFinder.FindByChecksum(ctx, sceneHash)
+			}
+			return err
+		})
+		if len(scenes) == 0 {
+			http.Error(w, http.StatusText(404), 404)
+			return
+		}
+
+		next.ServeHTTP(w, r)
 	})
 }

@@ -6,6 +6,7 @@ type contextKey int
 
 const (
 	currentUserKey contextKey = iota
+	viewerRoleKey
 )
 
 func SetCurrentUser(ctx context.Context, u User) context.Context {
@@ -19,4 +20,28 @@ func GetCurrentUser(ctx context.Context) *User {
 	}
 
 	return nil
+}
+
+// SetViewerRole limits the visible content to that of the role, regardless of
+// the current user. The ADMIN role lifts the limit.
+func SetViewerRole(ctx context.Context, role RoleEnum) context.Context {
+	return context.WithValue(ctx, viewerRoleKey, role)
+}
+
+// ViewerRole returns the role that limits the visible content, and false if
+// all content is visible: for admins and when there is no current user.
+func ViewerRole(ctx context.Context) (RoleEnum, bool) {
+	if role, ok := ctx.Value(viewerRoleKey).(RoleEnum); ok {
+		return role, role != RoleEnumAdmin
+	}
+
+	u := GetCurrentUser(ctx)
+	switch {
+	case u == nil || u.IsAdmin():
+		return "", false
+	case u.Roles.HasRole(RoleEnumModify):
+		return RoleEnumModify, true
+	default:
+		return RoleEnumRead, true
+	}
 }

@@ -577,6 +577,10 @@ func (qb *FileStore) get(ctx context.Context, q *goqu.SelectDataset) (models.Fil
 }
 
 func (qb *FileStore) getMany(ctx context.Context, q *goqu.SelectDataset) ([]models.File, error) {
+	if c := visibleClause(ctx, fileTable); c != "" {
+		q = q.Where(goqu.L(c))
+	}
+
 	const single = false
 	var rows fileQueryRows
 	if err := queryFunc(ctx, q, single, func(r *sqlx.Rows) error {
@@ -873,6 +877,7 @@ func (qb *FileStore) Query(ctx context.Context, options models.FileQueryOptions)
 	query.join(folderTable, "", "files.parent_folder_id = folders.id")
 
 	distinctIDs(&query, fileTable)
+	query.addWhere(visibleClause(ctx, fileTable))
 
 	if q := findFilter.Q; q != nil && *q != "" {
 		filepathColumn := "folders.path || '" + string(filepath.Separator) + "' || files.basename"

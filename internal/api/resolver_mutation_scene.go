@@ -227,6 +227,8 @@ func scenePartialFromInput(input models.SceneUpdateInput, translator changesetTr
 		return nil, fmt.Errorf("converting primary file id: %w", err)
 	}
 
+	updatedScene.Visibility = input.Visibility
+
 	updatedScene.PerformerIDs, err = translator.updateIds(input.PerformerIds, "performer_ids")
 	if err != nil {
 		return nil, fmt.Errorf("converting performer ids: %w", err)
@@ -395,6 +397,7 @@ func (r *mutationResolver) BulkSceneUpdate(ctx context.Context, input BulkSceneU
 	}
 
 	updatedScene.URLs = translator.optionalURLsBulk(input.Urls, input.URL)
+	updatedScene.Visibility = input.Visibility
 
 	updatedScene.PerformerIDs, err = translator.updateIdsBulk(input.PerformerIds, "performer_ids")
 	if err != nil {
@@ -1331,6 +1334,23 @@ func (r *mutationResolver) SceneDeleteO(ctx context.Context, id string, t []*tim
 }
 
 func (r *mutationResolver) SceneGenerateScreenshot(ctx context.Context, id string, at *float64) (string, error) {
+	sceneID, err := strconv.Atoi(id)
+	if err != nil {
+		return "", fmt.Errorf("converting id: %w", err)
+	}
+
+	// hidden scenes are not found
+	var s *models.Scene
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		s, err = r.repository.Scene.Find(ctx, sceneID)
+		return err
+	}); err != nil {
+		return "", err
+	}
+	if s == nil {
+		return "", fmt.Errorf("scene with id %d not found", sceneID)
+	}
+
 	var jobID int
 	if at != nil {
 		jobID = manager.GetInstance().GenerateScreenshot(ctx, id, *at)

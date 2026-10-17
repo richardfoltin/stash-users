@@ -180,6 +180,7 @@ func (qb *fileFilterHandler) sceneCountCriterionHandler(c *models.IntCriterionIn
 		primaryTable: fileTable,
 		joinTable:    scenesFilesTable,
 		primaryFK:    fileIDColumn,
+		sceneFK:      sceneIDColumn,
 	}
 
 	return h.handler(c)

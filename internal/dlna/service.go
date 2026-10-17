@@ -23,9 +23,13 @@ type Repository struct {
 	TagFinder       TagFinder
 	PerformerFinder PerformerFinder
 	GroupFinder     GroupFinder
+
+	// DLNA clients do not log in, so they are only served the content visible
+	// to everyone when login is required
+	LoginRequired func(ctx context.Context) bool
 }
 
-func NewRepository(repo models.Repository) Repository {
+func NewRepository(repo models.Repository, loginRequired func(ctx context.Context) bool) Repository {
 	return Repository{
 		TxnManager:      repo.TxnManager,
 		FileGetter:      repo.File,
@@ -34,10 +38,15 @@ func NewRepository(repo models.Repository) Repository {
 		TagFinder:       repo.Tag,
 		PerformerFinder: repo.Performer,
 		GroupFinder:     repo.Group,
+		LoginRequired:   loginRequired,
 	}
 }
 
 func (r *Repository) WithReadTxn(ctx context.Context, fn txn.TxnFunc) error {
+	if r.LoginRequired(ctx) {
+		ctx = models.SetViewerRole(ctx, models.RoleEnumRead)
+	}
+
 	return txn.WithReadTxn(ctx, r.TxnManager, fn)
 }
 

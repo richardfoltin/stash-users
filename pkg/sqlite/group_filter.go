@@ -188,7 +188,7 @@ func (qb *groupFilterHandler) performersCriterionHandler(performers *models.Mult
 				SELECT groups_scenes.group_id, performers_scenes.performer_id
 				FROM groups_scenes
 				INNER JOIN performers_scenes ON groups_scenes.scene_id = performers_scenes.scene_id
-				WHERE performers_scenes.performer_id IN`+getInBinding(len(performers.Value))+`
+				WHERE performers_scenes.performer_id IN`+getInBinding(len(performers.Value))+andSceneVisible(ctx, "groups_scenes.scene_id")+`
 			)`, args...)
 			f.addLeftJoin("groups_performers", "", "groups.id = groups_performers.group_id")
 
@@ -235,6 +235,7 @@ func (qb *groupFilterHandler) sceneCountCriterionHandler(count *models.IntCriter
 		primaryTable: groupTable,
 		joinTable:    groupsScenesTable,
 		primaryFK:    groupIDColumn,
+		sceneFK:      sceneIDColumn,
 	}
 
 	return h.handler(count)
@@ -247,7 +248,7 @@ var selectGroupOCountSQL = utils.StrFormat(
 		"SELECT COUNT({scenes_o_dates}.{o_date}) as o_counter from {groups_scenes} s "+
 		"LEFT JOIN {scenes} ON {scenes}.id = s.{scene_id} "+
 		"LEFT JOIN {scenes_o_dates} ON {scenes_o_dates}.{scene_id} = {scenes}.id "+
-		"WHERE s.{group_id} = {group}.id "+
+		"WHERE s.{group_id} = {group}.id%s "+
 		")",
 	map[string]interface{}{
 		"group":          groupTable,
@@ -266,7 +267,7 @@ func (qb *groupFilterHandler) groupOCounterCriterionHandler(count *models.IntCri
 			return
 		}
 
-		lhs := "(" + selectGroupOCountSQL + ")"
+		lhs := "(" + withSceneVisible(ctx, selectGroupOCountSQL, "s."+sceneIDColumn) + ")"
 		clause, args := getIntCriterionWhereClause(lhs, *count)
 
 		f.addWhere(clause, args...)

@@ -37,6 +37,7 @@ func Initialize(cfg *config.Config, l *log.Logger) (*Manager, error) {
 	ctx := context.TODO()
 
 	db := sqlite.NewDatabase()
+	db.SetDefaultSceneVisibility(cfg.GetDefaultSceneVisibility)
 	repo := db.Repository()
 
 	// start with empty paths
@@ -78,7 +79,7 @@ func Initialize(cfg *config.Config, l *log.Logger) (*Manager, error) {
 		SceneCoverGetter: repo.Scene,
 	}
 
-	dlnaRepository := dlna.NewRepository(repo)
+	dlnaRepository := dlna.NewRepository(repo, cfg.UserStore.LoginRequired)
 	dlnaService := dlna.NewService(dlnaRepository, cfg, sceneServer, repo.Scene, cfg.GetMinimumPlayPercent())
 
 	mgr := &Manager{

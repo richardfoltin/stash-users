@@ -264,6 +264,7 @@ interface ICriterionOptionParams {
   makeCriterion: MakeCriterionFn;
   hidden?: boolean;
   sfwMessageID?: string;
+  adminOnly?: boolean;
 }
 
 export class CriterionOption {
@@ -275,12 +276,16 @@ export class CriterionOption {
   // used for legacy criteria that are not shown in the UI
   public readonly hidden: boolean = false;
 
+  // shown only to admins
+  public readonly adminOnly: boolean = false;
+
   constructor(options: ICriterionOptionParams) {
     this.type = options.type;
     this.messageID = options.messageID;
     this.makeCriterionFn = options.makeCriterion;
     this.hidden = options.hidden ?? false;
     this.sfwMessageID = options.sfwMessageID;
+    this.adminOnly = options.adminOnly ?? false;
   }
 
   public makeCriterion(config?: ConfigDataFragment) {
@@ -293,6 +298,9 @@ interface IModifierCriterionOptionParams extends ICriterionOptionParams {
   modifierOptions?: CriterionModifier[];
   defaultModifier?: CriterionModifier;
   options?: Option[];
+  // returns the message id of the label of an option - options are shown as
+  // they are if not set
+  optionMessageID?: (option: Option) => string;
 }
 
 export class ModifierCriterionOption extends CriterionOption {
@@ -300,6 +308,7 @@ export class ModifierCriterionOption extends CriterionOption {
   public readonly defaultModifier: CriterionModifier;
   public readonly options: Option[] | undefined;
   public readonly inputType: InputType;
+  public readonly optionMessageID?: (option: Option) => string;
 
   constructor(options: IModifierCriterionOptionParams) {
     super(options);
@@ -307,6 +316,13 @@ export class ModifierCriterionOption extends CriterionOption {
     this.defaultModifier = options.defaultModifier ?? CriterionModifier.Equals;
     this.options = options.options;
     this.inputType = options.inputType;
+    this.optionMessageID = options.optionMessageID;
+  }
+
+  public getOptionLabel(intl: IntlShape, option: Option) {
+    return this.optionMessageID
+      ? intl.formatMessage({ id: this.optionMessageID(option) })
+      : option.toString();
   }
 }
 

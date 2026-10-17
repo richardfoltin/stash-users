@@ -188,7 +188,9 @@ func (qb *queryBuilder) addFilter(f *filterBuilder) error {
 
 	clause, args = f.generateWhereClauses()
 	if len(clause) > 0 {
-		qb.addWhere(clause)
+		// parenthesised so that the OR of a sub-filter does not escape the
+		// other where clauses, such as the scene visibility
+		qb.addWhere("(" + clause + ")")
 	}
 	if len(args) > 0 {
 		qb.addArg(args...)

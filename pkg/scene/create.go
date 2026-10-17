@@ -21,14 +21,18 @@ func (s *Service) Create(ctx context.Context, input models.CreateSceneInput) (*m
 	newScene.CreatedAt = now
 	newScene.UpdatedAt = now
 
+	// the new scene is set up even if its default visibility hides it from
+	// its creator; the files to assign are still subject to the visibility
+	createCtx := models.SetViewerRole(ctx, models.RoleEnumAdmin)
+
 	// don't pass the file ids since they may be already assigned
 	// assign them afterwards
-	if err := s.Repository.Create(ctx, &newScene, nil); err != nil {
+	if err := s.Repository.Create(createCtx, &newScene, nil); err != nil {
 		return nil, fmt.Errorf("creating new scene: %w", err)
 	}
 
 	if len(input.CustomFields) > 0 {
-		if err := s.Repository.SetCustomFields(ctx, newScene.ID, models.CustomFieldsInput{
+		if err := s.Repository.SetCustomFields(createCtx, newScene.ID, models.CustomFieldsInput{
 			Full: input.CustomFields,
 		}); err != nil {
 			return nil, fmt.Errorf("setting custom fields on new scene: %w", err)
@@ -43,7 +47,7 @@ func (s *Service) Create(ctx context.Context, input models.CreateSceneInput) (*m
 
 	if len(input.FileIDs) > 0 {
 		// assign the primary to the first
-		if _, err := s.Repository.UpdatePartial(ctx, newScene.ID, models.ScenePartial{
+		if _, err := s.Repository.UpdatePartial(createCtx, newScene.ID, models.ScenePartial{
 			PrimaryFileID: &input.FileIDs[0],
 		}); err != nil {
 			return nil, fmt.Errorf("setting primary file on new scene: %w", err)
@@ -51,18 +55,23 @@ func (s *Service) Create(ctx context.Context, input models.CreateSceneInput) (*m
 	}
 
 	// re-find the scene so that it correctly returns file-related fields
-	ret, err := s.Repository.Find(ctx, newScene.ID)
+	ret, err := s.Repository.Find(createCtx, newScene.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(input.CoverImage) > 0 {
-		if err := s.Repository.UpdateCover(ctx, ret.ID, input.CoverImage); err != nil {
+		if err := s.Repository.UpdateCover(createCtx, ret.ID, input.CoverImage); err != nil {
 			return nil, fmt.Errorf("setting cover on new scene: %w", err)
 		}
 	}
 
 	s.PluginCache.RegisterPostHooks(ctx, ret.ID, hook.SceneCreatePost, nil, nil)
+
+	// the scene is not returned if it is hidden from its creator
+	if _, restricted := models.ViewerRole(ctx); restricted {
+		return s.Repository.Find(ctx, ret.ID)
+	}
 
 	// re-find the scene so that it correctly returns file-related fields
 	return ret, nil

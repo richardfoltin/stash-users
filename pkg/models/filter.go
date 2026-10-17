@@ -210,6 +210,11 @@ type OrientationCriterionInput struct {
 	Value []OrientationEnum `json:"value"`
 }
 
+type RoleCriterionInput struct {
+	Value    []RoleEnum        `json:"value"`
+	Modifier CriterionModifier `json:"modifier"`
+}
+
 type CustomFieldCriterionInput struct {
 	Field    string            `json:"field"`
 	Value    []any             `json:"value"`

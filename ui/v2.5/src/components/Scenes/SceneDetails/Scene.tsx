@@ -60,6 +60,7 @@ import { FormattedDate } from "src/components/Shared/Date";
 import { StudioLogo } from "src/components/Shared/StudioLogo";
 import { JobFragment, useMonitorJob } from "src/utils/job";
 import { usePermissions } from "src/hooks/Permissions";
+import { SceneVisibilityIcon } from "../SceneVisibilityIcon";
 
 const SubmitStashBoxDraft = lazyComponent(
   () => import("src/components/Dialogs/SubmitDraft")
@@ -764,6 +765,9 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                   organized={scene.organized}
                   onClick={onOrganizedClick}
                 />
+              </span>
+              <span>
+                <SceneVisibilityIcon visibility={scene.visibility} />
               </span>
               <span>{renderOperations()}</span>
             </span>

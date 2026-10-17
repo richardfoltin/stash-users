@@ -276,9 +276,11 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
     return getFilterOptions(currentFilter.mode);
   }, [currentFilter.mode]);
 
+  const { isAdmin, canModify } = usePermissions();
+
   const criterionOptions = useMemo(() => {
     return [...filterOptions.criterionOptions]
-      .filter((c) => !c.hidden)
+      .filter((c) => !c.hidden && (isAdmin || !c.adminOnly))
       .sort((a, b) => {
         return intl
           .formatMessage({
@@ -292,7 +294,7 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
             })
           );
       });
-  }, [intl, sfwContentMode, filterOptions.criterionOptions]);
+  }, [intl, sfwContentMode, filterOptions.criterionOptions, isAdmin]);
 
   const optionSelected = useCallback(
     (option?: CriterionOption) => {
@@ -317,7 +319,6 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
 
   const ui = configuration?.ui ?? {};
   const [saveUI] = useConfigureUI();
-  const { isAdmin, canModify } = usePermissions();
 
   const filteredOptions = useMemo(() => {
     const trimmedSearch = searchValue.trim().toLowerCase();

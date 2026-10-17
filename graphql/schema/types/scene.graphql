@@ -82,6 +82,9 @@ type Scene {
 
   custom_fields: Map!
 
+  "The minimum role that can see the scene"
+  visibility: RoleEnum!
+
   "Return valid stream paths"
   sceneStreams: [SceneStreamEndpoint!]!
 }
@@ -167,6 +170,9 @@ input SceneUpdateInput {
   primary_file_id: ID
 
   custom_fields: CustomFieldsInput
+
+  "The minimum role that can see the scene"
+  visibility: RoleEnum @hasRole(role: ADMIN)
 }
 
 enum BulkUpdateIdMode {
@@ -202,6 +208,9 @@ input BulkSceneUpdateInput {
   movie_ids: BulkUpdateIds @deprecated(reason: "Use group_ids")
 
   custom_fields: CustomFieldsInput
+
+  "The minimum role that can see the scenes"
+  visibility: RoleEnum @hasRole(role: ADMIN)
 }
 
 input SceneDestroyInput {

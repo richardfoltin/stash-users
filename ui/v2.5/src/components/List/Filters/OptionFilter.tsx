@@ -15,6 +15,7 @@ import {
   modifierValueToModifier,
 } from "./LabeledIdFilter";
 import { useIntl } from "react-intl";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IOptionsFilter {
   criterion: ModifierCriterion<CriterionValue>;
@@ -63,6 +64,8 @@ export const OptionListFilter: React.FC<IOptionsListFilter> = ({
   criterion,
   setCriterion,
 }) => {
+  const intl = useIntl();
+
   function onSelect(v: string) {
     const c = cloneDeep(criterion);
     const cv = c.value as string[];
@@ -75,7 +78,8 @@ export const OptionListFilter: React.FC<IOptionsListFilter> = ({
     setCriterion(c);
   }
 
-  const { options } = criterion.modifierCriterionOption();
+  const criterionOption = criterion.modifierCriterionOption();
+  const { options } = criterionOption;
   const value = criterion.value as string[];
 
   return (
@@ -87,7 +91,7 @@ export const OptionListFilter: React.FC<IOptionsListFilter> = ({
           onChange={() => onSelect(o.toString())}
           checked={value.includes(o.toString())}
           type="checkbox"
-          label={o.toString()}
+          label={criterionOption.getOptionLabel(intl, o)}
         />
       ))}
     </div>
@@ -110,6 +114,7 @@ export const SidebarOptionFilter: React.FC<ISidebarFilter> = ({
   sectionID,
 }) => {
   const intl = useIntl();
+  const { isAdmin } = usePermissions();
 
   const criteria = filter.criteriaFor(
     option.type
@@ -145,9 +150,11 @@ export const SidebarOptionFilter: React.FC<ISidebarFilter> = ({
       .filter((o) => currentValues.includes(o.toString()))
       .map((o) => ({
         id: o.toString(),
-        label: o.toLocaleString(),
+        label: option.optionMessageID
+          ? option.getOptionLabel(intl, o)
+          : o.toLocaleString(),
       }));
-  }, [criterion, currentValues, criterionOptions, intl]);
+  }, [criterion, currentValues, criterionOptions, option, intl]);
 
   const modifierCandidates: Option[] = useMemo(() => {
     if (!hasNullModifiers) return [];
@@ -179,11 +186,11 @@ export const SidebarOptionFilter: React.FC<ISidebarFilter> = ({
       .filter((oo) => !currentValues.includes(oo.toString()))
       .map((oo) => ({
         id: oo.toString(),
-        label: oo.toString(),
+        label: option.getOptionLabel(intl, oo),
       }));
 
     return [...modifierCandidates, ...o];
-  }, [criterionOptions, currentValues, modifierCandidates]);
+  }, [criterionOptions, currentValues, modifierCandidates, option, intl]);
 
   function onSelect(item: Option) {
     const newCriterion = criterion ? criterion.clone() : option.makeCriterion();
@@ -217,6 +224,8 @@ export const SidebarOptionFilter: React.FC<ISidebarFilter> = ({
 
     setFilter(filter.removeCriterion(option.type));
   }
+
+  if (option.adminOnly && !isAdmin) return null;
 
   return (
     <SidebarListFilter

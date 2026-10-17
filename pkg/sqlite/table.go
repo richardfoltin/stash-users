@@ -873,9 +873,16 @@ func (t *relatedFilesTable) setPrimary(ctx context.Context, id int, fileID model
 	return nil
 }
 
+// viewHistoryTable stores the view and o dates of scenes. The dates of scenes
+// that are hidden in the context are not counted, and cannot be changed.
 type viewHistoryTable struct {
 	table
 	dateColumn exp.IdentifierExpression
+}
+
+// sceneIDColumn returns the qualified name of the scene id column.
+func (t *viewHistoryTable) sceneIDColumn() string {
+	return fmt.Sprintf("%s.%v", t.idColumn.GetTable(), t.idColumn.GetCol())
 }
 
 func (t *viewHistoryTable) getDates(ctx context.Context, id int) ([]time.Time, error) {
@@ -1039,6 +1046,7 @@ func (t *viewHistoryTable) getManyCount(ctx context.Context, ids []int) ([]int, 
 func (t *viewHistoryTable) getAllCount(ctx context.Context) (int, error) {
 	table := t.table.table
 	q := dialect.Select(goqu.COUNT("*")).From(table)
+	q = whereSceneVisible(ctx, q, t.sceneIDColumn())
 
 	const single = true
 	var ret int
@@ -1057,6 +1065,7 @@ func (t *viewHistoryTable) getAllCount(ctx context.Context) (int, error) {
 func (t *viewHistoryTable) getUniqueCount(ctx context.Context) (int, error) {
 	table := t.table.table
 	q := dialect.Select(goqu.COUNT(goqu.DISTINCT(t.idColumn))).From(table)
+	q = whereSceneVisible(ctx, q, t.sceneIDColumn())
 
 	const single = true
 	var ret int
@@ -1073,6 +1082,10 @@ func (t *viewHistoryTable) getUniqueCount(ctx context.Context) (int, error) {
 }
 
 func (t *viewHistoryTable) addDates(ctx context.Context, id int, dates []time.Time) ([]time.Time, error) {
+	if err := checkScenesVisible(ctx, id); err != nil {
+		return nil, err
+	}
+
 	table := t.table.table
 
 	if len(dates) == 0 {
@@ -1094,6 +1107,10 @@ func (t *viewHistoryTable) addDates(ctx context.Context, id int, dates []time.Ti
 }
 
 func (t *viewHistoryTable) deleteDates(ctx context.Context, id int, dates []time.Time) ([]time.Time, error) {
+	if err := checkScenesVisible(ctx, id); err != nil {
+		return nil, err
+	}
+
 	table := t.table.table
 
 	mostRecent := false
@@ -1127,6 +1144,10 @@ func (t *viewHistoryTable) deleteDates(ctx context.Context, id int, dates []time
 }
 
 func (t *viewHistoryTable) deleteAllDates(ctx context.Context, id int) (int, error) {
+	if err := checkScenesVisible(ctx, id); err != nil {
+		return 0, err
+	}
+
 	table := t.table.table
 	q := dialect.Delete(table).Where(t.idColumn.Eq(id))
 

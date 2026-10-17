@@ -121,6 +121,8 @@ The import and export tasks read and write JSON files to the configured metadata
 
 > **⚠️ Note:** The full import task wipes the current database completely before importing.
 
+Exports do not include the visibility of scenes, so scenes created by an import get the `Default visibility of new scenes`. See [Users and Permissions](/help/Users.md).
+
 See the [JSON Specification](/help/JSONSpec.md) page for details on the exported JSON format.
 
 ## Backing up

@@ -226,4 +226,5 @@ export type CriterionType =
   | "sort_name"
   | "custom_fields"
   | "folder"
-  | "parent_folder";
+  | "parent_folder"
+  | "visibility";

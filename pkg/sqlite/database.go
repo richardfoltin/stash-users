@@ -269,6 +269,9 @@ func (db *Database) initialise() error {
 	if err := db.openWriteDB(); err != nil {
 		return fmt.Errorf("opening write database: %w", err)
 	}
+	if err := ensureSceneVisibilityTable(db.writeDB); err != nil {
+		return err
+	}
 
 	return nil
 }

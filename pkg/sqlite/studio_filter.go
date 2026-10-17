@@ -172,7 +172,7 @@ func (qb *studioFilterHandler) isMissingCriterionHandler(isMissing *string) crit
 func (qb *studioFilterHandler) sceneCountCriterionHandler(sceneCount *models.IntCriterionInput) criterionHandlerFunc {
 	return func(ctx context.Context, f *filterBuilder) {
 		if sceneCount != nil {
-			f.addLeftJoin("scenes", "", "scenes.studio_id = studios.id")
+			f.addLeftJoin("scenes", "", "scenes.studio_id = studios.id"+andSceneVisible(ctx, "scenes.id"))
 			clause, args := getIntCriterionWhereClause("count(distinct scenes.id)", *sceneCount)
 
 			f.addHaving(clause, args...)

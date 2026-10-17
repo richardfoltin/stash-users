@@ -219,6 +219,9 @@ type SceneStore struct {
 	viewDateManager
 
 	repo *storeRepository
+
+	// defaultVisibility returns the visibility of new scenes
+	defaultVisibility func() models.RoleEnum
 }
 
 func NewSceneStore(r *storeRepository, blobStore *BlobStore) *SceneStore {
@@ -293,6 +296,12 @@ func (qb *SceneStore) Create(ctx context.Context, newObject *models.Scene, fileI
 		return err
 	}
 
+	if visibility := qb.newSceneVisibility(); visibility != models.RoleEnumRead {
+		if err := qb.setVisibility(ctx, id, visibility); err != nil {
+			return err
+		}
+	}
+
 	if len(fileIDs) > 0 {
 		const firstPrimary = true
 		if err := scenesFilesTableMgr.insertJoins(ctx, id, firstPrimary, fileIDs); err != nil {
@@ -347,6 +356,10 @@ func (qb *SceneStore) Create(ctx context.Context, newObject *models.Scene, fileI
 }
 
 func (qb *SceneStore) UpdatePartial(ctx context.Context, id int, partial models.ScenePartial) (*models.Scene, error) {
+	if err := checkScenesVisible(ctx, id); err != nil {
+		return nil, err
+	}
+
 	r := sceneRowRecord{
 		updateRecord{
 			Record: make(exp.Record),
@@ -393,6 +406,11 @@ func (qb *SceneStore) UpdatePartial(ctx context.Context, id int, partial models.
 	}
 	if partial.PrimaryFileID != nil {
 		if err := scenesFilesTableMgr.setPrimary(ctx, id, *partial.PrimaryFileID); err != nil {
+			return nil, err
+		}
+	}
+	if partial.Visibility != nil {
+		if err := qb.setVisibility(ctx, id, *partial.Visibility); err != nil {
 			return nil, err
 		}
 	}
@@ -564,6 +582,8 @@ func (qb *SceneStore) get(ctx context.Context, q *goqu.SelectDataset) (*models.S
 }
 
 func (qb *SceneStore) getMany(ctx context.Context, q *goqu.SelectDataset) ([]*models.Scene, error) {
+	q = whereSceneVisible(ctx, q, sceneTable+".id")
+
 	const single = false
 	var ret []*models.Scene
 	var lastID int
@@ -634,6 +654,7 @@ func (qb *SceneStore) GetManyIDsByFileIDs(ctx context.Context, fileIDs []models.
 	sq := dialect.From(scenesFilesJoinTable).Select(scenesFilesJoinTable.Col(sceneIDColumn), scenesFilesJoinTable.Col(fileIDColumn)).Where(
 		scenesFilesJoinTable.Col(fileIDColumn).In(fileIDs),
 	)
+	sq = whereSceneVisible(ctx, sq, scenesFilesTable+"."+sceneIDColumn)
 
 	sql, args, err := sq.ToSQL()
 	if err != nil {
@@ -792,6 +813,7 @@ func (qb *SceneStore) CountByPerformerID(ctx context.Context, performerID int) (
 	joinTable := scenesPerformersJoinTable
 
 	q := dialect.Select(goqu.COUNT("*")).From(joinTable).Where(joinTable.Col(performerIDColumn).Eq(performerID))
+	q = whereSceneVisible(ctx, q, performersScenesTable+"."+sceneIDColumn)
 	return count(ctx, q)
 }
 
@@ -809,6 +831,7 @@ func (qb *SceneStore) OCountByPerformerID(ctx context.Context, performerID int) 
 			table.Col(idColumn).Eq(joinTable.Col(sceneIDColumn)),
 		),
 	).Where(joinTable.Col(performerIDColumn).Eq(performerID))
+	q = whereSceneVisible(ctx, q, sceneTable+".id")
 
 	var ret int
 	if err := querySimple(ctx, q, &ret); err != nil {
@@ -832,6 +855,7 @@ func (qb *SceneStore) OCountByGroupID(ctx context.Context, groupID int) (int, er
 			table.Col(idColumn).Eq(joinTable.Col(sceneIDColumn)),
 		),
 	).Where(joinTable.Col(groupIDColumn).Eq(groupID))
+	q = whereSceneVisible(ctx, q, sceneTable+".id")
 
 	var ret int
 	if err := querySimple(ctx, q, &ret); err != nil {
@@ -855,6 +879,7 @@ func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int, depth 
 		oHistoryTable,
 		goqu.On(table.Col(idColumn).Eq(oHistoryTable.Col(sceneIDColumn))),
 	).Where(table.Col(studioIDColumn).Eq(studioID))
+	q = whereSceneVisible(ctx, q, sceneTable+".id")
 
 	if err := querySimple(ctx, q, &ret); err != nil {
 		return 0, err
@@ -874,7 +899,7 @@ func (qb *SceneStore) oCountByStudioIDRecursive(ctx context.Context, studioID in
 	)
 	SELECT COUNT(*) FROM scenes
 	INNER JOIN scenes_o_dates ON scenes.id = scenes_o_dates.scene_id
-	WHERE scenes.studio_id IN (SELECT id FROM sub_studios)`
+	WHERE scenes.studio_id IN (SELECT id FROM sub_studios)` + andSceneVisible(ctx, "scenes.id")
 
 	rows, err := dbWrapper.QueryxContext(ctx, q, studioID, depth, depth)
 	if err != nil {
@@ -909,6 +934,7 @@ func (qb *SceneStore) FindByGroupID(ctx context.Context, groupID int) ([]*models
 
 func (qb *SceneStore) Count(ctx context.Context) (int, error) {
 	q := dialect.Select(goqu.COUNT("*")).From(qb.table())
+	q = whereSceneVisible(ctx, q, sceneTable+".id")
 	return count(ctx, q)
 }
 
@@ -924,6 +950,7 @@ func (qb *SceneStore) Size(ctx context.Context) (float64, error) {
 		fileTable,
 		goqu.On(scenesFilesJoinTable.Col(fileIDColumn).Eq(fileTable.Col(idColumn))),
 	)
+	q = whereSceneVisible(ctx, q, sceneTable+".id")
 	var ret float64
 	if err := querySimple(ctx, q, &ret); err != nil {
 		return 0, err
@@ -945,6 +972,7 @@ func (qb *SceneStore) Duration(ctx context.Context) (float64, error) {
 		videoFileTable,
 		goqu.On(videoFileTable.Col("file_id").Eq(scenesFilesJoinTable.Col("file_id"))),
 	)
+	q = whereSceneVisible(ctx, q, sceneTable+".id")
 
 	var ret float64
 	if err := querySimple(ctx, q, &ret); err != nil {
@@ -958,6 +986,7 @@ func (qb *SceneStore) PlayDuration(ctx context.Context) (float64, error) {
 	table := qb.table()
 
 	q := dialect.Select(goqu.COALESCE(goqu.SUM("play_duration"), 0)).From(table)
+	q = whereSceneVisible(ctx, q, sceneTable+".id")
 
 	var ret float64
 	if err := querySimple(ctx, q, &ret); err != nil {
@@ -972,6 +1001,7 @@ func (qb *SceneStore) CountByStudioID(ctx context.Context, studioID int) (int, e
 	table := qb.table()
 
 	q := dialect.Select(goqu.COUNT("*")).From(table).Where(table.Col(studioIDColumn).Eq(studioID))
+	q = whereSceneVisible(ctx, q, sceneTable+".id")
 	return count(ctx, q)
 }
 
@@ -1032,6 +1062,7 @@ func (qb *SceneStore) makeQuery(ctx context.Context, sceneFilter *models.SceneFi
 
 	query := sceneRepository.newQuery()
 	distinctIDs(&query, sceneTable)
+	query.addWhere(visibleClause(ctx, sceneTable))
 
 	if q := findFilter.Q; q != nil && *q != "" {
 		query.addJoins(
@@ -1365,6 +1396,9 @@ func (qb *SceneStore) SaveActivity(ctx context.Context, id int, resumeTime *floa
 	if err := qb.tableMgr.checkIDExists(ctx, id); err != nil {
 		return false, err
 	}
+	if err := checkScenesVisible(ctx, id); err != nil {
+		return false, err
+	}
 
 	record := goqu.Record{}
 
@@ -1387,6 +1421,9 @@ func (qb *SceneStore) SaveActivity(ctx context.Context, id int, resumeTime *floa
 
 func (qb *SceneStore) ResetActivity(ctx context.Context, id int, resetResume bool, resetDuration bool) (bool, error) {
 	if err := qb.tableMgr.checkIDExists(ctx, id); err != nil {
+		return false, err
+	}
+	if err := checkScenesVisible(ctx, id); err != nil {
 		return false, err
 	}
 

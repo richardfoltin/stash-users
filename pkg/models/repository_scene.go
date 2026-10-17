@@ -114,6 +114,9 @@ type SceneReader interface {
 	PlayDuration(ctx context.Context) (float64, error)
 	GetCover(ctx context.Context, sceneID int) ([]byte, error)
 	HasCover(ctx context.Context, sceneID int) (bool, error)
+	// GetVisibility returns the minimum role that can see the scene.
+	GetVisibility(ctx context.Context, id int) (RoleEnum, error)
+	GetManyVisibility(ctx context.Context, ids []int) ([]RoleEnum, error)
 }
 
 type OHistoryWriter interface {

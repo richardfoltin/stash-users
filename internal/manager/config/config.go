@@ -42,6 +42,8 @@ const (
 	ApiKey              = "api_key"
 	MaxSessionAge       = "max_session_age"
 
+	DefaultSceneVisibility = "default_scene_visibility"
+
 	SignedURLExpiry        = "signed_url_expiry"
 	signedURLExpiryDefault = 60 * 60 * 4 // 4 hours in seconds
 
@@ -1239,6 +1241,16 @@ func (i *Config) GetMaxSessionAge() int {
 	v := i.forKey(MaxSessionAge)
 	if v.Exists(MaxSessionAge) {
 		ret = v.Int(MaxSessionAge)
+	}
+
+	return ret
+}
+
+// GetDefaultSceneVisibility returns the minimum role that can see new scenes.
+func (i *Config) GetDefaultSceneVisibility() models.RoleEnum {
+	ret := models.RoleEnum(i.getString(DefaultSceneVisibility))
+	if !ret.IsValid() {
+		return models.RoleEnumRead
 	}
 
 	return ret

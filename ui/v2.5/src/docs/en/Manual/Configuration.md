@@ -151,9 +151,11 @@ Some scrapers require a Chrome instance to function correctly. If left empty, st
 
 ## Authentication
 
-Stash always has at least one user, and only signed-in users can use it. When Stash starts without any users, it creates the user `admin` with the `Admin` role, no password and automatic login from the local network. Roles, signing in, automatic login and recovering access are described in [Users and Permissions](/help/Users.md).
+Stash always has at least one user, and only signed-in users can use it. When Stash starts without any users, it creates the user `admin` with the `Admin` role, no password and automatic login from the local network. Roles, signing in, automatic login, scene visibility and recovering access are described in [Users and Permissions](/help/Users.md).
 
 Users are managed in the `Users` section of `Settings > Security`, and are stored in the `users` section of `config.yml`. Passwords are stored as hashes. A `username` and `password` set in `config.yml` by an earlier version of stash are treated as a user with the `Admin` role, and are moved into the `users` section the first time users are changed.
+
+`default_scene_visibility` in `config.yml` holds the `Default visibility of new scenes` setting: `READ` (`Everyone`, the default), `MODIFY` (`Editors and admins`) or `ADMIN` (`Admins only`).
 
 ## API key
 

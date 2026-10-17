@@ -1,5 +1,5 @@
 import React from "react";
-import { NumberSetting } from "./Inputs";
+import { NumberSetting, SelectSetting } from "./Inputs";
 import { SettingSection } from "./SettingSection";
 import { Button } from "react-bootstrap";
 import { useIntl } from "react-intl";
@@ -9,6 +9,11 @@ import { useToast } from "src/hooks/Toast";
 import { useGenerateAPIKey } from "src/core/StashService";
 import { usePermissions } from "src/hooks/Permissions";
 import { SettingsUsers } from "./SettingsUsers";
+import * as GQL from "src/core/generated-graphql";
+import {
+  sceneVisibilities,
+  sceneVisibilityMessageID,
+} from "src/utils/sceneVisibility";
 
 export const SettingsSecurityPanel: React.FC = () => {
   const intl = useIntl();
@@ -86,6 +91,24 @@ export const SettingsSecurityPanel: React.FC = () => {
           value={general.maxSessionAge ?? undefined}
           onChange={(v) => saveGeneral({ maxSessionAge: v })}
         />
+      </SettingSection>
+
+      <SettingSection headingID="config.general.auth.scene_visibility">
+        <SelectSetting
+          id="default-scene-visibility"
+          headingID="config.general.auth.default_scene_visibility"
+          subHeadingID="config.general.auth.default_scene_visibility_desc"
+          value={general.defaultSceneVisibility ?? GQL.RoleEnum.Read}
+          onChange={(v) =>
+            saveGeneral({ defaultSceneVisibility: v as GQL.RoleEnum })
+          }
+        >
+          {sceneVisibilities.map((v) => (
+            <option key={v} value={v}>
+              {intl.formatMessage({ id: sceneVisibilityMessageID(v) })}
+            </option>
+          ))}
+        </SelectSetting>
       </SettingSection>
     </>
   );

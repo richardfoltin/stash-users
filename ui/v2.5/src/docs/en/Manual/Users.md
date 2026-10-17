@@ -1,6 +1,6 @@
 # Users and Permissions
 
-Stash always has at least one user. Each user has a role, which decides what they may do.
+Stash always has at least one user. Each user has a role, which decides what they may do and which scenes they can see.
 
 Administrators manage users in the `Users` section of `Settings > Security`. `Manage users` in the account menu opens it.
 
@@ -10,7 +10,7 @@ Administrators manage users in the `Users` section of `Settings > Security`. `Ma
 |------|-------------|
 | `Viewer` | Browse, search and play content. See the system status and the queue of running tasks. Viewers cannot change library data, ratings, play history or settings. |
 | `Editor` | Everything a viewer can do, plus creating and editing library metadata (scenes, images, galleries, performers, studios, tags, groups, markers and gallery chapters), ratings, plays, O counts and resume times, and the play and O history, running the installed scrapers to fill in the edit forms, generating cover screenshots, using the `Tagger` view and saving filters. Editors cannot delete or merge objects, change settings, run tasks, or install and manage plugins, scrapers and users. |
-| `Admin` | Everything, including settings, tasks, deleting and merging objects, managing users, the API key, deleting saved filters and setting default filters. |
+| `Admin` | Everything, including settings, tasks, deleting and merging objects, managing users, scene visibility, the API key, deleting saved filters and setting default filters. |
 
 The interface hides the actions that the role of the signed-in user does not allow.
 
@@ -48,6 +48,26 @@ The `Sign in` page asks for a username and password. On the local network, while
 `Log out` ends the session and opens the `Sign in` page. On the local network, while a user is set to log in automatically, opening any other page signs you in as that user again.
 
 A session ends after the `Maximum session age` of idle time, set in `Settings > Security`.
+
+## Scene visibility
+
+Each scene has a visibility, which decides who can see it:
+
+| `Visible to` | Who can see the scene | `default_scene_visibility` value |
+|--------------|-----------------------|----------------------------------|
+| `Everyone` | All users | `READ` |
+| `Editors and admins` | Editors and administrators | `MODIFY` |
+| `Admins only` | Administrators | `ADMIN` |
+
+A hidden scene is hidden everywhere for that user: in lists, searches, counts and statistics, on the pages of its performers, studio, tags, groups and galleries, and along with its markers, files and media. The user cannot change it either.
+
+Only administrators can change the visibility, with the `Visible to` field when editing a scene, or when editing several selected scenes at once. Administrators find scenes by visibility with the `Visible to` filter.
+
+Scenes that are not visible to everyone show a lock icon on their card and on the scene page. Its tooltip says who can see the scene.
+
+New scenes, including scanned, imported and created scenes, get the `Default visibility of new scenes` from `Settings > Security`. It is stored as `default_scene_visibility` in `config.yml`, and is `Everyone` (`READ`) unless changed. Changing it does not change existing scenes. Exports do not include the visibility of scenes.
+
+Scans and scheduled tasks see every scene. The DLNA server only serves scenes visible to everyone.
 
 ## API key
 

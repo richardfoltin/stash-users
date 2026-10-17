@@ -31,6 +31,7 @@ import { GroupTag } from "../Groups/GroupTag";
 import { FileSize } from "../Shared/FileSize";
 import { OCounterButton } from "../Shared/CountButton";
 import { defaultPreviewVolume } from "src/core/config";
+import { SceneVisibilityIcon } from "./SceneVisibilityIcon";
 
 interface IScenePreviewProps {
   isPortrait: boolean;
@@ -301,6 +302,7 @@ const SceneCardPopovers = React.memo(
           props.scene?.o_counter ||
           props.scene.galleries.length > 0 ||
           props.scene.organized ||
+          props.scene.visibility !== GQL.RoleEnum.Read ||
           sceneNumber !== undefined)
       ) {
         return (
@@ -315,6 +317,7 @@ const SceneCardPopovers = React.memo(
               {maybeRenderOCounter()}
               {maybeRenderGallery()}
               {maybeRenderOrganized()}
+              <SceneVisibilityIcon visibility={props.scene.visibility} />
               {maybeRenderDupeCopies()}
             </ButtonGroup>
           </>

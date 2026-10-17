@@ -262,13 +262,19 @@ func (qb *tagFilterHandler) hierarchicalCountHandlerOnCol(input *models.Hierarch
 			Modifier: input.Modifier,
 		}
 
+		// only the scenes that are visible in the context are counted
+		var visible string
+		if joinTable == scenesTagsTable {
+			visible = andSceneVisible(ctx, joinTable+"."+entityIDCol)
+		}
+
 		if input.Depth != nil {
 			cteAlias := joinTable + "_desc"
 			qb.addHierarchicalCountCTE(f, cteAlias, *input.Depth)
 			f.addLeftJoin(cteAlias, "", fmt.Sprintf("%s.root_id = tags.id", cteAlias))
-			f.addLeftJoin(joinTable, "", fmt.Sprintf("%[1]s.%[2]s = %[3]s.descendant_id", joinTable, tagCol, cteAlias))
+			f.addLeftJoin(joinTable, "", fmt.Sprintf("%[1]s.%[2]s = %[3]s.descendant_id", joinTable, tagCol, cteAlias)+visible)
 		} else {
-			f.addLeftJoin(joinTable, "", fmt.Sprintf("%s.%s = tags.id", joinTable, tagCol))
+			f.addLeftJoin(joinTable, "", fmt.Sprintf("%s.%s = tags.id", joinTable, tagCol)+visible)
 		}
 
 		clause, args := getIntCriterionWhereClause(fmt.Sprintf("count(distinct %s.%s)", joinTable, entityIDCol), intInput)
@@ -317,10 +323,10 @@ func (qb *tagFilterHandler) markerCountCriterionHandler(markerCount *models.Hier
 			qb.addHierarchicalCountCTE(f, cteAlias, *markerCount.Depth)
 			f.addLeftJoin(cteAlias, "", fmt.Sprintf("%s.root_id = tags.id", cteAlias))
 			f.addLeftJoin("scene_markers_tags", "", fmt.Sprintf("scene_markers_tags.tag_id = %s.descendant_id", cteAlias))
-			f.addLeftJoin("scene_markers", "", "scene_markers_tags.scene_marker_id = scene_markers.id OR scene_markers.primary_tag_id = "+cteAlias+".descendant_id")
+			f.addLeftJoin("scene_markers", "", "(scene_markers_tags.scene_marker_id = scene_markers.id OR scene_markers.primary_tag_id = "+cteAlias+".descendant_id)"+andSceneVisible(ctx, "scene_markers.scene_id"))
 		} else {
 			f.addLeftJoin("scene_markers_tags", "", "scene_markers_tags.tag_id = tags.id")
-			f.addLeftJoin("scene_markers", "", "scene_markers_tags.scene_marker_id = scene_markers.id OR scene_markers.primary_tag_id = tags.id")
+			f.addLeftJoin("scene_markers", "", "(scene_markers_tags.scene_marker_id = scene_markers.id OR scene_markers.primary_tag_id = tags.id)"+andSceneVisible(ctx, "scene_markers.scene_id"))
 		}
 
 		clause, args := getIntCriterionWhereClause("count(distinct scene_markers.id)", intInput)

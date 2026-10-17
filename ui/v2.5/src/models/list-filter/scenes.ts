@@ -37,6 +37,7 @@ import { PathCriterionOption } from "./criteria/path";
 import { OrientationCriterionOption } from "./criteria/orientation";
 import { CustomFieldsCriterionOption } from "./criteria/custom-fields";
 import { FolderCriterionOption } from "./criteria/folder";
+import { VisibilityCriterionOption } from "./criteria/visibility";
 
 const defaultSortBy = "date";
 const sortByOptions = [
@@ -147,6 +148,7 @@ const criterionOptions = [
   createMandatoryTimestampCriterionOption("created_at"),
   createMandatoryTimestampCriterionOption("updated_at"),
   CustomFieldsCriterionOption,
+  VisibilityCriterionOption,
 ];
 
 export const SceneListFilterOptions = new ListFilterOptions(

@@ -20,6 +20,7 @@
 //go:generate go run github.com/vektah/dataloaden SceneOHistoryLoader int []time.Time
 //go:generate go run github.com/vektah/dataloaden ScenePlayHistoryLoader int []time.Time
 //go:generate go run github.com/vektah/dataloaden SceneLastPlayedLoader int *time.Time
+//go:generate go run github.com/vektah/dataloaden SceneVisibilityLoader int github.com/stashapp/stash/pkg/models.RoleEnum
 package loaders
 
 import (
@@ -50,6 +51,7 @@ type Loaders struct {
 	ScenePlayHistory  *ScenePlayHistoryLoader
 	SceneOHistory     *SceneOHistoryLoader
 	SceneLastPlayed   *SceneLastPlayedLoader
+	SceneVisibility   *SceneVisibilityLoader
 	SceneCustomFields *CustomFieldsLoader
 
 	ImageFiles   *RelatedFileIDsLoader
@@ -233,6 +235,11 @@ func (m Middleware) Middleware(next http.Handler) http.Handler {
 				wait:     wait,
 				maxBatch: maxBatch,
 				fetch:    m.fetchScenesOHistory(ctx),
+			},
+			SceneVisibility: &SceneVisibilityLoader{
+				wait:     wait,
+				maxBatch: maxBatch,
+				fetch:    m.fetchScenesVisibility(ctx),
 			},
 		}
 
@@ -576,6 +583,17 @@ func (m Middleware) fetchScenesLastPlayed(ctx context.Context) func(keys []int) 
 		err := m.Repository.WithDB(ctx, func(ctx context.Context) error {
 			var err error
 			ret, err = m.Repository.Scene.GetManyLastViewed(ctx, keys)
+			return err
+		})
+		return ret, toErrorSlice(err)
+	}
+}
+
+func (m Middleware) fetchScenesVisibility(ctx context.Context) func(keys []int) ([]models.RoleEnum, []error) {
+	return func(keys []int) (ret []models.RoleEnum, errs []error) {
+		err := m.Repository.WithDB(ctx, func(ctx context.Context) error {
+			var err error
+			ret, err = m.Repository.Scene.GetManyVisibility(ctx, keys)
 			return err
 		})
 		return ret, toErrorSlice(err)

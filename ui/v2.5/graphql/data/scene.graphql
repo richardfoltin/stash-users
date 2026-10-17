@@ -10,6 +10,7 @@ fragment SceneData on Scene {
   rating100
   o_counter
   organized
+  visibility
   interactive
   interactive_speed
   captions {
