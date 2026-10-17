@@ -55,6 +55,7 @@ import { SidebarAgeFilter } from "../List/Filters/SidebarAgeFilter";
 import { PerformerAgeCriterionOption } from "src/models/list-filter/galleries";
 import { SidebarFolderFilter } from "../List/Filters/FolderFilter";
 import { ParentFolderCriterionOption } from "src/models/list-filter/criteria/folder";
+import { usePermissions } from "src/hooks/Permissions";
 
 const GalleryList: React.FC<{
   galleries: GQL.SlimGalleryDataFragment[];
@@ -268,6 +269,7 @@ export const FilteredGalleryList = PatchComponent(
   "FilteredGalleryList",
   (props: IGalleryList) => {
     const intl = useIntl();
+    const { isAdmin, canModify, canDelete } = usePermissions();
 
     const searchFocus = useFocus();
 
@@ -367,23 +369,27 @@ export const FilteredGalleryList = PatchComponent(
       );
     }
 
-    function onEdit() {
-      showModal(
-        <EditGalleriesDialog
-          selected={selectedItems}
-          onClose={onCloseEditDelete}
-        />
-      );
-    }
+    const onEdit = canModify
+      ? () => {
+          showModal(
+            <EditGalleriesDialog
+              selected={selectedItems}
+              onClose={onCloseEditDelete}
+            />
+          );
+        }
+      : undefined;
 
-    function onDelete() {
-      showModal(
-        <DeleteGalleriesDialog
-          selected={selectedItems}
-          onClose={onCloseEditDelete}
-        />
-      );
-    }
+    const onDelete = canDelete
+      ? () => {
+          showModal(
+            <DeleteGalleriesDialog
+              selected={selectedItems}
+              onClose={onCloseEditDelete}
+            />
+          );
+        }
+      : undefined;
 
     function onGenerate() {
       showModal(
@@ -430,16 +436,17 @@ export const FilteredGalleryList = PatchComponent(
       {
         text: `${intl.formatMessage({ id: "actions.generate" })}…`,
         onClick: onGenerate,
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => isAdmin && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export" }),
         onClick: () => onExport(false),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => isAdmin && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export_all" }),
         onClick: () => onExport(true),
+        isDisplayed: () => isAdmin,
       },
     ];
 

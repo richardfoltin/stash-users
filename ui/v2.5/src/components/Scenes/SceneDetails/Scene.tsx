@@ -59,6 +59,7 @@ import { goBackOrReplace } from "src/utils/history";
 import { FormattedDate } from "src/components/Shared/Date";
 import { StudioLogo } from "src/components/Shared/StudioLogo";
 import { JobFragment, useMonitorJob } from "src/utils/job";
+import { usePermissions } from "src/hooks/Permissions";
 
 const SubmitStashBoxDraft = lazyComponent(
   () => import("src/components/Dialogs/SubmitDraft")
@@ -192,6 +193,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const Toast = useToast();
   const intl = useIntl();
   const history = useHistory();
+  const { isAdmin, canModify, canDelete } = usePermissions();
   const [updateScene] = useSceneUpdate();
   const [generateScreenshot] = useSceneGenerateScreenshot();
   const [screenshotJobID, setScreenshotJobID] = useState<string>();
@@ -262,7 +264,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   }
 
   useRatingKeybinds(
-    true,
+    canModify,
     configuration?.ui.ratingSystemOptions?.type,
     setRating
   );
@@ -271,24 +273,28 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   useEffect(() => {
     Mousetrap.bind("a", () => setActiveTabKey("scene-details-panel"));
     Mousetrap.bind("q", () => setActiveTabKey("scene-queue-panel"));
-    Mousetrap.bind("e", () => setActiveTabKey("scene-edit-panel"));
     Mousetrap.bind("k", () => setActiveTabKey("scene-markers-panel"));
     Mousetrap.bind("i", () => setActiveTabKey("scene-file-info-panel"));
     Mousetrap.bind("h", () => setActiveTabKey("scene-history-panel"));
-    Mousetrap.bind("o", () => {
-      onIncrementOClick();
-    });
+    if (canModify) {
+      Mousetrap.bind("e", () => setActiveTabKey("scene-edit-panel"));
+      Mousetrap.bind("o", () => {
+        onIncrementOClick();
+      });
+      Mousetrap.bind("c c", () => {
+        onGenerateScreenshot(getPlayerPosition());
+      });
+      Mousetrap.bind("c d", () => {
+        onGenerateScreenshot();
+      });
+    }
     Mousetrap.bind("p n", () => onQueueNext());
     Mousetrap.bind("p p", () => onQueuePrevious());
     Mousetrap.bind("p r", () => onQueueRandom());
     Mousetrap.bind(",", () => setCollapsed(!collapsed));
-    Mousetrap.bind("d d", () => setIsDeleteAlertOpen(true));
-    Mousetrap.bind("c c", () => {
-      onGenerateScreenshot(getPlayerPosition());
-    });
-    Mousetrap.bind("c d", () => {
-      onGenerateScreenshot();
-    });
+    if (canDelete) {
+      Mousetrap.bind("d d", () => setIsDeleteAlertOpen(true));
+    }
 
     return () => {
       Mousetrap.unbind("a");
@@ -475,63 +481,64 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     }
   }
 
-  const renderOperations = () => (
-    <Dropdown>
-      <Dropdown.Toggle
-        variant="secondary"
-        id="operation-menu"
-        className="minimal"
-        title={intl.formatMessage({ id: "operations" })}
-      >
-        <Icon icon={faEllipsisV} />
-      </Dropdown.Toggle>
-      <Dropdown.Menu className="bg-secondary text-white">
-        {!!scene.files.length && (
+  const renderOperations = () =>
+    isAdmin && (
+      <Dropdown>
+        <Dropdown.Toggle
+          variant="secondary"
+          id="operation-menu"
+          className="minimal"
+          title={intl.formatMessage({ id: "operations" })}
+        >
+          <Icon icon={faEllipsisV} />
+        </Dropdown.Toggle>
+        <Dropdown.Menu className="bg-secondary text-white">
+          {!!scene.files.length && (
+            <Dropdown.Item
+              key="rescan"
+              className="bg-secondary text-white"
+              onClick={() => onRescan()}
+            >
+              <FormattedMessage id="actions.rescan" />
+            </Dropdown.Item>
+          )}
           <Dropdown.Item
-            key="rescan"
+            key="generate"
             className="bg-secondary text-white"
-            onClick={() => onRescan()}
+            onClick={() => setIsGenerateDialogOpen(true)}
           >
-            <FormattedMessage id="actions.rescan" />
+            <FormattedMessage id="actions.generate" />…
           </Dropdown.Item>
-        )}
-        <Dropdown.Item
-          key="generate"
-          className="bg-secondary text-white"
-          onClick={() => setIsGenerateDialogOpen(true)}
-        >
-          <FormattedMessage id="actions.generate" />…
-        </Dropdown.Item>
-        {boxes.length > 0 && (
+          {boxes.length > 0 && (
+            <Dropdown.Item
+              key="submit"
+              className="bg-secondary text-white"
+              onClick={() => setShowDraftModal(true)}
+            >
+              <FormattedMessage id="actions.submit_stash_box" />
+            </Dropdown.Item>
+          )}
           <Dropdown.Item
-            key="submit"
+            key="merge-scene"
             className="bg-secondary text-white"
-            onClick={() => setShowDraftModal(true)}
+            onClick={() => setIsMerging(true)}
           >
-            <FormattedMessage id="actions.submit_stash_box" />
+            <FormattedMessage id="actions.merge" />
+            ...
           </Dropdown.Item>
-        )}
-        <Dropdown.Item
-          key="merge-scene"
-          className="bg-secondary text-white"
-          onClick={() => setIsMerging(true)}
-        >
-          <FormattedMessage id="actions.merge" />
-          ...
-        </Dropdown.Item>
-        <Dropdown.Item
-          key="delete-scene"
-          className="bg-secondary text-white"
-          onClick={() => setIsDeleteAlertOpen(true)}
-        >
-          <FormattedMessage
-            id="actions.delete"
-            values={{ entityType: intl.formatMessage({ id: "scene" }) }}
-          />
-        </Dropdown.Item>
-      </Dropdown.Menu>
-    </Dropdown>
-  );
+          <Dropdown.Item
+            key="delete-scene"
+            className="bg-secondary text-white"
+            onClick={() => setIsDeleteAlertOpen(true)}
+          >
+            <FormattedMessage
+              id="actions.delete"
+              values={{ entityType: intl.formatMessage({ id: "scene" }) }}
+            />
+          </Dropdown.Item>
+        </Dropdown.Menu>
+      </Dropdown>
+    );
 
   const renderTabs = () => (
     <Tab.Container
@@ -598,11 +605,13 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 <FormattedMessage id="history" />
               </Nav.Link>
             </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="scene-edit-panel">
-                <FormattedMessage id="actions.edit" />
-              </Nav.Link>
-            </Nav.Item>
+            {canModify && (
+              <Nav.Item>
+                <Nav.Link eventKey="scene-edit-panel">
+                  <FormattedMessage id="actions.edit" />
+                </Nav.Link>
+              </Nav.Item>
+            )}
           </ScenePageTabs>
         </Nav>
       </div>
@@ -656,18 +665,22 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
           >
             <SceneFileInfoPanel scene={scene} />
           </Tab.Pane>
-          <Tab.Pane eventKey="scene-edit-panel" mountOnEnter>
-            <SceneEditPanel
-              isVisible={activeTabKey === "scene-edit-panel"}
-              scene={scene}
-              onGenerateThumbFromCurrent={() =>
-                onGenerateScreenshot(getPlayerPosition())
-              }
-              onGenerateThumbDefault={() => onGenerateScreenshot()}
-              onSubmit={onSave}
-              onDelete={() => setIsDeleteAlertOpen(true)}
-            />
-          </Tab.Pane>
+          {canModify && (
+            <Tab.Pane eventKey="scene-edit-panel" mountOnEnter>
+              <SceneEditPanel
+                isVisible={activeTabKey === "scene-edit-panel"}
+                scene={scene}
+                onGenerateThumbFromCurrent={() =>
+                  onGenerateScreenshot(getPlayerPosition())
+                }
+                onGenerateThumbDefault={() => onGenerateScreenshot()}
+                onSubmit={onSave}
+                onDelete={
+                  canDelete ? () => setIsDeleteAlertOpen(true) : undefined
+                }
+              />
+            </Tab.Pane>
+          )}
           <Tab.Pane eventKey="scene-history-panel">
             <SceneHistoryPanel scene={scene} />
           </Tab.Pane>
@@ -724,6 +737,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
               <RatingSystem
                 value={scene.rating100}
                 onSetRating={setRating}
+                disabled={!canModify}
                 clickToRate
                 withoutContext
               />

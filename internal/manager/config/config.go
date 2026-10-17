@@ -17,8 +17,6 @@ import (
 	"sync"
 	// "github.com/sasha-s/go-deadlock" // if you have deadlock issues
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
@@ -42,8 +40,6 @@ const (
 	BlobsPath           = "blobs_path"
 	Downloads           = "downloads"
 	ApiKey              = "api_key"
-	Username            = "username"
-	Password            = "password"
 	MaxSessionAge       = "max_session_age"
 
 	SignedURLExpiry        = "signed_url_expiry"
@@ -366,6 +362,9 @@ type Config struct {
 
 	// cached values for high-frequency calls
 	publicIPWhitelist ipWhitelist
+
+	// UserStore manages the users stored in the config file
+	UserStore *UserStore
 }
 
 var instance *Config
@@ -527,19 +526,15 @@ func (i *Config) setDefault(key string, value interface{}) {
 	}
 }
 
-func (i *Config) SetPassword(value string) {
-	// if blank, don't bother hashing; we want it to be blank
-	if value == "" {
-		i.SetString(Password, "")
-	} else {
-		i.SetString(Password, hashPassword(value))
-	}
-}
-
 func (i *Config) Write() error {
 	i.Lock()
 	defer i.Unlock()
 
+	return i.writeNoLock()
+}
+
+// writeNoLock writes the config file. Assumes write lock held.
+func (i *Config) writeNoLock() error {
 	data, err := i.marshal()
 	if err != nil {
 		return err
@@ -1195,48 +1190,6 @@ func (i *Config) IsCreateImageClipsFromVideos() bool {
 
 func (i *Config) GetAPIKey() string {
 	return i.getString(ApiKey)
-}
-
-func (i *Config) GetUsername() string {
-	return i.getString(Username)
-}
-
-func (i *Config) GetPasswordHash() string {
-	return i.getString(Password)
-}
-
-func (i *Config) GetCredentials() (string, string) {
-	if i.HasCredentials() {
-		return i.getString(Username), i.getString(Password)
-	}
-
-	return "", ""
-}
-
-func (i *Config) HasCredentials() bool {
-	username := i.getString(Username)
-	pwHash := i.getString(Password)
-
-	return username != "" && pwHash != ""
-}
-
-func hashPassword(password string) string {
-	hash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
-
-	return string(hash)
-}
-
-func (i *Config) ValidateCredentials(username string, password string) bool {
-	if !i.HasCredentials() {
-		// don't need to authenticate if no credentials saved
-		return true
-	}
-
-	authUser, authPWHash := i.GetCredentials()
-
-	err := bcrypt.CompareHashAndPassword([]byte(authPWHash), []byte(password))
-
-	return username == authUser && err == nil
 }
 
 func stashBoxValidate(str string) bool {

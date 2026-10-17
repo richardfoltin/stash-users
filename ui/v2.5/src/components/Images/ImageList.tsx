@@ -67,6 +67,7 @@ import { OrganizedCriterionOption } from "src/models/list-filter/criteria/organi
 import { SidebarAgeFilter } from "../List/Filters/SidebarAgeFilter";
 import { PerformerAgeCriterionOption } from "src/models/list-filter/images";
 import { SidebarFolderFilter } from "../List/Filters/FolderFilter";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IImageWallProps {
   images: GQL.SlimImageDataFragment[];
@@ -517,6 +518,7 @@ export const FilteredImageList = PatchComponent(
   "FilteredImageList",
   (props: IImageList) => {
     const intl = useIntl();
+    const { isAdmin, canModify, canDelete } = usePermissions();
 
     const [slideshowRunning, setSlideshowRunning] = useState<boolean>(false);
 
@@ -620,23 +622,29 @@ export const FilteredImageList = PatchComponent(
       );
     }
 
-    const onEdit = useCallback(() => {
-      showModal(
-        <EditImagesDialog
-          selected={selectedItems}
-          onClose={onCloseEditDelete}
-        />
-      );
-    }, [showModal, selectedItems, onCloseEditDelete]);
+    const onEdit = useMemo(() => {
+      if (!canModify) return;
+      return () => {
+        showModal(
+          <EditImagesDialog
+            selected={selectedItems}
+            onClose={onCloseEditDelete}
+          />
+        );
+      };
+    }, [canModify, showModal, selectedItems, onCloseEditDelete]);
 
-    const onDelete = useCallback(() => {
-      showModal(
-        <DeleteImagesDialog
-          selected={selectedItems}
-          onClose={onCloseEditDelete}
-        />
-      );
-    }, [showModal, selectedItems, onCloseEditDelete]);
+    const onDelete = useMemo(() => {
+      if (!canDelete) return;
+      return () => {
+        showModal(
+          <DeleteImagesDialog
+            selected={selectedItems}
+            onClose={onCloseEditDelete}
+          />
+        );
+      };
+    }, [canDelete, showModal, selectedItems, onCloseEditDelete]);
 
     useEffect(() => {
       Mousetrap.bind("e", () => {
@@ -700,16 +708,17 @@ export const FilteredImageList = PatchComponent(
             />
           );
         },
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => isAdmin && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export" }),
         onClick: () => onExport(false),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => isAdmin && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export_all" }),
         onClick: () => onExport(true),
+        isDisplayed: () => isAdmin,
       },
     ];
 

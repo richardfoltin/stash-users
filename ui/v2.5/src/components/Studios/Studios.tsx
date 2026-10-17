@@ -6,19 +6,26 @@ import Studio from "./StudioDetails/Studio";
 import StudioCreate from "./StudioDetails/StudioCreate";
 import { FilteredStudioList } from "./StudioList";
 import { View } from "../List/views";
+import { usePermissions } from "src/hooks/Permissions";
+import { PermissionDenied } from "../PermissionDenied";
 
 const Studios: React.FC = () => {
   return <FilteredStudioList view={View.Studios} />;
 };
 
 const StudioRoutes: React.FC = () => {
+  const { canModify } = usePermissions();
   const titleProps = useTitleProps({ id: "studios" });
   return (
     <>
       <Helmet {...titleProps} />
       <Switch>
         <Route exact path="/studios" component={Studios} />
-        <Route exact path="/studios/new" component={StudioCreate} />
+        <Route
+          exact
+          path="/studios/new"
+          component={canModify ? StudioCreate : PermissionDenied}
+        />
         <Route path="/studios/:id/:tab?" component={Studio} />
       </Switch>
     </>

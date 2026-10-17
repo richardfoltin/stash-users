@@ -150,9 +150,9 @@ input ConfigGeneralInput {
   writeImageThumbnails: Boolean
   "Create Image Clips from Video extensions when Videos are disabled in Library"
   createImageClipsFromVideos: Boolean
-  "Username"
+  "Legacy single-user username. Cannot be changed once users are managed"
   username: String
-  "Password"
+  "Legacy single-user password. Cannot be changed once users are managed"
   password: String
   "Maximum session cookie age"
   maxSessionAge: Int
@@ -294,9 +294,9 @@ type ConfigGeneralResult {
   createImageClipsFromVideos: Boolean!
   "API Key"
   apiKey: String!
-  "Username"
+  "Legacy single-user username"
   username: String!
-  "Password"
+  "Legacy single-user password hash"
   password: String!
   "Maximum session cookie age"
   maxSessionAge: Int!

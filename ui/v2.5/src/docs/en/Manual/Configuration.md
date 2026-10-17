@@ -151,27 +151,13 @@ Some scrapers require a Chrome instance to function correctly. If left empty, st
 
 ## Authentication
 
-By default, stash is not configured with any sort of password protection. To enable password protection, both `Username` and `Password` must be populated. Note that when entering a new username and password where none was set previously, the system will immediately request these credentials to log you in.
+Without users, Stash does not require signing in. Once a user exists, only signed-in users can use Stash. Roles, signing in and recovering access are described in [Users and Permissions](/help/Users.md).
+
+Users are managed in the `Users` section of `Settings > Security`, and are stored in the `users` section of `config.yml`. Passwords are stored as hashes. A `username` and `password` set in `config.yml` by an earlier version of stash are treated as a user with the `Admin` role, and are moved into the `users` section the first time users are changed.
 
 ## API key
 
-If password protection is enabled, you may also generate an API key. An API key is used by external systems to access your stash system without needing to login first.
-
-External systems using the API key must set the `ApiKey` header value to the configured API key in order to bypass the login requirement.
-
-### Logging out
-
-The logout button is situated in the upper-right part of the screen when you are logged in.
-
-### Recovering from a forgotten username or password
-
-Stash saves login credentials in the config.yml file. You must reset both login and password if you have forgotten your password by doing the following:
-
-* Close your Stash process
-* Open the `config.yml` file found in your Stash directory with a text editor
-* Delete the `username` and `password` lines from the file and save
-
-Stash authentication should now be reset with no authentication credentials.
+External systems can use stash without signing in by setting the `ApiKey` header to the API key. There is one API key for the whole system. An administrator generates it in `Settings > Security`. The key has full `Admin` access, and only works while the administrator who generated it exists and has the `Admin` role.
 
 ## Advanced configuration options
 

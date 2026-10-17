@@ -12,6 +12,7 @@ import { useTagUpdate } from "src/core/StashService";
 import { useTableColumns } from "src/hooks/useTableColumns";
 import cx from "classnames";
 import { IColumn, ListTable } from "../List/ListTable";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface ITagListTableProps {
   tags: GQL.TagListDataFragment[];
@@ -25,6 +26,7 @@ export const TagListTable: React.FC<ITagListTableProps> = (
   props: ITagListTableProps
 ) => {
   const intl = useIntl();
+  const { canModify } = usePermissions();
 
   const [updateTag] = useTagUpdate();
 
@@ -73,6 +75,7 @@ export const TagListTable: React.FC<ITagListTableProps> = (
     <Button
       className={cx("minimal", tag.favorite ? "favorite" : "not-favorite")}
       onClick={() => setFavorite(!tag.favorite, tag.id)}
+      disabled={!canModify}
     >
       <Icon icon={faHeart} />
     </Button>

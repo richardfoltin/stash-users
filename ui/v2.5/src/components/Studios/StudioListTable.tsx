@@ -9,6 +9,7 @@ import { RatingSystem } from "../Shared/Rating/RatingSystem";
 import { Link } from "react-router-dom";
 import NavUtils from "src/utils/navigation";
 import "./StudioListTable.scss";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IStudioListTableProps {
   studios: GQL.StudioDataFragment[];
@@ -24,6 +25,7 @@ export const StudioListTable: React.FC<IStudioListTableProps> = ({
   onSelectChange,
 }) => {
   const intl = useIntl();
+  const { canModify } = usePermissions();
   const [updateStudio] = useStudioUpdate();
   const { configuration } = useConfigurationContext();
   const showChildContent = configuration?.ui?.showChildStudioContent ?? false;
@@ -77,6 +79,7 @@ export const StudioListTable: React.FC<IStudioListTableProps> = ({
     <RatingSystem
       value={studio.rating100}
       onSetRating={(value) => setRating(value, studio.id)}
+      disabled={!canModify}
       clickToRate
     />
   );

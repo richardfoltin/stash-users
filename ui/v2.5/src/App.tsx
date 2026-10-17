@@ -7,6 +7,7 @@ import {
   useRouteMatch,
 } from "react-router-dom";
 import { IntlProvider, CustomFormats, FormattedMessage } from "react-intl";
+import { Alert } from "react-bootstrap";
 import { Helmet } from "react-helmet";
 import cloneDeep from "lodash-es/cloneDeep";
 import mergeWith from "lodash-es/mergeWith";
@@ -18,6 +19,7 @@ import locales, { NestedMessage, registerCountry } from "src/locales";
 import {
   useConfiguration,
   useConfigureUI,
+  useMe,
   useSystemStatus,
 } from "src/core/StashService";
 import flattenMessages from "./utils/flattenMessages";
@@ -27,6 +29,7 @@ import MousetrapPause from "mousetrap-pause";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { MainNavbar } from "./components/MainNavbar";
 import { PageNotFound } from "./components/PageNotFound";
+import { PermissionDenied } from "./components/PermissionDenied";
 import * as GQL from "./core/generated-graphql";
 import { makeTitleProps } from "./hooks/title";
 import { LoadingIndicator } from "./components/Shared/LoadingIndicator";
@@ -36,6 +39,7 @@ import {
   useConfigurationContextOptional,
 } from "./hooks/Config";
 import { ManualProvider } from "./components/Help/context";
+import { getPermissions, PermissionsProvider } from "./hooks/Permissions";
 import { InteractiveProvider } from "./hooks/Interactive/context";
 import { ReleaseNotesDialog } from "./components/Dialogs/ReleaseNotesDialog";
 import { releaseNotes } from "./docs/en/ReleaseNotes";
@@ -139,7 +143,12 @@ function translateLanguageLocale(l: string) {
 
 export const App: React.FC = () => {
   const config = useConfiguration();
+  const me = useMe();
   const [saveUI] = useConfigureUI();
+  const currentUser = me.data?.me;
+  // if the current user cannot be loaded, fail closed with viewer permissions
+  const loadFailed = !!me.error;
+  const { isAdmin } = getPermissions(currentUser, loadFailed);
 
   const { data: systemStatusData } = useSystemStatus();
 
@@ -236,6 +245,19 @@ export const App: React.FC = () => {
     }
   }, [systemStatusData, history, location.pathname]);
 
+  function maybeRenderUserError() {
+    if (!me.error) return;
+
+    return (
+      <Alert variant="danger" className="mt-2">
+        <FormattedMessage
+          id="permissions.load_error"
+          values={{ error: me.error.message }}
+        />
+      </Alert>
+    );
+  }
+
   function maybeRenderNavbar() {
     // don't render navbar for setup views
     if (!setupMatch) {
@@ -261,14 +283,17 @@ export const App: React.FC = () => {
             <Route path="/studios" component={Studios} />
             <Route path="/groups" component={Groups} />
             <Route path="/stats" component={Stats} />
-            <Route path="/settings" component={Settings} />
+            <Route
+              path="/settings"
+              component={isAdmin ? Settings : PermissionDenied}
+            />
             <Route
               path="/sceneFilenameParser"
-              component={SceneFilenameParser}
+              component={isAdmin ? SceneFilenameParser : PermissionDenied}
             />
             <Route
               path="/sceneDuplicateChecker"
-              component={SceneDuplicateChecker}
+              component={isAdmin ? SceneDuplicateChecker : PermissionDenied}
             />
             <Route path="/setup" component={Setup} />
             <Route path="/welcome" component={Welcome} />
@@ -283,6 +308,10 @@ export const App: React.FC = () => {
 
   function maybeRenderReleaseNotes() {
     if (setupMatch || !systemStatusData || config.loading || config.error) {
+      return;
+    }
+
+    if (!isAdmin) {
       return;
     }
 
@@ -331,7 +360,7 @@ export const App: React.FC = () => {
     );
   }
 
-  if (config.loading) {
+  if (config.loading || me.loading) {
     return renderSimple(<LoadingIndicator />);
   }
 
@@ -365,23 +394,28 @@ export const App: React.FC = () => {
           >
             <AppContainer>
               <ConfigurationProvider configuration={config.data!.configuration}>
-                {maybeRenderReleaseNotes()}
-                <ConnectionMonitor />
-                <TroubleshootingModeOverlay />
-                <Suspense fallback={<LoadingIndicator />}>
-                  <LightboxProvider>
-                    <ManualProvider>
-                      <InteractiveProvider>
-                        <Helmet
-                          {...titleProps}
-                          htmlAttributes={htmlAttributes}
-                        />
-                        {maybeRenderNavbar()}
-                        <MainContainer>{renderContent()}</MainContainer>
-                      </InteractiveProvider>
-                    </ManualProvider>
-                  </LightboxProvider>
-                </Suspense>
+                <PermissionsProvider user={currentUser} loadFailed={loadFailed}>
+                  {maybeRenderReleaseNotes()}
+                  <ConnectionMonitor />
+                  <TroubleshootingModeOverlay />
+                  <Suspense fallback={<LoadingIndicator />}>
+                    <LightboxProvider>
+                      <ManualProvider>
+                        <InteractiveProvider>
+                          <Helmet
+                            {...titleProps}
+                            htmlAttributes={htmlAttributes}
+                          />
+                          {maybeRenderNavbar()}
+                          <MainContainer>
+                            {maybeRenderUserError()}
+                            {renderContent()}
+                          </MainContainer>
+                        </InteractiveProvider>
+                      </ManualProvider>
+                    </LightboxProvider>
+                  </Suspense>
+                </PermissionsProvider>
               </ConfigurationProvider>
             </AppContainer>
           </PluginsLoader>

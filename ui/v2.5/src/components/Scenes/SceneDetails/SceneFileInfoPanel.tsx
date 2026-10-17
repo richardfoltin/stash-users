@@ -20,6 +20,7 @@ import { TextField, URLField, URLsField } from "src/utils/field";
 import { StashIDPill } from "src/components/Shared/StashID";
 import { PatchComponent } from "../../../patch";
 import { FileSize } from "src/components/Shared/FileSize";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IFileInfoPanelProps {
   sceneID: string;
@@ -37,6 +38,7 @@ const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
 ) => {
   const intl = useIntl();
   const history = useHistory();
+  const { isAdmin, canModify, canDelete } = usePermissions();
 
   // TODO - generalise fingerprints
   const oshash = props.file.fingerprints.find((f) => f.type === "oshash");
@@ -131,34 +133,41 @@ const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
           truncate
         />
       </dl>
-      {props.ofMany && props.onSetPrimaryFile && !props.primary && (
-        <div>
-          <Button
-            className="edit-button"
-            disabled={props.loading}
-            onClick={props.onSetPrimaryFile}
-          >
-            <FormattedMessage id="actions.make_primary" />
-          </Button>
-          <Button
-            className="edit-button"
-            disabled={props.loading}
-            onClick={props.onReassign}
-          >
-            <FormattedMessage id="actions.reassign" />
-          </Button>
-          <Button className="edit-button" onClick={onSplit}>
-            <FormattedMessage id="actions.split" />
-          </Button>
-          <Button
-            variant="danger"
-            disabled={props.loading}
-            onClick={props.onDeleteFile}
-          >
-            <FormattedMessage id="actions.delete_file" />
-          </Button>
-        </div>
-      )}
+      {props.ofMany &&
+        props.onSetPrimaryFile &&
+        !props.primary &&
+        canModify && (
+          <div>
+            <Button
+              className="edit-button"
+              disabled={props.loading}
+              onClick={props.onSetPrimaryFile}
+            >
+              <FormattedMessage id="actions.make_primary" />
+            </Button>
+            {isAdmin && (
+              <Button
+                className="edit-button"
+                disabled={props.loading}
+                onClick={props.onReassign}
+              >
+                <FormattedMessage id="actions.reassign" />
+              </Button>
+            )}
+            <Button className="edit-button" onClick={onSplit}>
+              <FormattedMessage id="actions.split" />
+            </Button>
+            {canDelete && (
+              <Button
+                variant="danger"
+                disabled={props.loading}
+                onClick={props.onDeleteFile}
+              >
+                <FormattedMessage id="actions.delete_file" />
+              </Button>
+            )}
+          </div>
+        )}
     </div>
   );
 };

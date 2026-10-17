@@ -1,0 +1,56 @@
+enum RoleEnum {
+  "Everything, including deleting, merging, configuration and tasks"
+  ADMIN
+  "Browse and play content"
+  READ
+  "READ, plus create and edit library metadata"
+  MODIFY
+}
+
+"""
+Restricts the field to users with the given role.
+Mutations without this directive are restricted to the ADMIN role.
+"""
+directive @hasRole(role: RoleEnum!) on FIELD_DEFINITION
+directive @isUserOwner on FIELD_DEFINITION
+
+type User {
+  name: String!
+  """
+  If the user has no roles, they are considered locked and cannot log in.
+  Should not be visible to other users
+  """
+  roles: [RoleEnum!] @isUserOwner
+}
+
+input UserCreateInput {
+  name: String!
+  """
+  Password in plain text
+  """
+  password: String!
+  roles: [RoleEnum!]!
+}
+
+input UserUpdateInput {
+  existingName: String!
+  name: String!
+  roles: [RoleEnum!]!
+}
+
+input UserDestroyInput {
+  name: String!
+}
+
+input UserChangePasswordInput {
+  """
+  Password in plain text
+  """
+  existingPassword: String!
+  newPassword: String!
+}
+
+input ChangeUserPasswordInput {
+  name: String!
+  newPassword: String!
+}

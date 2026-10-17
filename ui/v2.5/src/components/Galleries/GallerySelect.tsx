@@ -35,6 +35,7 @@ import {
 } from "src/models/list-filter/criteria/criterion";
 import { PathCriterion } from "src/models/list-filter/criteria/path";
 import { TruncatedText } from "../Shared/TruncatedText";
+import { usePermissions } from "src/hooks/Permissions";
 
 export type Gallery = Pick<GQL.Gallery, "id" | "title" | "date" | "code"> & {
   studio?: Pick<GQL.Studio, "name"> | null;
@@ -77,8 +78,9 @@ const _GallerySelect: React.FC<
   const intl = useIntl();
   const maxOptionsShown =
     configuration?.ui.maxOptionsShown ?? defaultMaxOptionsShown;
+  const { canModify } = usePermissions();
   const defaultCreatable =
-    !configuration?.interface.disableDropdownCreate.gallery;
+    canModify && !configuration?.interface.disableDropdownCreate.gallery;
 
   const exclude = useMemo(() => props.excludeIds ?? [], [props.excludeIds]);
 

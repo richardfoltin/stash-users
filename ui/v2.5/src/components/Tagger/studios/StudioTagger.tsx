@@ -33,6 +33,7 @@ import {
   BatchAddModal,
 } from "src/components/Shared/BatchModals";
 import { StashBoxSelectorField } from "../StashBoxSelector";
+import { usePermissions } from "src/hooks/Permissions";
 
 type JobFragment = Pick<
   GQL.Job,
@@ -63,6 +64,7 @@ const StudioTaggerList: React.FC<IStudioTaggerListProps> = ({
   onBatchUpdate,
 }) => {
   const intl = useIntl();
+  const { isAdmin } = usePermissions();
 
   const [loading, setLoading] = useState(false);
   const [searchResults, setSearchResults] = useState<
@@ -460,14 +462,16 @@ const StudioTaggerList: React.FC<IStudioTaggerListProps> = ({
           endpoint={selectedEndpoint.endpoint}
         />
       )}
-      <div className="ml-auto mb-3">
-        <Button onClick={() => setShowBatchAdd(true)}>
-          <FormattedMessage id="studio_tagger.batch_add_studios" />
-        </Button>
-        <Button className="ml-3" onClick={() => setShowBatchUpdate(true)}>
-          <FormattedMessage id="studio_tagger.batch_update_studios" />
-        </Button>
-      </div>
+      {isAdmin && (
+        <div className="ml-auto mb-3">
+          <Button onClick={() => setShowBatchAdd(true)}>
+            <FormattedMessage id="studio_tagger.batch_add_studios" />
+          </Button>
+          <Button className="ml-3" onClick={() => setShowBatchUpdate(true)}>
+            <FormattedMessage id="studio_tagger.batch_update_studios" />
+          </Button>
+        </div>
+      )}
       <div className={CLASSNAME}>{renderStudios()}</div>
     </Card>
   );

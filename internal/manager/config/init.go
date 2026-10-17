@@ -56,12 +56,20 @@ func init() {
 	pflag.StringP("ui-location", "u", "", "path to the webui")
 }
 
-// Called at startup
-func Initialize() (*Config, error) {
+func newConfig() *Config {
 	cfg := &Config{
 		main:      koanf.New("."),
 		overrides: koanf.New("."),
 	}
+	cfg.UserStore = &UserStore{
+		Config: cfg,
+	}
+	return cfg
+}
+
+// Called at startup
+func Initialize() (*Config, error) {
+	cfg := newConfig()
 
 	cfg.initOverrides()
 
@@ -106,10 +114,7 @@ func Initialize() (*Config, error) {
 
 // Called by tests to initialize an empty config
 func InitializeEmpty() *Config {
-	cfg := &Config{
-		main:      koanf.New("."),
-		overrides: koanf.New("."),
-	}
+	cfg := newConfig()
 	instance = cfg
 	return instance
 }

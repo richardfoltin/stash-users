@@ -45,6 +45,7 @@ import { GroupPerformersPanel } from "./GroupPerformersPanel";
 import { Icon } from "src/components/Shared/Icon";
 import { goBackOrReplace } from "src/utils/history";
 import { PatchComponent } from "src/patch";
+import { usePermissions } from "src/hooks/Permissions";
 
 const validTabs = ["default", "scenes", "performers", "subgroups"] as const;
 type TabKey = (typeof validTabs)[number];
@@ -151,6 +152,7 @@ const GroupPage: React.FC<IProps> = PatchComponent(
   "GroupPage",
   ({ group, tabKey }) => {
     const intl = useIntl();
+    const { canModify, canDelete } = usePermissions();
     const history = useHistory();
     const Toast = useToast();
 
@@ -241,10 +243,14 @@ const GroupPage: React.FC<IProps> = PatchComponent(
 
     // set up hotkeys
     useEffect(() => {
-      Mousetrap.bind("e", () => toggleEditing());
-      Mousetrap.bind("d d", () => {
-        setIsDeleteAlertOpen(true);
-      });
+      if (canModify) {
+        Mousetrap.bind("e", () => toggleEditing());
+      }
+      if (canDelete) {
+        Mousetrap.bind("d d", () => {
+          setIsDeleteAlertOpen(true);
+        });
+      }
       Mousetrap.bind(",", () => setCollapsed(!collapsed));
 
       return () => {
@@ -255,7 +261,7 @@ const GroupPage: React.FC<IProps> = PatchComponent(
     });
 
     useRatingKeybinds(
-      true,
+      canModify,
       configuration?.ui.ratingSystemOptions?.type,
       setRating
     );
@@ -413,6 +419,7 @@ const GroupPage: React.FC<IProps> = PatchComponent(
                 <RatingSystem
                   value={group.rating100}
                   onSetRating={(value) => setRating(value)}
+                  disabled={!canModify}
                   clickToRate
                   withoutContext
                 />

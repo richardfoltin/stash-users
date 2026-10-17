@@ -29,6 +29,7 @@ import { Placement } from "react-bootstrap/esm/Overlay";
 import { sortByRelevance } from "src/utils/query";
 import { PatchComponent, PatchFunction } from "src/patch";
 import { TruncatedText } from "../Shared/TruncatedText";
+import { usePermissions } from "src/hooks/Permissions";
 
 export type Group = Pick<
   GQL.Group,
@@ -70,8 +71,9 @@ export const GroupSelect: React.FC<
   const intl = useIntl();
   const maxOptionsShown =
     configuration?.ui.maxOptionsShown ?? defaultMaxOptionsShown;
+  const { canModify } = usePermissions();
   const defaultCreatable =
-    !configuration?.interface.disableDropdownCreate.movie;
+    canModify && !configuration?.interface.disableDropdownCreate.movie;
 
   const exclude = useMemo(() => props.excludeIds ?? [], [props.excludeIds]);
 

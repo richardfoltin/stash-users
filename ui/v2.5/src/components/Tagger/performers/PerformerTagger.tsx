@@ -48,6 +48,7 @@ import { separateNamesAndStashIds } from "src/utils/stashIds";
 import { ExternalLink } from "src/components/Shared/ExternalLink";
 import { useTaggerConfig } from "../config";
 import { StashBoxSelectorField } from "../StashBoxSelector";
+import { usePermissions } from "src/hooks/Permissions";
 
 type JobFragment = Pick<
   GQL.Job,
@@ -406,6 +407,7 @@ const PerformerTaggerList: React.FC<IPerformerTaggerListProps> = ({
   onBatchUpdate,
 }) => {
   const intl = useIntl();
+  const { isAdmin } = usePermissions();
   const [loading, setLoading] = useState(false);
   const [searchResults, setSearchResults] = useState<
     Record<string, GQL.ScrapedPerformerDataFragment[]>
@@ -778,14 +780,16 @@ const PerformerTaggerList: React.FC<IPerformerTaggerListProps> = ({
         />
       )}
 
-      <div className="ml-auto mb-3">
-        <Button onClick={() => setShowBatchAdd(true)}>
-          <FormattedMessage id="performer_tagger.batch_add_performers" />
-        </Button>
-        <Button className="ml-3" onClick={() => setShowBatchUpdate(true)}>
-          <FormattedMessage id="performer_tagger.batch_update_performers" />
-        </Button>
-      </div>
+      {isAdmin && (
+        <div className="ml-auto mb-3">
+          <Button onClick={() => setShowBatchAdd(true)}>
+            <FormattedMessage id="performer_tagger.batch_add_performers" />
+          </Button>
+          <Button className="ml-3" onClick={() => setShowBatchUpdate(true)}>
+            <FormattedMessage id="performer_tagger.batch_update_performers" />
+          </Button>
+        </div>
+      )}
       <div className={CLASSNAME}>{renderPerformers()}</div>
     </Card>
   );

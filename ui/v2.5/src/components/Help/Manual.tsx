@@ -5,6 +5,7 @@ import Tasks from "src/docs/en/Manual/Tasks.md";
 import AutoTagging from "src/docs/en/Manual/AutoTagging.md";
 import JSONSpec from "src/docs/en/Manual/JSONSpec.md";
 import Configuration from "src/docs/en/Manual/Configuration.md";
+import Users from "src/docs/en/Manual/Users.md";
 import Interface from "src/docs/en/Manual/Interface.md";
 import Images from "src/docs/en/Manual/Images.md";
 import Scraping from "src/docs/en/Manual/Scraping.md";
@@ -49,6 +50,11 @@ export const Manual: React.FC<IManualProps> = ({
       key: "Configuration.md",
       title: "Configuration",
       content: Configuration,
+    },
+    {
+      key: "Users.md",
+      title: "Users and Permissions",
+      content: Users,
     },
     {
       key: "Interface.md",

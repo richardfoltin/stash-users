@@ -9,6 +9,7 @@ import { useToast } from "src/hooks/Toast";
 import { View } from "src/components/List/views";
 import { PatchComponent } from "src/patch";
 import ImageUtils from "src/utils/image";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IPerformerImagesPanel {
   active: boolean;
@@ -20,6 +21,7 @@ export const PerformerImagesPanel: React.FC<IPerformerImagesPanel> =
     const intl = useIntl();
     const Toast = useToast();
     const [updatePerformer] = usePerformerUpdate();
+    const { canModify } = usePermissions();
     const filterHook = usePerformerFilterHook(performer);
 
     const handleSetAsPerformerImage = useCallback<
@@ -69,11 +71,11 @@ export const PerformerImagesPanel: React.FC<IPerformerImagesPanel> =
             id: "actions.set_as_performer_image",
           }),
           isDisplayed: (_result, _filter, selectedIds) =>
-            selectedIds.size === 1,
+            canModify && selectedIds.size === 1,
           onClick: handleSetAsPerformerImage,
         },
       ],
-      [handleSetAsPerformerImage, intl]
+      [handleSetAsPerformerImage, intl, canModify]
     );
 
     return (

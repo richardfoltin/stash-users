@@ -4,6 +4,8 @@ import { Helmet } from "react-helmet";
 import { useTitleProps } from "src/hooks/title";
 import { lazyComponent } from "src/utils/lazyComponent";
 import { View } from "../List/views";
+import { usePermissions } from "src/hooks/Permissions";
+import { PermissionDenied } from "../PermissionDenied";
 
 const SceneList = lazyComponent(() => import("./SceneList"));
 const SceneMarkerList = lazyComponent(() => import("./SceneMarkerList"));
@@ -25,6 +27,7 @@ const SceneMarkers: React.FC = () => {
 };
 
 const SceneRoutes: React.FC = () => {
+  const { canModify } = usePermissions();
   const titleProps = useTitleProps({ id: "scenes" });
   return (
     <>
@@ -32,7 +35,11 @@ const SceneRoutes: React.FC = () => {
       <Switch>
         <Route exact path="/scenes" component={Scenes} />
         <Route exact path="/scenes/markers" component={SceneMarkers} />
-        <Route exact path="/scenes/new" component={SceneCreate} />
+        <Route
+          exact
+          path="/scenes/new"
+          component={canModify ? SceneCreate : PermissionDenied}
+        />
         <Route path="/scenes/:id" component={Scene} />
       </Switch>
     </>

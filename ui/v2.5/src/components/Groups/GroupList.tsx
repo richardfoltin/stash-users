@@ -47,6 +47,7 @@ import { SidebarStudiosFilter } from "../List/Filters/StudiosFilter";
 import { SidebarTagsFilter } from "../List/Filters/TagsFilter";
 import { SidebarRatingFilter } from "../List/Filters/RatingFilter";
 import { Button } from "react-bootstrap";
+import { usePermissions } from "src/hooks/Permissions";
 
 const GroupList: React.FC<{
   groups: GQL.ListGroupDataFragment[];
@@ -202,6 +203,7 @@ export const FilteredGroupList = PatchComponent(
   "FilteredGroupList",
   (props: IGroupList) => {
     const intl = useIntl();
+    const { isAdmin, canModify, canDelete } = usePermissions();
 
     const searchFocus = useFocus();
 
@@ -311,26 +313,30 @@ export const FilteredGroupList = PatchComponent(
       );
     }
 
-    function onEdit() {
-      showModal(
-        <EditGroupsDialog
-          selected={selectedItems}
-          onClose={onCloseEditDelete}
-        />
-      );
-    }
+    const onEdit = canModify
+      ? () => {
+          showModal(
+            <EditGroupsDialog
+              selected={selectedItems}
+              onClose={onCloseEditDelete}
+            />
+          );
+        }
+      : undefined;
 
-    function onDelete() {
-      showModal(
-        <DeleteEntityDialog
-          selected={selectedItems}
-          onClose={onCloseEditDelete}
-          singularEntity={intl.formatMessage({ id: "group" })}
-          pluralEntity={intl.formatMessage({ id: "groups" })}
-          destroyMutation={useGroupsDestroy}
-        />
-      );
-    }
+    const onDelete = canDelete
+      ? () => {
+          showModal(
+            <DeleteEntityDialog
+              selected={selectedItems}
+              onClose={onCloseEditDelete}
+              singularEntity={intl.formatMessage({ id: "group" })}
+              pluralEntity={intl.formatMessage({ id: "groups" })}
+              destroyMutation={useGroupsDestroy}
+            />
+          );
+        }
+      : undefined;
 
     const convertedExtraOperations: IListFilterOperation[] =
       providedOperations.map((o) => ({
@@ -367,11 +373,12 @@ export const FilteredGroupList = PatchComponent(
       {
         text: intl.formatMessage({ id: "actions.export" }),
         onClick: () => onExport(false),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => isAdmin && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export_all" }),
         onClick: () => onExport(true),
+        isDisplayed: () => isAdmin,
       },
     ];
 

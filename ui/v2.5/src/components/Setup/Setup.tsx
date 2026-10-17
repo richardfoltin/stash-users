@@ -24,6 +24,7 @@ import {
   faEyeSlash,
 } from "@fortawesome/free-solid-svg-icons";
 import { ExternalLink } from "../Shared/ExternalLink";
+import { maxPasswordBytes, passwordTooLong } from "src/utils/password";
 
 interface ISetupContextState {
   configuration: GQL.ConfigDataFragment;
@@ -680,6 +681,7 @@ function validatePassword(username: string, password: string) {
   if (!username) return true;
 
   if (!password.length) return false;
+  if (passwordTooLong(password)) return false;
   return true;
 }
 
@@ -717,9 +719,14 @@ const PasswordField: React.FC<{
       </Button>
       <Form.Control.Feedback type="invalid">
         {isInvalid
-          ? intl.formatMessage({
-              id: "setup.credentials.password_invalid",
-            })
+          ? passwordTooLong(password)
+            ? intl.formatMessage(
+                { id: "config.general.auth.users.password_too_long" },
+                { max: maxPasswordBytes }
+              )
+            : intl.formatMessage({
+                id: "setup.credentials.password_invalid",
+              })
           : null}
       </Form.Control.Feedback>
     </div>

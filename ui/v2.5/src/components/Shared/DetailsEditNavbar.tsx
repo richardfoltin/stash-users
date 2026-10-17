@@ -5,6 +5,7 @@ import { useAutoTagTrigger } from "src/hooks/useAutoTagTrigger";
 import { ImageInput } from "./ImageInput";
 import { AutoTagConfirmDialog } from "./AutoTagConfirmDialog";
 import cx from "classnames";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IProps {
   objectName?: string;
@@ -31,6 +32,7 @@ interface IProps {
 
 export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
   const intl = useIntl();
+  const { isAdmin, canModify, canDelete } = usePermissions();
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState<boolean>(false);
   const [isAutoTagAlertOpen, setIsAutoTagAlertOpen] = useState<boolean>(false);
 
@@ -40,7 +42,7 @@ export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
   );
 
   function renderEditButton() {
-    if (props.isNew) return;
+    if (props.isNew || !canModify) return;
     return (
       <Button
         variant="primary"
@@ -87,7 +89,7 @@ export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
   }
 
   function renderDeleteButton() {
-    if (props.isNew || props.isEditing) return;
+    if (props.isNew || props.isEditing || !canDelete) return;
     return (
       <Button
         variant="danger"
@@ -114,7 +116,7 @@ export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
   }
 
   function renderAutoTagButton() {
-    if (props.isNew || props.isEditing) return;
+    if (props.isNew || props.isEditing || !isAdmin) return;
 
     if (props.onAutoTag) {
       return (

@@ -14,10 +14,12 @@ import {
 } from "src/core/config";
 import { useScrollToTopOnMount } from "src/hooks/scrollToTop";
 import { PatchComponent } from "src/patch";
+import { usePermissions } from "src/hooks/Permissions";
 
 const FrontPage: React.FC = PatchComponent("FrontPage", () => {
   const intl = useIntl();
   const Toast = useToast();
+  const { isAdmin } = usePermissions();
 
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -61,12 +63,16 @@ const FrontPage: React.FC = PatchComponent("FrontPage", () => {
 
   const ui = configuration?.ui ?? {};
 
+  let frontPageContent = getFrontPageContent(ui);
+
   if (!ui.frontPageContent) {
     const defaultContent = generateDefaultFrontPageContent(intl);
-    onUpdateConfig(defaultContent);
+    if (isAdmin) {
+      onUpdateConfig(defaultContent);
+    } else {
+      frontPageContent = defaultContent;
+    }
   }
-
-  const frontPageContent = getFrontPageContent(ui);
 
   return (
     <div className="recommendations-container">
@@ -75,11 +81,13 @@ const FrontPage: React.FC = PatchComponent("FrontPage", () => {
           <Control key={i} content={content} />
         ))}
       </div>
-      <div className="recommendations-footer">
-        <Button onClick={() => setIsEditing(true)}>
-          <FormattedMessage id={"actions.customise"} />
-        </Button>
-      </div>
+      {isAdmin && (
+        <div className="recommendations-footer">
+          <Button onClick={() => setIsEditing(true)}>
+            <FormattedMessage id={"actions.customise"} />
+          </Button>
+        </div>
+      )}
     </div>
   );
 });

@@ -22,6 +22,7 @@ import { useModal } from "src/hooks/modal";
 import { AddSubGroupsDialog } from "./AddGroupsDialog";
 import { PatchComponent } from "src/patch";
 import { View } from "src/components/List/views";
+import { usePermissions } from "src/hooks/Permissions";
 
 const useContainingGroupFilterHook = (
   group: Pick<GQL.StudioDataFragment, "id" | "name">,
@@ -70,6 +71,7 @@ export const GroupSubGroupsPanel: React.FC<IGroupSubGroupsPanel> =
     ({ active, group, extraOperations = [] }) => {
       const intl = useIntl();
       const Toast = useToast();
+      const { canModify } = usePermissions();
       const { modal, showModal, closeModal } = useModal();
 
       const [reorderSubGroups] = useReorderSubGroupsMutation();
@@ -114,7 +116,7 @@ export const GroupSubGroupsPanel: React.FC<IGroupSubGroupsPanel> =
         {
           text: intl.formatMessage({ id: "actions.add_sub_groups" }),
           onClick: onAddSubGroups,
-          isDisplayed: showWhenNoneSelected,
+          isDisplayed: canModify ? showWhenNoneSelected : () => false,
           postRefetch: true,
           icon: faPlus,
           buttonVariant: "secondary",
@@ -124,7 +126,7 @@ export const GroupSubGroupsPanel: React.FC<IGroupSubGroupsPanel> =
             id: "actions.remove_from_containing_group",
           }),
           onClick: removeSubGroups,
-          isDisplayed: showWhenSelected,
+          isDisplayed: canModify ? showWhenSelected : () => false,
           postRefetch: true,
           icon: faMinus,
           buttonVariant: "danger",
@@ -154,7 +156,7 @@ export const GroupSubGroupsPanel: React.FC<IGroupSubGroupsPanel> =
             alterQuery={active}
             fromGroupId={group.id}
             otherOperations={otherOperations}
-            onMove={onMove}
+            onMove={canModify ? onMove : undefined}
             view={View.GroupSubGroups}
           />
         </>

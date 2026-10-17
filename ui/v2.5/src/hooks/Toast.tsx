@@ -4,10 +4,11 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import React, { useState, useContext, createContext, useMemo } from "react";
 import { Button, Toast } from "react-bootstrap";
-import { FormattedMessage } from "react-intl";
+import { FormattedMessage, useIntl } from "react-intl";
 import { Icon } from "src/components/Shared/Icon";
 import { ModalComponent } from "src/components/Shared/Modal";
-import { errorToString } from "src/utils";
+import { errorToString, permissionDeniedRole } from "src/utils";
+import { roleMessageID } from "src/hooks/Permissions";
 import cx from "classnames";
 
 export interface IToast {
@@ -120,6 +121,7 @@ export const ToastProvider: React.FC = ({ children }) => {
 
 export const useToast = () => {
   const addToast = useContext(ToastContext);
+  const intl = useIntl();
 
   if (!addToast) {
     throw new Error("useToast must be used within a ToastProvider");
@@ -134,7 +136,21 @@ export const useToast = () => {
         });
       },
       error(error: unknown) {
-        const message = errorToString(error);
+        let message = errorToString(error);
+
+        // show a clear message if the user is not allowed to do this
+        const requiredRole = permissionDeniedRole(error);
+        if (requiredRole) {
+          message = intl.formatMessage(
+            { id: "permissions.denied" },
+            {
+              role: intl.formatMessage({
+                id: roleMessageID(requiredRole),
+                defaultMessage: requiredRole,
+              }),
+            }
+          );
+        }
 
         console.error(error);
         addToast({
@@ -145,7 +161,7 @@ export const useToast = () => {
         });
       },
     }),
-    [addToast]
+    [addToast, intl]
   );
 };
 

@@ -50,6 +50,7 @@ import { PatchComponent } from "src/patch";
 import { ILightboxImage } from "src/hooks/Lightbox/types";
 import { goBackOrReplace } from "src/utils/history";
 import { OCounterButton } from "src/components/Shared/CountButton";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IProps {
   performer: GQL.PerformerDataFragment;
@@ -239,6 +240,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
     const Toast = useToast();
     const history = useHistory();
     const intl = useIntl();
+    const { isAdmin, canModify } = usePermissions();
 
     // Configuration settings
     const { configuration } = useConfigurationContext();
@@ -315,15 +317,17 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
     }
 
     useRatingKeybinds(
-      true,
+      canModify,
       configuration?.ui.ratingSystemOptions?.type,
       setRating
     );
 
     // set up hotkeys
     useEffect(() => {
-      Mousetrap.bind("e", () => toggleEditing());
-      Mousetrap.bind("f", () => setFavorite(!performer.favorite));
+      if (canModify) {
+        Mousetrap.bind("e", () => toggleEditing());
+        Mousetrap.bind("f", () => setFavorite(!performer.favorite));
+      }
       Mousetrap.bind(",", () => setCollapsed(!collapsed));
 
       return () => {
@@ -457,6 +461,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                   <RatingSystem
                     value={performer.rating100}
                     onSetRating={(value) => setRating(value)}
+                    disabled={!canModify}
                     clickToRate
                     withoutContext
                   />
@@ -498,12 +503,14 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                         onImageChange={() => {}}
                         classNames="mb-2"
                         customButtons={
-                          <>
-                            {renderMergeButton()}
-                            <div>
-                              <PerformerSubmitButton performer={performer} />
-                            </div>
-                          </>
+                          isAdmin ? (
+                            <>
+                              {renderMergeButton()}
+                              <div>
+                                <PerformerSubmitButton performer={performer} />
+                              </div>
+                            </>
+                          ) : undefined
                         }
                       ></DetailsEditNavbar>
                     </Row>

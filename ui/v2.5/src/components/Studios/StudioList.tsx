@@ -24,7 +24,11 @@ import {
   IItemListOperation,
 } from "../List/FilteredListToolbar";
 import { PatchComponent, PatchContainerComponent } from "src/patch";
-import { useCloseEditDelete, useFilterOperations } from "../List/util";
+import {
+  useCloseEditDelete,
+  useDisplayMode,
+  useFilterOperations,
+} from "../List/util";
 import { ListOperations } from "../List/ListOperationButtons";
 import {
   Sidebar,
@@ -47,6 +51,7 @@ import { SidebarBooleanFilter } from "../List/Filters/BooleanFilter";
 import { FavoriteStudioCriterionOption } from "src/models/list-filter/criteria/favorite";
 import { Button } from "react-bootstrap";
 import cx from "classnames";
+import { usePermissions } from "src/hooks/Permissions";
 
 const StudioList: React.FC<{
   studios: GQL.StudioDataFragment[];
@@ -57,11 +62,13 @@ const StudioList: React.FC<{
 }> = PatchComponent(
   "StudioList",
   ({ studios, filter, selectedIds, onSelectChange, fromParent }) => {
-    if (studios.length === 0 && filter.displayMode !== DisplayMode.Tagger) {
+    const displayMode = useDisplayMode(filter);
+
+    if (studios.length === 0 && displayMode !== DisplayMode.Tagger) {
       return null;
     }
 
-    if (filter.displayMode === DisplayMode.Grid) {
+    if (displayMode === DisplayMode.Grid) {
       return (
         <StudioCardGrid
           studios={studios}
@@ -72,7 +79,7 @@ const StudioList: React.FC<{
         />
       );
     }
-    if (filter.displayMode === DisplayMode.List) {
+    if (displayMode === DisplayMode.List) {
       return (
         <StudioListTable
           studios={studios}
@@ -81,10 +88,10 @@ const StudioList: React.FC<{
         />
       );
     }
-    if (filter.displayMode === DisplayMode.Wall) {
+    if (displayMode === DisplayMode.Wall) {
       return <h1>TODO</h1>;
     }
-    if (filter.displayMode === DisplayMode.Tagger) {
+    if (displayMode === DisplayMode.Tagger) {
       return <StudioTagger studios={studios} />;
     }
 
@@ -206,6 +213,7 @@ export const FilteredStudioList = PatchComponent(
   "FilteredStudioList",
   (props: IStudioList) => {
     const intl = useIntl();
+    const { isAdmin, canModify, canDelete } = usePermissions();
 
     const searchFocus = useFocus();
 
@@ -305,26 +313,30 @@ export const FilteredStudioList = PatchComponent(
       );
     }
 
-    function onEdit() {
-      showModal(
-        <EditStudiosDialog
-          selected={selectedItems}
-          onClose={onCloseEditDelete}
-        />
-      );
-    }
+    const onEdit = canModify
+      ? () => {
+          showModal(
+            <EditStudiosDialog
+              selected={selectedItems}
+              onClose={onCloseEditDelete}
+            />
+          );
+        }
+      : undefined;
 
-    function onDelete() {
-      showModal(
-        <DeleteEntityDialog
-          selected={selectedItems}
-          onClose={onCloseEditDelete}
-          singularEntity={intl.formatMessage({ id: "studio" })}
-          pluralEntity={intl.formatMessage({ id: "studios" })}
-          destroyMutation={useStudiosDestroy}
-        />
-      );
-    }
+    const onDelete = canDelete
+      ? () => {
+          showModal(
+            <DeleteEntityDialog
+              selected={selectedItems}
+              onClose={onCloseEditDelete}
+              singularEntity={intl.formatMessage({ id: "studio" })}
+              pluralEntity={intl.formatMessage({ id: "studios" })}
+              destroyMutation={useStudiosDestroy}
+            />
+          );
+        }
+      : undefined;
 
     const convertedExtraOperations = extraOperations.map((op) => ({
       text: op.text,
@@ -356,11 +368,12 @@ export const FilteredStudioList = PatchComponent(
       {
         text: intl.formatMessage({ id: "actions.export" }),
         onClick: () => onExport(false),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => isAdmin && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export_all" }),
         onClick: () => onExport(true),
+        isDisplayed: () => isAdmin,
       },
     ];
 

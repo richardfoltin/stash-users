@@ -6,6 +6,7 @@ import * as GQL from "src/core/generated-graphql";
 import { MarkerWallPanel } from "src/components/Wall/WallPanel";
 import { PrimaryTags } from "./PrimaryTags";
 import { SceneMarkerForm } from "./SceneMarkerForm";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface ISceneMarkersPanelProps {
   sceneId: string;
@@ -23,13 +24,14 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
   const { data, loading } = GQL.useFindSceneMarkerTagsQuery({
     variables: { id: sceneId },
   });
+  const { canModify } = usePermissions();
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
   const [editingMarker, setEditingMarker] =
     useState<GQL.SceneMarkerDataFragment>();
 
   // set up hotkeys
   useEffect(() => {
-    if (!isVisible) return;
+    if (!isVisible || !canModify) return;
 
     Mousetrap.bind("n", () => onOpenEditor());
 
@@ -64,15 +66,17 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
 
   return (
     <div className="scene-markers-panel">
-      <Button onClick={() => onOpenEditor()}>
-        <FormattedMessage id="actions.create_marker" />
-      </Button>
+      {canModify && (
+        <Button onClick={() => onOpenEditor()}>
+          <FormattedMessage id="actions.create_marker" />
+        </Button>
+      )}
       <div className="container">
         <PrimaryTags
           sceneMarkers={sceneMarkers}
           onClickMarker={onClickMarker}
           onLoopMarker={onLoopMarker}
-          onEdit={onOpenEditor}
+          onEdit={canModify ? onOpenEditor : undefined}
         />
       </div>
       <MarkerWallPanel

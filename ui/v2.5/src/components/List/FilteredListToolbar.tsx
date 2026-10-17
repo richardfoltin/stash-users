@@ -11,7 +11,7 @@ import {
 } from "./ListOperationButtons";
 import { Button, ButtonGroup, ButtonToolbar } from "react-bootstrap";
 import { View } from "./views";
-import { IListSelect, useFilterOperations } from "./util";
+import { IListSelect, useDisplayMode, useFilterOperations } from "./util";
 import { SavedFilterDropdown } from "./SavedFilterList";
 import { FilterButton } from "./Filters/FilterButton";
 import { Icon } from "../Shared/Icon";
@@ -21,6 +21,8 @@ import { useIntl } from "react-intl";
 import cx from "classnames";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useConfigureUI } from "src/core/StashService";
+import { usePermissions } from "src/hooks/Permissions";
+import { DisplayMode } from "src/models/list-filter/types";
 import { useToast } from "src/hooks/Toast";
 
 const SelectionSection: React.FC<{
@@ -108,6 +110,7 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
   const Toast = useToast();
 
   const [saveUI] = useConfigureUI();
+  const { isAdmin, canModify } = usePermissions();
 
   const pinnedOptions = useMemo(
     () => (view ? (pinnedSortBy[view] ?? []) : []),
@@ -167,6 +170,7 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
     filter,
     setFilter,
   });
+  const displayMode = useDisplayMode(filter);
   const { selectedIds, onSelectAll, onSelectNone, onInvertSelection } =
     listSelect;
   const hasSelection = selectedIds.size > 0;
@@ -221,7 +225,7 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
               sortDirection={filter.sortDirection}
               options={filterOptions.sortByOptions}
               pinnedOptions={pinnedOptions}
-              togglePinSortBy={togglePinSortBy}
+              togglePinSortBy={isAdmin ? togglePinSortBy : undefined}
               onChangeSortBy={(e) =>
                 setFilter(filter.setSortBy(e ?? undefined))
               }
@@ -244,8 +248,14 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
       {renderOperations}
 
       <ListViewButtonGroup
-        displayMode={filter.displayMode}
-        displayModeOptions={filterOptions.displayModeOptions}
+        displayMode={displayMode}
+        displayModeOptions={
+          canModify
+            ? filterOptions.displayModeOptions
+            : filterOptions.displayModeOptions.filter(
+                (o) => o !== DisplayMode.Tagger
+              )
+        }
         onSetDisplayMode={setDisplayMode}
         zoomIndex={zoomable ? filter.zoomIndex : undefined}
         onSetZoom={zoomable ? setZoom : undefined}

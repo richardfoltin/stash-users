@@ -31,6 +31,7 @@ import { sortByRelevance } from "src/utils/query";
 import { PatchComponent, PatchFunction } from "src/patch";
 import { isUUID } from "src/utils/stashIds";
 import { filterByStashID } from "src/models/list-filter/utils";
+import { usePermissions } from "src/hooks/Permissions";
 
 export type SelectObject = {
   id: string;
@@ -72,8 +73,9 @@ const _StudioSelect: React.FC<
   const intl = useIntl();
   const maxOptionsShown =
     (configuration?.ui as IUIConfig).maxOptionsShown ?? defaultMaxOptionsShown;
+  const { canModify } = usePermissions();
   const defaultCreatable =
-    !configuration?.interface.disableDropdownCreate.studio;
+    canModify && !configuration?.interface.disableDropdownCreate.studio;
 
   const exclude = useMemo(() => props.excludeIds ?? [], [props.excludeIds]);
 

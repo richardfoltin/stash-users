@@ -25,7 +25,11 @@ import TextUtils from "src/utils/text";
 import { View } from "../List/views";
 import { FileSize } from "../Shared/FileSize";
 import { LoadedContent } from "../List/PagedList";
-import { useCloseEditDelete, useFilterOperations } from "../List/util";
+import {
+  useCloseEditDelete,
+  useDisplayMode,
+  useFilterOperations,
+} from "../List/util";
 import { ListOperations } from "../List/ListOperationButtons";
 import { useFilteredItemList } from "../List/ItemList";
 import {
@@ -59,6 +63,7 @@ import { useZoomKeybinds } from "../List/ZoomSlider";
 import { FilteredListToolbar } from "../List/FilteredListToolbar";
 import { FilterTags } from "../List/FilterTags";
 import { SidebarFolderFilter } from "../List/Filters/FolderFilter";
+import { usePermissions } from "src/hooks/Permissions";
 
 function renderMetadataByline(result: GQL.FindScenesQueryResult) {
   const duration = result?.data?.findScenes?.duration;
@@ -192,12 +197,13 @@ const SceneList: React.FC<{
       () => SceneQueue.fromListFilterModel(filter),
       [filter]
     );
+    const displayMode = useDisplayMode(filter);
 
-    if (scenes.length === 0 && filter.displayMode !== DisplayMode.Tagger) {
+    if (scenes.length === 0 && displayMode !== DisplayMode.Tagger) {
       return null;
     }
 
-    if (filter.displayMode === DisplayMode.Grid) {
+    if (displayMode === DisplayMode.Grid) {
       return (
         <SceneCardGrid
           scenes={scenes}
@@ -209,7 +215,7 @@ const SceneList: React.FC<{
         />
       );
     }
-    if (filter.displayMode === DisplayMode.List) {
+    if (displayMode === DisplayMode.List) {
       return (
         <SceneListTable
           scenes={scenes}
@@ -219,7 +225,7 @@ const SceneList: React.FC<{
         />
       );
     }
-    if (filter.displayMode === DisplayMode.Wall) {
+    if (displayMode === DisplayMode.Wall) {
       return (
         <SceneWallPanel
           scenes={scenes}
@@ -230,7 +236,7 @@ const SceneList: React.FC<{
         />
       );
     }
-    if (filter.displayMode === DisplayMode.Tagger) {
+    if (displayMode === DisplayMode.Tagger) {
       return (
         <Tagger
           scenes={scenes}
@@ -364,6 +370,7 @@ export const FilteredSceneList = PatchComponent(
   "FilteredSceneList",
   (props: IFilteredScenes) => {
     const intl = useIntl();
+    const { isAdmin, canModify, canDelete } = usePermissions();
     const history = useHistory();
     const location = useLocation();
 
@@ -431,23 +438,29 @@ export const FilteredSceneList = PatchComponent(
       result,
     });
 
-    const onEdit = useCallback(() => {
-      showModal(
-        <EditScenesDialog
-          selected={selectedItems}
-          onClose={onCloseEditDelete}
-        />
-      );
-    }, [showModal, selectedItems, onCloseEditDelete]);
+    const onEdit = useMemo(() => {
+      if (!canModify) return;
+      return () => {
+        showModal(
+          <EditScenesDialog
+            selected={selectedItems}
+            onClose={onCloseEditDelete}
+          />
+        );
+      };
+    }, [canModify, showModal, selectedItems, onCloseEditDelete]);
 
-    const onDelete = useCallback(() => {
-      showModal(
-        <DeleteScenesDialog
-          selected={selectedItems}
-          onClose={onCloseEditDelete}
-        />
-      );
-    }, [showModal, selectedItems, onCloseEditDelete]);
+    const onDelete = useMemo(() => {
+      if (!canDelete) return;
+      return () => {
+        showModal(
+          <DeleteScenesDialog
+            selected={selectedItems}
+            onClose={onCloseEditDelete}
+          />
+        );
+      };
+    }, [canDelete, showModal, selectedItems, onCloseEditDelete]);
 
     useEffect(() => {
       Mousetrap.bind("e", () => {
@@ -562,7 +575,7 @@ export const FilteredSceneList = PatchComponent(
           { entityType: intl.formatMessage({ id: "scene" }) }
         ),
         onClick: () => onCreateNew(),
-        isDisplayed: () => !hasSelection,
+        isDisplayed: () => canModify && !hasSelection,
         className: "create-new-item",
       },
       {
@@ -595,7 +608,7 @@ export const FilteredSceneList = PatchComponent(
               onClose={() => closeModal()}
             />
           ),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => isAdmin && hasSelection,
       },
       {
         text: `${intl.formatMessage({ id: "actions.identify" })}…`,
@@ -606,21 +619,22 @@ export const FilteredSceneList = PatchComponent(
               onClose={() => closeModal()}
             />
           ),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => isAdmin && hasSelection,
       },
       {
         text: `${intl.formatMessage({ id: "actions.merge" })}…`,
         onClick: () => onMerge(),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => isAdmin && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export" }),
         onClick: () => onExport(false),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => isAdmin && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export_all" }),
         onClick: () => onExport(true),
+        isDisplayed: () => isAdmin,
       },
     ];
 

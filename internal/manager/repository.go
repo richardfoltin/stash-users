@@ -7,6 +7,7 @@ import (
 	"github.com/stashapp/stash/pkg/image"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/scene"
+	"github.com/stashapp/stash/pkg/session"
 )
 
 type SceneService interface {
@@ -45,4 +46,18 @@ type GroupService interface {
 	AddSubGroups(ctx context.Context, groupID int, subGroups []models.GroupIDDescription, insertIndex *int) error
 	RemoveSubGroups(ctx context.Context, groupID int, subGroupIDs []int) error
 	ReorderSubGroups(ctx context.Context, groupID int, subGroupIDs []int, insertPointID int, insertAfter bool) error
+}
+
+type UserService interface {
+	session.Authenticator
+	AllUsers(ctx context.Context) ([]*models.User, error)
+	GetUser(ctx context.Context, username string) (*models.User, error)
+	AuthenticateByAPIKey(ctx context.Context, apiKey string) (*models.User, error)
+	AuthenticateSession(ctx context.Context, username string, sessionToken string) (*models.User, error)
+
+	CreateUser(ctx context.Context, u models.User, password string) error
+	UpdateUser(ctx context.Context, username string, updated models.User) error
+	ChangePassword(ctx context.Context, username, existingPassword, newPassword string) error
+	ChangeUserPassword(ctx context.Context, username string, newPassword string) error
+	DeleteUser(ctx context.Context, username string) error
 }

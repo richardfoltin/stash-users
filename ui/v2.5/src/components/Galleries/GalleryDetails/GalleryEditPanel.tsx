@@ -41,7 +41,7 @@ interface IProps {
   gallery: Partial<GQL.GalleryDataFragment>;
   isVisible: boolean;
   onSubmit: (input: GQL.GalleryCreateInput, andNew?: boolean) => Promise<void>;
-  onDelete: () => void;
+  onDelete?: () => void;
 }
 
 export const GalleryEditPanel: React.FC<IProps> = ({
@@ -161,7 +161,7 @@ export const GalleryEditPanel: React.FC<IProps> = ({
         }
       });
       Mousetrap.bind("d d", () => {
-        onDelete();
+        onDelete?.();
       });
 
       return () => {
@@ -503,13 +503,15 @@ export const GalleryEditPanel: React.FC<IProps> = ({
                 <FormattedMessage id="actions.save" />
               </Button>
             )}
-            <Button
-              className="edit-button"
-              variant="danger"
-              onClick={() => onDelete()}
-            >
-              <FormattedMessage id="actions.delete" />
-            </Button>
+            {onDelete && (
+              <Button
+                className="edit-button"
+                variant="danger"
+                onClick={() => onDelete()}
+              >
+                <FormattedMessage id="actions.delete" />
+              </Button>
+            )}
           </div>
           <div className="ml-auto text-right d-flex">
             {!isNew && (

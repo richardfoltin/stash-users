@@ -13,7 +13,36 @@ import (
 )
 
 func (r *queryResolver) Configuration(ctx context.Context) (*ConfigResult, error) {
-	return makeConfigResult(), nil
+	ret := makeConfigResult()
+
+	if u := models.GetCurrentUser(ctx); u != nil && !u.IsAdmin() {
+		redactConfigResult(ret)
+	}
+
+	return ret, nil
+}
+
+// redactConfigResult removes credentials from the configuration returned to
+// non-admin users. The global API key authenticates with the ADMIN role.
+// Plugin settings, which may also contain credentials, are redacted by the
+// plugins field resolver.
+func redactConfigResult(c *ConfigResult) {
+	c.General.APIKey = ""
+	c.General.Username = ""
+	c.General.Password = ""
+
+	if c.Interface.HandyKey != nil {
+		empty := ""
+		c.Interface.HandyKey = &empty
+	}
+
+	stashBoxes := make([]*models.StashBox, len(c.General.StashBoxes))
+	for i, sb := range c.General.StashBoxes {
+		redacted := *sb
+		redacted.APIKey = ""
+		stashBoxes[i] = &redacted
+	}
+	c.General.StashBoxes = stashBoxes
 }
 
 func (r *queryResolver) Directory(ctx context.Context, path, locale *string) (*Directory, error) {

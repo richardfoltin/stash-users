@@ -6,6 +6,7 @@ import { SweatDrops } from "./SweatDrops";
 import cx from "classnames";
 import { useIntl } from "react-intl";
 import { useConfigurationContext } from "src/hooks/Config";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface ICountButtonProps {
   value: number;
@@ -20,12 +21,17 @@ interface ICountButtonProps {
 export const CountButton: React.FC<ICountButtonProps> = ({
   value,
   icon,
-  onIncrement,
-  onValueClicked,
+  onIncrement: onIncrementProp,
+  onValueClicked: onValueClickedProp,
   title,
   countTitle,
   dataAction,
 }) => {
+  const { canModify } = usePermissions();
+  const readOnly = !canModify && !!(onIncrementProp || onValueClickedProp);
+  const onIncrement = canModify ? onIncrementProp : undefined;
+  const onValueClicked = canModify ? onValueClickedProp : undefined;
+
   return (
     <ButtonGroup
       className={cx("count-button", { "increment-only": !onValueClicked })}
@@ -36,6 +42,7 @@ export const CountButton: React.FC<ICountButtonProps> = ({
         variant="secondary"
         onClick={() => onIncrement?.()}
         title={title}
+        disabled={readOnly}
       >
         {icon}
       </Button>
@@ -44,6 +51,7 @@ export const CountButton: React.FC<ICountButtonProps> = ({
         variant="secondary"
         onClick={() => (onValueClicked ?? onIncrement)?.()}
         title={onValueClicked ? countTitle : undefined}
+        disabled={readOnly}
       >
         <span>{value}</span>
       </Button>

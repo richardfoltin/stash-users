@@ -1,5 +1,23 @@
 # Keyboard shortcuts
 
+## Shortcuts that need a role
+
+Some shortcuts only work for users whose role allows the action. For other users, they do nothing. See [Users and Permissions](/help/Users.md).
+
+| Keyboard sequence | Action | Required role |
+|-------------------|--------|---------------|
+| `g z` | Go to Settings | `Admin` |
+| `d d` | Delete, wherever it is listed below | `Admin` |
+| `e` | Edit, edit tab, edit selected | `Editor` |
+| `n` | New object, new marker, new chapter | `Editor` |
+| `s s` | Save in an edit tab or edit mode | `Editor` |
+| `c c`, `c d` | Generate scene screenshot | `Editor` |
+| `r ...` | Set or unset rating | `Editor` |
+| `o` | Increment O count | `Editor` |
+| `f` | Toggle favourite on performer, studio and tag pages | `Editor` |
+| `v t` | Set view to tagger | `Editor` |
+| `Ctrl + v` | Paste image in an edit tab or edit mode | `Editor` |
+
 ## Global shortcuts
 
 | Keyboard sequence | Action |

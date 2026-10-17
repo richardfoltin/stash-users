@@ -34,7 +34,11 @@ import {
   SidebarStateContext,
   useSidebarState,
 } from "../Shared/Sidebar";
-import { useCloseEditDelete, useFilterOperations } from "../List/util";
+import {
+  useCloseEditDelete,
+  useDisplayMode,
+  useFilterOperations,
+} from "../List/util";
 import {
   FilteredSidebarHeader,
   useFilteredSidebarKeybinds,
@@ -47,6 +51,7 @@ import { LoadedContent } from "../List/PagedList";
 import { SidebarBooleanFilter } from "../List/Filters/BooleanFilter";
 import { FavoriteTagCriterionOption } from "src/models/list-filter/criteria/favorite";
 import { TagListTable } from "./TagListTable";
+import { usePermissions } from "src/hooks/Permissions";
 
 const TagList: React.FC<{
   tags: GQL.TagListDataFragment[];
@@ -56,11 +61,13 @@ const TagList: React.FC<{
 }> = PatchComponent(
   "TagList",
   ({ tags, filter, selectedIds, onSelectChange }) => {
-    if (tags.length === 0 && filter.displayMode !== DisplayMode.Tagger) {
+    const displayMode = useDisplayMode(filter);
+
+    if (tags.length === 0 && displayMode !== DisplayMode.Tagger) {
       return null;
     }
 
-    if (filter.displayMode === DisplayMode.Grid) {
+    if (displayMode === DisplayMode.Grid) {
       return (
         <TagCardGrid
           tags={tags}
@@ -70,7 +77,7 @@ const TagList: React.FC<{
         />
       );
     }
-    if (filter.displayMode === DisplayMode.List) {
+    if (displayMode === DisplayMode.List) {
       return (
         <TagListTable
           tags={tags}
@@ -79,7 +86,7 @@ const TagList: React.FC<{
         />
       );
     }
-    if (filter.displayMode === DisplayMode.Tagger) {
+    if (displayMode === DisplayMode.Tagger) {
       return <TagTagger tags={tags} />;
     }
 
@@ -198,6 +205,7 @@ export const FilteredTagList = PatchComponent(
   "FilteredTagList",
   (props: ITagList) => {
     const intl = useIntl();
+    const { isAdmin, canModify, canDelete } = usePermissions();
     const history = useHistory();
 
     const searchFocus = useFocus();
@@ -300,34 +308,41 @@ export const FilteredTagList = PatchComponent(
       );
     }
 
-    function onEdit() {
-      showModal(
-        <EditTagsDialog selected={selectedItems} onClose={onCloseEditDelete} />
-      );
-    }
+    const onEdit = canModify
+      ? () => {
+          showModal(
+            <EditTagsDialog
+              selected={selectedItems}
+              onClose={onCloseEditDelete}
+            />
+          );
+        }
+      : undefined;
 
-    function onDelete(tag?: GQL.TagListDataFragment) {
-      const itemsToDelete = tag ? [tag] : selectedItems;
+    const onDelete = canDelete
+      ? (tag?: GQL.TagListDataFragment) => {
+          const itemsToDelete = tag ? [tag] : selectedItems;
 
-      showModal(
-        <DeleteEntityDialog
-          selected={itemsToDelete}
-          onClose={onCloseEditDelete}
-          singularEntity={intl.formatMessage({ id: "tag" })}
-          pluralEntity={intl.formatMessage({ id: "tags" })}
-          destroyMutation={useTagsDestroy}
-          onDeleted={() => {
-            itemsToDelete.forEach((t) => {
-              tagRelationHook(
-                t,
-                { parents: t.parents ?? [], children: t.children ?? [] },
-                { parents: [], children: [] }
-              );
-            });
-          }}
-        />
-      );
-    }
+          showModal(
+            <DeleteEntityDialog
+              selected={itemsToDelete}
+              onClose={onCloseEditDelete}
+              singularEntity={intl.formatMessage({ id: "tag" })}
+              pluralEntity={intl.formatMessage({ id: "tags" })}
+              destroyMutation={useTagsDestroy}
+              onDeleted={() => {
+                itemsToDelete.forEach((t) => {
+                  tagRelationHook(
+                    t,
+                    { parents: t.parents ?? [], children: t.children ?? [] },
+                    { parents: [], children: [] }
+                  );
+                });
+              }}
+            />
+          );
+        }
+      : undefined;
 
     function onMerge() {
       showModal(
@@ -374,16 +389,17 @@ export const FilteredTagList = PatchComponent(
       {
         text: `${intl.formatMessage({ id: "actions.merge" })}…`,
         onClick: () => onMerge(),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => isAdmin && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export" }),
         onClick: () => onExport(false),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => isAdmin && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export_all" }),
         onClick: () => onExport(true),
+        isDisplayed: () => isAdmin,
       },
     ];
 

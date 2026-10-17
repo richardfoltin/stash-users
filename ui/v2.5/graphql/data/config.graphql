@@ -33,8 +33,6 @@ fragment ConfigGeneralData on ConfigGeneralResult {
   writeImageThumbnails
   createImageClipsFromVideos
   apiKey
-  username
-  password
   maxSessionAge
   logFile
   logOut

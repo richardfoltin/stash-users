@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/stashapp/stash/pkg/logger"
+	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/plugin/hook"
 )
 
@@ -61,13 +62,14 @@ func setVisitedPluginHooks(ctx context.Context, visitedPlugins []VisitedPluginHo
 }
 
 func (s *Store) MakePluginCookie(ctx context.Context) *http.Cookie {
-	currentUser := GetCurrentUserID(ctx)
+	currentUser := models.GetCurrentUser(ctx)
 	visitedPlugins := GetVisitedPluginHooks(ctx)
 
 	session := sessions.NewSession(s.sessionStore, cookieName)
 	if currentUser != nil {
-		session.Values[userIDKey] = *currentUser
+		session.Values[userIDKey] = currentUser.Username
 	}
+	session.Values[pluginSessionKey] = true
 
 	session.Values[visitedPluginHooksKey] = visitedPlugins
 

@@ -45,7 +45,7 @@ interface IProps {
   image: GQL.ImageDataFragment;
   isVisible: boolean;
   onSubmit: (input: GQL.ImageUpdateInput) => Promise<void>;
-  onDelete: () => void;
+  onDelete?: () => void;
 }
 
 export const ImageEditPanel: React.FC<IProps> = ({
@@ -169,7 +169,7 @@ export const ImageEditPanel: React.FC<IProps> = ({
         }
       });
       Mousetrap.bind("d d", () => {
-        onDelete();
+        onDelete?.();
       });
 
       return () => {
@@ -469,13 +469,15 @@ export const ImageEditPanel: React.FC<IProps> = ({
             >
               <FormattedMessage id="actions.save" />
             </Button>
-            <Button
-              className="edit-button"
-              variant="danger"
-              onClick={() => onDelete()}
-            >
-              <FormattedMessage id="actions.delete" />
-            </Button>
+            {onDelete && (
+              <Button
+                className="edit-button"
+                variant="danger"
+                onClick={() => onDelete()}
+              >
+                <FormattedMessage id="actions.delete" />
+              </Button>
+            )}
           </div>
           <div className="ml-auto text-right d-flex">
             {!isNew && (

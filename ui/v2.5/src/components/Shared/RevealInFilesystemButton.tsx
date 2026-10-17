@@ -8,6 +8,7 @@ import {
   mutateRevealFolderInFileManager,
 } from "src/core/StashService";
 import { getPlatformURL } from "src/core/createClient";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IRevealInFilesystemButtonProps {
   fileId?: string;
@@ -25,8 +26,9 @@ export const RevealInFilesystemButton: React.FC<
   IRevealInFilesystemButtonProps
 > = ({ fileId, folderId }) => {
   const intl = useIntl();
+  const { isAdmin } = usePermissions();
 
-  if (!isLocalhost()) return null;
+  if (!isLocalhost() || !isAdmin) return null;
 
   function onClick() {
     if (folderId) {

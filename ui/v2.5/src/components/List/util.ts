@@ -11,6 +11,7 @@ import { usePrevious } from "src/hooks/state";
 import * as GQL from "src/core/generated-graphql";
 import { DisplayMode } from "src/models/list-filter/types";
 import { Criterion } from "src/models/list-filter/criteria/criterion";
+import { usePermissions } from "src/hooks/Permissions";
 
 function locationEquals(
   loc1: ReturnType<typeof useLocation> | undefined,
@@ -231,6 +232,18 @@ export function useFilterOperations(props: {
     removeCriterion,
     clearAllCriteria,
   };
+}
+
+// returns the display mode to show: the tagger falls back to the default
+// mode for users who cannot modify
+export function useDisplayMode(filter: ListFilterModel) {
+  const { canModify } = usePermissions();
+
+  if (!canModify && filter.displayMode === DisplayMode.Tagger) {
+    return filter.options.displayModeOptions[0];
+  }
+
+  return filter.displayMode;
 }
 
 export function useListKeyboardShortcuts(props: {

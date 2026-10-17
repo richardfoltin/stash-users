@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/sessions"
 	"github.com/stashapp/stash/pkg/logger"
@@ -13,14 +14,17 @@ import (
 type key int
 
 const (
-	contextUser key = iota
-	contextVisitedPlugins
+	contextVisitedPlugins key = iota
 	contextLocalRequest
 )
 
 const (
-	userIDKey             = "userID"
+	userIDKey = "userID"
+	// must match the current session token of the user
+	sessionTokenKey       = "sessionToken"
 	visitedPluginHooksKey = "visitedPluginsHooks"
+	// marks a session issued to a plugin, which has the ADMIN role
+	pluginSessionKey = "plugin"
 )
 
 const (
@@ -45,21 +49,33 @@ func (e InvalidCredentialsError) Error() string {
 
 var ErrUnauthorized = errors.New("unauthorized")
 
-type Store struct {
-	sessionStore *sessions.CookieStore
-	config       SessionConfig
+type Authenticator interface {
+	LoginRequired(ctx context.Context) bool
+	// Login validates the credentials and returns the session token of the user.
+	Login(ctx context.Context, username string, password string) (string, error)
 }
 
-func NewStore(c SessionConfig) *Store {
+type Store struct {
+	sessionStore  *sessions.CookieStore
+	authenticator Authenticator
+	config        SessionConfig
+}
+
+func NewStore(c SessionConfig, a Authenticator) *Store {
 	ret := &Store{
-		sessionStore: sessions.NewCookieStore(c.GetSessionStoreKey()),
-		config:       c,
+		sessionStore:  sessions.NewCookieStore(c.GetSessionStoreKey()),
+		config:        c,
+		authenticator: a,
 	}
 
 	ret.sessionStore.MaxAge(c.GetMaxSessionAge())
 	ret.sessionStore.Options.SameSite = http.SameSiteLaxMode
 
 	return ret
+}
+
+func (s *Store) LoginRequired(ctx context.Context) bool {
+	return s.authenticator.LoginRequired(ctx)
 }
 
 func (s *Store) Login(w http.ResponseWriter, r *http.Request) error {
@@ -70,87 +86,105 @@ func (s *Store) Login(w http.ResponseWriter, r *http.Request) error {
 	password := r.FormValue(passwordFormKey)
 
 	// authenticate the user
-	if !s.config.ValidateCredentials(username, password) {
+	token, err := s.authenticator.Login(r.Context(), username, password)
+	if err != nil {
 		return &InvalidCredentialsError{Username: username}
 	}
 
-	// since we only have one user, don't leak the name
-	logger.Info("User logged in")
+	logger.Infof("User %s logged in", username)
 
 	newSession.Values[userIDKey] = username
+	newSession.Values[sessionTokenKey] = token
+	// a login session is never a plugin session
+	delete(newSession.Values, pluginSessionKey)
 
-	err := newSession.Save(r, w)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return newSession.Save(r, w)
 }
 
 func (s *Store) Logout(w http.ResponseWriter, r *http.Request) error {
+	// a session cookie that cannot be decoded is removed as well
 	session, err := s.sessionStore.Get(r, cookieName)
 	if err != nil {
-		return err
+		logger.Debugf("logout: invalid session cookie: %v", err)
 	}
+	if session == nil {
+		session = sessions.NewSession(s.sessionStore, cookieName)
+	}
+
+	userID, _ := session.Values[userIDKey].(string)
 
 	delete(session.Values, userIDKey)
+	delete(session.Values, sessionTokenKey)
+	delete(session.Values, pluginSessionKey)
 	session.Options.MaxAge = -1
 
-	err = session.Save(r, w)
-	if err != nil {
+	// the authentication middleware may already have refreshed the cookie on
+	// this request; drop that header so only the expired cookie is sent
+	dropSetCookie(w.Header(), cookieName)
+
+	if err := s.sessionStore.Save(r, w, session); err != nil {
 		return err
 	}
 
-	// since we only have one user, don't leak the name
-	logger.Infof("User logged out")
+	logger.Infof("User %s logged out", userID)
 
 	return nil
 }
 
-func (s *Store) GetSessionUserID(w http.ResponseWriter, r *http.Request) (string, error) {
+// dropSetCookie removes the Set-Cookie headers of the named cookie from h.
+func dropSetCookie(h http.Header, name string) {
+	prefix := name + "="
+	var kept []string
+	for _, c := range h.Values("Set-Cookie") {
+		if !strings.HasPrefix(c, prefix) {
+			kept = append(kept, c)
+		}
+	}
+	h.Del("Set-Cookie")
+	for _, c := range kept {
+		h.Add("Set-Cookie", c)
+	}
+}
+
+// SessionUser is the user of a session.
+type SessionUser struct {
+	// UserID is empty if there is no valid session.
+	UserID string
+	// Token is the session token of the user at the time of login.
+	Token string
+	// Plugin is true if the session was issued by the server to a plugin.
+	Plugin bool
+}
+
+// GetSessionUser returns the user stored in the session cookie.
+// Returns an empty user ID if there is no valid session.
+func (s *Store) GetSessionUser(w http.ResponseWriter, r *http.Request) (SessionUser, error) {
 	session, err := s.sessionStore.Get(r, cookieName)
 	// ignore errors and treat as an empty user id, so that we handle expired
 	// cookie
 	if err != nil {
-		return "", nil
+		return SessionUser{}, nil
 	}
 
 	if !session.IsNew {
-		val := session.Values[userIDKey]
+		var ret SessionUser
+		ret.UserID, _ = session.Values[userIDKey].(string)
+		ret.Token, _ = session.Values[sessionTokenKey].(string)
+		ret.Plugin, _ = session.Values[pluginSessionKey].(bool)
 
 		// refresh the cookie
 		err = session.Save(r, w)
 		if err != nil {
-			return "", err
+			return SessionUser{}, err
 		}
-
-		ret, _ := val.(string)
 
 		return ret, nil
 	}
 
-	return "", nil
+	return SessionUser{}, nil
 }
 
-func SetCurrentUserID(ctx context.Context, userID string) context.Context {
-	return context.WithValue(ctx, contextUser, userID)
-}
-
-// GetCurrentUserID gets the current user id from the provided context
-func GetCurrentUserID(ctx context.Context) *string {
-	userCtxVal := ctx.Value(contextUser)
-	if userCtxVal != nil {
-		currentUser := userCtxVal.(string)
-		return &currentUser
-	}
-
-	return nil
-}
-
-func (s *Store) Authenticate(w http.ResponseWriter, r *http.Request) (userID string, err error) {
-	c := s.config
-
-	// translate api key into current user, if present
+func GetRequestApiKey(r *http.Request) string {
 	apiKey := r.Header.Get(ApiKeyHeader)
 
 	// try getting the api key as a query parameter
@@ -158,23 +192,5 @@ func (s *Store) Authenticate(w http.ResponseWriter, r *http.Request) (userID str
 		apiKey = r.URL.Query().Get(ApiKeyParameter)
 	}
 
-	if apiKey != "" {
-		// match against configured API and set userID to the
-		// configured username. In future, we'll want to
-		// get the username from the key.
-		if c.GetAPIKey() != apiKey {
-			return "", ErrUnauthorized
-		}
-
-		userID = c.GetUsername()
-	} else {
-		// handle session
-		userID, err = s.GetSessionUserID(w, r)
-	}
-
-	if err != nil {
-		return "", err
-	}
-
-	return
+	return apiKey
 }

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -12,8 +13,10 @@ import (
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/logger"
+	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/session"
 	"github.com/stashapp/stash/pkg/signedurl"
+	"github.com/stashapp/stash/pkg/user"
 )
 
 func allowUnauthenticated(r *http.Request) bool {
@@ -21,44 +24,50 @@ func allowUnauthenticated(r *http.Request) bool {
 	return strings.HasPrefix(r.URL.Path, loginEndpoint) || r.URL.Path == logoutEndpoint || r.URL.Path == "/css" || strings.HasPrefix(r.URL.Path, "/assets")
 }
 
+type UserAuthenticator interface {
+	LoginRequired(ctx context.Context) bool
+	AuthenticateByAPIKey(ctx context.Context, apiKey string) (*models.User, error)
+	AuthenticateSession(ctx context.Context, username string, sessionToken string) (*models.User, error)
+}
+
 // authenticateSignedRequest checks if the request is a valid signed media request.
-// Returns the matched username and true if valid, or empty string and false otherwise.
-func authenticateSignedRequest(r *http.Request) (string, bool) {
+// Returns the matched user and true if valid, or nil and false otherwise.
+func authenticateSignedRequest(r *http.Request, loginRequired bool) (*models.User, bool) {
 	// Only apply to scene stream paths (used by AirPlay/Chromecast devices that can't pass cookies)
 	if !strings.HasPrefix(r.URL.Path, "/scene/") {
-		return "", false
+		return nil, false
 	}
 
 	c := config.GetInstance()
 
 	// Signed URLs are only relevant when credentials are configured
-	if !c.HasCredentials() {
-		return "", false
+	if !loginRequired {
+		return nil, false
 	}
 
 	// Check for signed URL parameters
 	q := r.URL.Query()
 	if q.Get(signedurl.CIDParam) == "" || q.Get(signedurl.ExpiresParam) == "" || q.Get(signedurl.SigParam) == "" {
-		return "", false
+		return nil, false
 	}
 
 	// Extract the credential ID and look up the user's signing key.
 	// We need the key before we can verify the signature, since in a
 	// multi-user setup each user could have their own signing key.
 	cid := q.Get(signedurl.CIDParam)
-	username, secret, found := resolveCredentialID(c, cid)
+	u, secret, found := resolveCredentialID(r.Context(), c, cid)
 	if !found {
 		logger.Warnf("signed URL credential ID mismatch")
-		return "", false
+		return nil, false
 	}
 
 	// Verify the signature using the user's signing key
 	if _, err := signedurl.VerifyURL(r.URL.Path, q, secret); err != nil {
 		logger.Warnf("signed URL verification failed: %v", err)
-		return "", false
+		return nil, false
 	}
 
-	return username, true
+	return u, true
 }
 
 func httpError(w http.ResponseWriter, r *http.Request, text string, status int) {
@@ -72,7 +81,49 @@ func httpError(w http.ResponseWriter, r *http.Request, text string, status int) 
 	}
 }
 
-func authenticateHandler() func(http.Handler) http.Handler {
+// authenticateRequest returns the user of the API key or the session cookie, or
+// nil. Returns an error if the API key is invalid.
+func authenticateRequest(w http.ResponseWriter, r *http.Request, g UserAuthenticator, loginRequired bool) (*models.User, error) {
+	ctx := r.Context()
+
+	// try to authenticate using api key first
+	if apiKey := session.GetRequestApiKey(r); apiKey != "" {
+		return g.AuthenticateByAPIKey(ctx, apiKey)
+	}
+
+	su, err := manager.GetInstance().SessionStore.GetSessionUser(w, r)
+	if err != nil {
+		return nil, fmt.Errorf("%w: getting session user: %v", user.ErrInternalError, err)
+	}
+
+	// sessions issued to plugins by the server have the ADMIN role
+	if su.Plugin {
+		return &models.User{
+			Username: su.UserID,
+			Roles:    models.Roles{models.RoleEnumAdmin},
+		}, nil
+	}
+
+	// session user IDs are only meaningful if users are configured
+	if su.UserID == "" || !loginRequired {
+		return nil, nil
+	}
+
+	u, err := g.AuthenticateSession(ctx, su.UserID, su.Token)
+	if err != nil {
+		if errors.Is(err, user.ErrInternalError) {
+			return nil, err
+		}
+
+		// user was deleted or locked, or the session token does not match -
+		// treat the session as logged out
+		return nil, nil
+	}
+
+	return u, nil
+}
+
+func authenticateHandler(g UserAuthenticator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c := config.GetInstance()
@@ -80,19 +131,21 @@ func authenticateHandler() func(http.Handler) http.Handler {
 			r = session.SetLocalRequest(r)
 			ctx := r.Context()
 
+			loginRequired := g.LoginRequired(ctx)
+
 			// Check for signed media requests
-			if username, ok := authenticateSignedRequest(r); ok {
-				ctx := r.Context()
-				ctx = session.SetCurrentUserID(ctx, username)
+			if u, ok := authenticateSignedRequest(r, loginRequired); ok {
+				ctx = models.SetCurrentUser(ctx, *u)
 				r = r.WithContext(ctx)
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			userID, err := manager.GetInstance().SessionStore.Authenticate(w, r)
+			u, err := authenticateRequest(w, r, g, loginRequired)
 			if err != nil {
-				if !errors.Is(err, session.ErrUnauthorized) {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
+				if errors.Is(err, user.ErrInternalError) {
+					logger.Errorf("error authenticating request: %v", err)
+					http.Error(w, "internal server error", http.StatusInternalServerError)
 					return
 				}
 
@@ -104,7 +157,7 @@ func authenticateHandler() func(http.Handler) http.Handler {
 
 			// reject connections from the public internet if authentication is not configured
 			// don't apply for new systems
-			if !c.IsNewSystem() && !c.HasCredentials() {
+			if !c.IsNewSystem() && !loginRequired {
 				requestIP, err := getRequestIPFromCtx(ctx)
 				if err != nil {
 					logger.Errorf("error getting request IP: %v", err)
@@ -118,9 +171,9 @@ func authenticateHandler() func(http.Handler) http.Handler {
 				}
 			}
 
-			if c.HasCredentials() {
+			if loginRequired {
 				// authentication is required
-				if userID == "" && !allowUnauthenticated(r) {
+				if u == nil && !allowUnauthenticated(r) {
 					// if graphql or a non-webpage was requested, we just return a forbidden error
 					ext := path.Ext(r.URL.Path)
 					if r.URL.Path == gqlEndpoint || (ext != "" && ext != ".html") {
@@ -147,7 +200,10 @@ func authenticateHandler() func(http.Handler) http.Handler {
 				}
 			}
 
-			ctx = session.SetCurrentUserID(ctx, userID)
+			if u != nil {
+				// set the user object in the context
+				ctx = models.SetCurrentUser(ctx, *u)
+			}
 
 			r = r.WithContext(ctx)
 
@@ -159,7 +215,7 @@ func authenticateHandler() func(http.Handler) http.Handler {
 func checkAllowPublicWithoutAuth(c *config.Config, requestIP net.IP) error {
 	// reject connections from the public internet if authentication is not configured
 	// don't apply for new systems
-	if c.IsNewSystem() || c.HasCredentials() {
+	if c.IsNewSystem() {
 		return nil
 	}
 

@@ -36,6 +36,7 @@ import { PerformerPopover } from "./PerformerPopover";
 import { Placement } from "react-bootstrap/esm/Overlay";
 import { isUUID } from "src/utils/stashIds";
 import { filterByStashID } from "src/models/list-filter/utils";
+import { usePermissions } from "src/hooks/Permissions";
 
 export type SelectObject = {
   id: string;
@@ -95,8 +96,9 @@ const _PerformerSelect: React.FC<
   const intl = useIntl();
   const maxOptionsShown =
     configuration?.ui.maxOptionsShown ?? defaultMaxOptionsShown;
+  const { canModify } = usePermissions();
   const defaultCreatable =
-    !configuration?.interface.disableDropdownCreate.performer;
+    canModify && !configuration?.interface.disableDropdownCreate.performer;
 
   const exclude = useMemo(() => props.excludeIds ?? [], [props.excludeIds]);
 

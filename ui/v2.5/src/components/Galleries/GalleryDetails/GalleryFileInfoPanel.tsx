@@ -9,6 +9,7 @@ import { mutateGallerySetPrimaryFile } from "src/core/StashService";
 import { useToast } from "src/hooks/Toast";
 import TextUtils from "src/utils/text";
 import { TextField, URLsField } from "src/utils/field";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IFileInfoPanelProps {
   folder?: Pick<GQL.Folder, "id" | "path">;
@@ -23,6 +24,7 @@ interface IFileInfoPanelProps {
 const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
   props: IFileInfoPanelProps
 ) => {
+  const { canModify, canDelete } = usePermissions();
   const checksum = props.file?.fingerprints.find((f) => f.type === "md5");
   const path = props.folder ? props.folder.path : (props.file?.path ?? "");
   const id = props.folder ? "folder" : "path";
@@ -58,24 +60,29 @@ const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
           </TextField>
         )}
       </dl>
-      {props.ofMany && props.onSetPrimaryFile && !props.primary && (
-        <div>
-          <Button
-            className="edit-button"
-            disabled={props.loading}
-            onClick={props.onSetPrimaryFile}
-          >
-            <FormattedMessage id="actions.make_primary" />
-          </Button>
-          <Button
-            variant="danger"
-            disabled={props.loading}
-            onClick={props.onDeleteFile}
-          >
-            <FormattedMessage id="actions.delete_file" />
-          </Button>
-        </div>
-      )}
+      {props.ofMany &&
+        props.onSetPrimaryFile &&
+        !props.primary &&
+        canModify && (
+          <div>
+            <Button
+              className="edit-button"
+              disabled={props.loading}
+              onClick={props.onSetPrimaryFile}
+            >
+              <FormattedMessage id="actions.make_primary" />
+            </Button>
+            {canDelete && (
+              <Button
+                variant="danger"
+                disabled={props.loading}
+                onClick={props.onDeleteFile}
+              >
+                <FormattedMessage id="actions.delete_file" />
+              </Button>
+            )}
+          </div>
+        )}
     </div>
   );
 };

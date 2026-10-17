@@ -50,6 +50,7 @@ import chromecast from "@silvermine/videojs-chromecast";
 import abLoopPlugin from "videojs-abloop";
 import ScreenUtils from "src/utils/screen";
 import { PatchComponent } from "src/patch";
+import { usePermissions } from "src/hooks/Permissions";
 
 // register videojs plugins
 airplay(videojs);
@@ -252,6 +253,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const [sceneSaveActivity] = useSceneSaveActivity();
     const [sceneIncrementPlayCount] = useSceneIncrementPlayCount();
     const [updateInterfaceConfig] = useConfigureInterface();
+    const { isAdmin, canModify } = usePermissions();
 
     const [time, setTime] = useState(0);
     const [ready, setReady] = useState(false);
@@ -863,11 +865,12 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       activity.saveActivity = saveActivity;
       activity.incrementPlayCount = incrementPlayCount;
       activity.minimumPlayPercent = minimumPlayPercent;
-      activity.setEnabled(trackActivity);
+      activity.setEnabled(trackActivity && canModify);
     }, [
       getPlayer,
       scene,
       trackActivity,
+      canModify,
       minimumPlayPercent,
       sceneIncrementPlayCount,
       sceneSaveActivity,
@@ -879,6 +882,8 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       if (!player) return;
 
       async function updateAutoStart(enabled: boolean) {
+        if (!isAdmin) return;
+
         await updateInterfaceConfig({
           variables: {
             input: {
@@ -895,7 +900,12 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         );
         autostartButton.updateAutoStart = updateAutoStart;
       }
-    }, [getPlayer, updateInterfaceConfig, interfaceConfig?.autostartVideo]);
+    }, [
+      getPlayer,
+      updateInterfaceConfig,
+      interfaceConfig?.autostartVideo,
+      isAdmin,
+    ]);
 
     useEffect(() => {
       const player = getPlayer();

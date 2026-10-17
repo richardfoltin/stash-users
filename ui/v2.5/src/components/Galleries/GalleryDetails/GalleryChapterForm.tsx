@@ -13,6 +13,7 @@ import { useToast } from "src/hooks/Toast";
 import isEqual from "lodash-es/isEqual";
 import { formikUtils } from "src/utils/form";
 import { yupFormikValidate, yupInputNumber } from "src/utils/yup";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IGalleryChapterForm {
   galleryID: string;
@@ -26,6 +27,7 @@ export const GalleryChapterForm: React.FC<IGalleryChapterForm> = ({
   onClose,
 }) => {
   const intl = useIntl();
+  const { canDelete } = usePermissions();
 
   const [galleryChapterCreate] = useGalleryChapterCreate();
   const [galleryChapterUpdate] = useGalleryChapterUpdate();
@@ -128,7 +130,7 @@ export const GalleryChapterForm: React.FC<IGalleryChapterForm> = ({
           >
             <FormattedMessage id="actions.cancel" />
           </Button>
-          {!isNew && (
+          {!isNew && canDelete && (
             <Button
               variant="danger"
               className="ml-auto"

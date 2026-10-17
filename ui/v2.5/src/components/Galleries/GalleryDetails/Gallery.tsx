@@ -46,6 +46,7 @@ import { TruncatedText } from "src/components/Shared/TruncatedText";
 import { goBackOrReplace } from "src/utils/history";
 import { FormattedDate } from "src/components/Shared/Date";
 import { StudioLogo } from "src/components/Shared/StudioLogo";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IProps {
   gallery: GQL.GalleryDataFragment;
@@ -61,6 +62,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
   const history = useHistory();
   const Toast = useToast();
   const intl = useIntl();
+  const { isAdmin, canModify, canDelete } = usePermissions();
   const { configuration } = useConfigurationContext();
   const { showStudioText } = configuration?.ui ?? {};
   const showLightbox = useGalleryLightbox(gallery.id, gallery.chapters);
@@ -200,6 +202,8 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
   }
 
   function renderOperations() {
+    if (!canModify) return;
+
     return (
       <Dropdown>
         <Dropdown.Toggle
@@ -211,7 +215,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
           <Icon icon={faEllipsisV} />
         </Dropdown.Toggle>
         <Dropdown.Menu className="bg-secondary text-white">
-          {path ? (
+          {path && isAdmin ? (
             <Dropdown.Item
               className="bg-secondary text-white"
               onClick={() => onRescan()}
@@ -225,21 +229,25 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
           >
             <FormattedMessage id="actions.reset_cover" />
           </Dropdown.Item>
-          <Dropdown.Item
-            className="bg-secondary text-white"
-            onClick={() => setIsGenerateDialogOpen(true)}
-          >
-            {`${intl.formatMessage({ id: "actions.generate" })}…`}
-          </Dropdown.Item>
-          <Dropdown.Item
-            className="bg-secondary text-white"
-            onClick={() => setIsDeleteAlertOpen(true)}
-          >
-            <FormattedMessage
-              id="actions.delete"
-              values={{ entityType: intl.formatMessage({ id: "gallery" }) }}
-            />
-          </Dropdown.Item>
+          {isAdmin && (
+            <Dropdown.Item
+              className="bg-secondary text-white"
+              onClick={() => setIsGenerateDialogOpen(true)}
+            >
+              {`${intl.formatMessage({ id: "actions.generate" })}…`}
+            </Dropdown.Item>
+          )}
+          {isAdmin && (
+            <Dropdown.Item
+              className="bg-secondary text-white"
+              onClick={() => setIsDeleteAlertOpen(true)}
+            >
+              <FormattedMessage
+                id="actions.delete"
+                values={{ entityType: intl.formatMessage({ id: "gallery" }) }}
+              />
+            </Dropdown.Item>
+          )}
         </Dropdown.Menu>
       </Dropdown>
     );
@@ -285,11 +293,13 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
                 <FormattedMessage id="chapters" />
               </Nav.Link>
             </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="gallery-edit-panel">
-                <FormattedMessage id="actions.edit" />
-              </Nav.Link>
-            </Nav.Item>
+            {canModify && (
+              <Nav.Item>
+                <Nav.Link eventKey="gallery-edit-panel">
+                  <FormattedMessage id="actions.edit" />
+                </Nav.Link>
+              </Nav.Item>
+            )}
           </Nav>
         </div>
 
@@ -310,14 +320,18 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
               isVisible={activeTabKey === "gallery-chapter-panel"}
             />
           </Tab.Pane>
-          <Tab.Pane eventKey="gallery-edit-panel" mountOnEnter>
-            <GalleryEditPanel
-              isVisible={activeTabKey === "gallery-edit-panel"}
-              gallery={gallery}
-              onSubmit={onSave}
-              onDelete={() => setIsDeleteAlertOpen(true)}
-            />
-          </Tab.Pane>
+          {canModify && (
+            <Tab.Pane eventKey="gallery-edit-panel" mountOnEnter>
+              <GalleryEditPanel
+                isVisible={activeTabKey === "gallery-edit-panel"}
+                gallery={gallery}
+                onSubmit={onSave}
+                onDelete={
+                  canDelete ? () => setIsDeleteAlertOpen(true) : undefined
+                }
+              />
+            </Tab.Pane>
+          )}
           {gallery.scenes.length > 0 && (
             <Tab.Pane eventKey="gallery-scenes-panel">
               <GalleryScenesPanel scenes={gallery.scenes} />
@@ -346,11 +360,13 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
                 <FormattedMessage id="images" />
               </Nav.Link>
             </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="add">
-                <FormattedMessage id="actions.add" />
-              </Nav.Link>
-            </Nav.Item>
+            {canModify && (
+              <Nav.Item>
+                <Nav.Link eventKey="add">
+                  <FormattedMessage id="actions.add" />
+                </Nav.Link>
+              </Nav.Item>
+            )}
           </Nav>
         </div>
 
@@ -358,9 +374,11 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
           <Tab.Pane eventKey="images">
             <GalleryImagesPanel active={!add} gallery={gallery} />
           </Tab.Pane>
-          <Tab.Pane eventKey="add">
-            <GalleryAddPanel active={!!add} gallery={gallery} />
-          </Tab.Pane>
+          {canModify && (
+            <Tab.Pane eventKey="add">
+              <GalleryAddPanel active={!!add} gallery={gallery} />
+            </Tab.Pane>
+          )}
         </Tab.Content>
       </Tab.Container>
     );
@@ -378,7 +396,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
   }
 
   useRatingKeybinds(
-    true,
+    canModify,
     configuration?.ui.ratingSystemOptions?.type,
     setRating
   );
@@ -387,7 +405,9 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
   useEffect(() => {
     Mousetrap.bind("a", () => setActiveTabKey("gallery-details-panel"));
     Mousetrap.bind("c", () => setActiveTabKey("gallery-chapter-panel"));
-    Mousetrap.bind("e", () => setActiveTabKey("gallery-edit-panel"));
+    if (canModify) {
+      Mousetrap.bind("e", () => setActiveTabKey("gallery-edit-panel"));
+    }
     Mousetrap.bind("f", () => setActiveTabKey("gallery-file-info-panel"));
     Mousetrap.bind(",", () => setCollapsed(!collapsed));
 
@@ -433,6 +453,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
               <RatingSystem
                 value={gallery.rating100}
                 onSetRating={setRating}
+                disabled={!canModify}
                 clickToRate
                 withoutContext
               />

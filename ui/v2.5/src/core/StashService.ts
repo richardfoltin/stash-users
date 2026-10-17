@@ -2759,6 +2759,40 @@ export const useGenerateAPIKey = () =>
     update: updateConfiguration,
   });
 
+export const useMe = () => GQL.useMeQuery();
+
+export const useUsers = () => GQL.useUsersQuery();
+
+const userMutationImpactedQueries = [GQL.UsersDocument, GQL.MeDocument];
+
+export const useUserCreate = () =>
+  GQL.useUserCreateMutation({
+    update(cache, result) {
+      if (!result.data?.userCreate) return;
+      evictQueries(cache, userMutationImpactedQueries);
+    },
+  });
+
+export const useUserUpdate = () =>
+  GQL.useUserUpdateMutation({
+    update(cache, result) {
+      if (!result.data?.userUpdate) return;
+      evictQueries(cache, userMutationImpactedQueries);
+    },
+  });
+
+export const useUserDestroy = () =>
+  GQL.useUserDestroyMutation({
+    update(cache, result) {
+      if (!result.data?.userDestroy) return;
+      evictQueries(cache, userMutationImpactedQueries);
+    },
+  });
+
+export const useChangeUserPassword = () => GQL.useChangeUserPasswordMutation();
+
+export const useChangePassword = () => GQL.useChangePasswordMutation();
+
 export const useConfigureDefaults = () =>
   GQL.useConfigureDefaultsMutation({
     update: updateConfiguration,

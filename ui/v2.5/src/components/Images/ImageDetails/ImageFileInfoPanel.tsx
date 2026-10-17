@@ -11,6 +11,7 @@ import TextUtils from "src/utils/text";
 import { TextField, URLField, URLsField } from "src/utils/field";
 import { FileSize } from "src/components/Shared/FileSize";
 import NavUtils from "src/utils/navigation";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IFileInfoPanelProps {
   file: GQL.ImageFileDataFragment | GQL.VideoFileDataFragment;
@@ -25,6 +26,7 @@ const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
   props: IFileInfoPanelProps
 ) => {
   const intl = useIntl();
+  const { canModify, canDelete } = usePermissions();
   const checksum = props.file.fingerprints.find((f) => f.type === "md5");
   const phash = props.file.fingerprints.find((f) => f.type === "phash");
 
@@ -73,24 +75,29 @@ const FileInfoPanel: React.FC<IFileInfoPanelProps> = (
           truncate
         />
       </dl>
-      {props.ofMany && props.onSetPrimaryFile && !props.primary && (
-        <div>
-          <Button
-            className="edit-button"
-            disabled={props.loading}
-            onClick={props.onSetPrimaryFile}
-          >
-            <FormattedMessage id="actions.make_primary" />
-          </Button>
-          <Button
-            variant="danger"
-            disabled={props.loading}
-            onClick={props.onDeleteFile}
-          >
-            <FormattedMessage id="actions.delete_file" />
-          </Button>
-        </div>
-      )}
+      {props.ofMany &&
+        props.onSetPrimaryFile &&
+        !props.primary &&
+        canModify && (
+          <div>
+            <Button
+              className="edit-button"
+              disabled={props.loading}
+              onClick={props.onSetPrimaryFile}
+            >
+              <FormattedMessage id="actions.make_primary" />
+            </Button>
+            {canDelete && (
+              <Button
+                variant="danger"
+                disabled={props.loading}
+                onClick={props.onDeleteFile}
+              >
+                <FormattedMessage id="actions.delete_file" />
+              </Button>
+            )}
+          </div>
+        )}
     </div>
   );
 };

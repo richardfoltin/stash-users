@@ -29,6 +29,7 @@ import { useCompare, usePrevious } from "src/hooks/state";
 import { CriterionType } from "src/models/list-filter/types";
 import { useToast } from "src/hooks/Toast";
 import { useConfigureUI, useSaveFilter } from "src/core/StashService";
+import { usePermissions } from "src/hooks/Permissions";
 import {
   FilterMode,
   SavedFilterDataFragment,
@@ -52,7 +53,8 @@ interface ICriterionList {
   selected?: CriterionOption;
   optionSelected: (o?: CriterionOption) => void;
   onRemoveCriterion: (c: string) => void;
-  onTogglePin: (c: CriterionOption) => void;
+  // pinning is not available if undefined
+  onTogglePin?: (c: CriterionOption) => void;
   externallySelected?: boolean;
 }
 
@@ -143,7 +145,7 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
     // needed to prevent the nav item from being selected
     ev.stopPropagation();
     ev.preventDefault();
-    onTogglePin(c);
+    onTogglePin?.(c);
   }
 
   function renderCard(c: CriterionOption, isPin: boolean) {
@@ -170,13 +172,15 @@ const CriterionOptionList: React.FC<ICriterionList> = ({
               <Icon icon={faTimes} />
             </Button>
           )}
-          <Button
-            className="pin-criterion-button"
-            variant="minimal"
-            onClick={(e) => togglePin(e, c)}
-          >
-            <Icon icon={faThumbtack} className={isPin ? "" : "tilted"} />
-          </Button>
+          {onTogglePin && (
+            <Button
+              className="pin-criterion-button"
+              variant="minimal"
+              onClick={(e) => togglePin(e, c)}
+            >
+              <Icon icon={faThumbtack} className={isPin ? "" : "tilted"} />
+            </Button>
+          )}
         </Accordion.Toggle>
         <Accordion.Collapse eventKey={c.type}>
           {(type === c.type && currentCriterion) ||
@@ -313,6 +317,7 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
 
   const ui = configuration?.ui ?? {};
   const [saveUI] = useConfigureUI();
+  const { isAdmin, canModify } = usePermissions();
 
   const filteredOptions = useMemo(() => {
     const trimmedSearch = searchValue.trim().toLowerCase();
@@ -585,7 +590,7 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
               optionSelected={optionSelected}
               selected={criterion?.criterionOption}
               onRemoveCriterion={(c) => removeCriterionString(c)}
-              onTogglePin={(c) => onTogglePinFilter(c)}
+              onTogglePin={isAdmin ? (c) => onTogglePinFilter(c) : undefined}
               externallySelected={!!editingCriterion}
             />
             {criteria.length > 0 && (
@@ -609,13 +614,15 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
             >
               <FormattedMessage id="actions.load" />…
             </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setShowSaveDialog(true)}
-              title={intl.formatMessage({ id: "actions.save_filter" })}
-            >
-              <FormattedMessage id="actions.save" />…
-            </Button>
+            {canModify && (
+              <Button
+                variant="secondary"
+                onClick={() => setShowSaveDialog(true)}
+                title={intl.formatMessage({ id: "actions.save_filter" })}
+              >
+                <FormattedMessage id="actions.save" />…
+              </Button>
+            )}
           </div>
           <div>
             <Button variant="secondary" onClick={() => onCancel()}>

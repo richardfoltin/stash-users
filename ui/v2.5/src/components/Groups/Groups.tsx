@@ -6,19 +6,26 @@ import Group from "./GroupDetails/Group";
 import GroupCreate from "./GroupDetails/GroupCreate";
 import { FilteredGroupList } from "./GroupList";
 import { View } from "../List/views";
+import { usePermissions } from "src/hooks/Permissions";
+import { PermissionDenied } from "../PermissionDenied";
 
 const Groups: React.FC = () => {
   return <FilteredGroupList view={View.Groups} />;
 };
 
 const GroupRoutes: React.FC = () => {
+  const { canModify } = usePermissions();
   const titleProps = useTitleProps({ id: "groups" });
   return (
     <>
       <Helmet {...titleProps} />
       <Switch>
         <Route exact path="/groups" component={Groups} />
-        <Route exact path="/groups/new" component={GroupCreate} />
+        <Route
+          exact
+          path="/groups/new"
+          component={canModify ? GroupCreate : PermissionDenied}
+        />
         <Route path="/groups/:id/:tab?" component={Group} />
       </Switch>
     </>

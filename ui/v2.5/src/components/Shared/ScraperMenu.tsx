@@ -8,6 +8,7 @@ import { faSyncAlt } from "@fortawesome/free-solid-svg-icons";
 import { ClearableInput } from "./ClearableInput";
 import useFocus from "src/utils/focus";
 import ScreenUtils from "src/utils/screen";
+import { usePermissions } from "src/hooks/Permissions";
 
 export const ScraperMenu: React.FC<{
   toggle: React.ReactNode;
@@ -25,6 +26,7 @@ export const ScraperMenu: React.FC<{
   onReloadScrapers,
 }) => {
   const intl = useIntl();
+  const { isAdmin } = usePermissions();
   const [filter, setFilter] = useState("");
 
   const focusOnOpen = !ScreenUtils.isTouch();
@@ -68,13 +70,15 @@ export const ScraperMenu: React.FC<{
             setValue={setFilter}
             focus={focusRef}
           />
-          <Button
-            onClick={onReloadScrapers}
-            className="reload-button"
-            title={intl.formatMessage({ id: "actions.reload_scrapers" })}
-          >
-            <Icon icon={faSyncAlt} />
-          </Button>
+          {isAdmin && (
+            <Button
+              onClick={onReloadScrapers}
+              className="reload-button"
+              title={intl.formatMessage({ id: "actions.reload_scrapers" })}
+            >
+              <Icon icon={faSyncAlt} />
+            </Button>
+          )}
         </div>
 
         {filteredStashboxes.map((s, index) => (

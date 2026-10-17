@@ -12,6 +12,7 @@ import { useSceneUpdate } from "src/core/StashService";
 import { IColumn, ListTable } from "../List/ListTable";
 import { useTableColumns } from "src/hooks/useTableColumns";
 import { FileSize } from "../Shared/FileSize";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface ISceneListTableProps {
   scenes: GQL.SlimSceneDataFragment[];
@@ -26,6 +27,7 @@ export const SceneListTable: React.FC<ISceneListTableProps> = (
   props: ISceneListTableProps
 ) => {
   const intl = useIntl();
+  const { canModify } = usePermissions();
 
   const [updateScene] = useSceneUpdate();
 
@@ -79,6 +81,7 @@ export const SceneListTable: React.FC<ISceneListTableProps> = (
     <RatingSystem
       value={scene.rating100}
       onSetRating={(value) => setRating(value, scene.id)}
+      disabled={!canModify}
       clickToRate
     />
   );

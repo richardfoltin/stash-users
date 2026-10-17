@@ -53,6 +53,7 @@ import {
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
 import cloneDeep from "lodash-es/cloneDeep";
+import { usePermissions } from "src/hooks/Permissions";
 
 const isScraper = (
   scraper: GQL.Scraper | GQL.StashBox
@@ -99,6 +100,7 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
   const { configuration: stashConfig } = useConfigurationContext();
 
   const intl = useIntl();
+  const { isAdmin } = usePermissions();
 
   const schema = yup.object({
     name: yup.string().required(),
@@ -518,18 +520,20 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
               </Dropdown.Item>
             ))
           : ""}
-        <Dropdown.Item
-          as={Button}
-          className="minimal"
-          onClick={() => onReloadScrapers()}
-        >
-          <span className="fa-icon">
-            <Icon icon={faSyncAlt} />
-          </span>
-          <span>
-            <FormattedMessage id="actions.reload_scrapers" />
-          </span>
-        </Dropdown.Item>
+        {isAdmin && (
+          <Dropdown.Item
+            as={Button}
+            className="minimal"
+            onClick={() => onReloadScrapers()}
+          >
+            <span className="fa-icon">
+              <Icon icon={faSyncAlt} />
+            </span>
+            <span>
+              <FormattedMessage id="actions.reload_scrapers" />
+            </span>
+          </Dropdown.Item>
+        )}
       </Dropdown.Menu>
     );
 

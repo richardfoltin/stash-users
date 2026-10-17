@@ -36,7 +36,11 @@ import {
   SidebarStateContext,
   useSidebarState,
 } from "../Shared/Sidebar";
-import { useCloseEditDelete, useFilterOperations } from "../List/util";
+import {
+  useCloseEditDelete,
+  useDisplayMode,
+  useFilterOperations,
+} from "../List/util";
 import {
   FilteredSidebarHeader,
   useFilteredSidebarKeybinds,
@@ -58,6 +62,7 @@ import { FavoritePerformerCriterionOption } from "src/models/list-filter/criteri
 import { SidebarBooleanFilter } from "../List/Filters/BooleanFilter";
 import { SidebarOptionFilter } from "../List/Filters/OptionFilter";
 import { GenderCriterionOption } from "src/models/list-filter/criteria/gender";
+import { usePermissions } from "src/hooks/Permissions";
 
 export const FormatHeight = (height?: number | null) => {
   const intl = useIntl();
@@ -208,11 +213,13 @@ const PerformerList: React.FC<{
 }> = PatchComponent(
   "PerformerList",
   ({ performers, filter, selectedIds, onSelectChange, extraCriteria }) => {
-    if (performers.length === 0 && filter.displayMode !== DisplayMode.Tagger) {
+    const displayMode = useDisplayMode(filter);
+
+    if (performers.length === 0 && displayMode !== DisplayMode.Tagger) {
       return null;
     }
 
-    if (filter.displayMode === DisplayMode.Grid) {
+    if (displayMode === DisplayMode.Grid) {
       return (
         <PerformerCardGrid
           performers={performers}
@@ -223,7 +230,7 @@ const PerformerList: React.FC<{
         />
       );
     }
-    if (filter.displayMode === DisplayMode.List) {
+    if (displayMode === DisplayMode.List) {
       return (
         <PerformerListTable
           performers={performers}
@@ -232,7 +239,7 @@ const PerformerList: React.FC<{
         />
       );
     }
-    if (filter.displayMode === DisplayMode.Tagger) {
+    if (displayMode === DisplayMode.Tagger) {
       return <PerformerTagger performers={performers} />;
     }
 
@@ -365,6 +372,7 @@ export const FilteredPerformerList = PatchComponent(
   "FilteredPerformerList",
   (props: IPerformerList) => {
     const intl = useIntl();
+    const { isAdmin, canModify, canDelete } = usePermissions();
     const history = useHistory();
 
     const searchFocus = useFocus();
@@ -471,26 +479,30 @@ export const FilteredPerformerList = PatchComponent(
       );
     }
 
-    function onEdit() {
-      showModal(
-        <EditPerformersDialog
-          selected={selectedItems}
-          onClose={onCloseEditDelete}
-        />
-      );
-    }
+    const onEdit = canModify
+      ? () => {
+          showModal(
+            <EditPerformersDialog
+              selected={selectedItems}
+              onClose={onCloseEditDelete}
+            />
+          );
+        }
+      : undefined;
 
-    function onDelete() {
-      showModal(
-        <DeleteEntityDialog
-          selected={selectedItems}
-          onClose={onCloseEditDelete}
-          singularEntity={intl.formatMessage({ id: "performer" })}
-          pluralEntity={intl.formatMessage({ id: "performers" })}
-          destroyMutation={usePerformersDestroy}
-        />
-      );
-    }
+    const onDelete = canDelete
+      ? () => {
+          showModal(
+            <DeleteEntityDialog
+              selected={selectedItems}
+              onClose={onCloseEditDelete}
+              singularEntity={intl.formatMessage({ id: "performer" })}
+              pluralEntity={intl.formatMessage({ id: "performers" })}
+              destroyMutation={usePerformersDestroy}
+            />
+          );
+        }
+      : undefined;
 
     function onMerge() {
       showModal(
@@ -542,16 +554,17 @@ export const FilteredPerformerList = PatchComponent(
       {
         text: `${intl.formatMessage({ id: "actions.merge" })}…`,
         onClick: onMerge,
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => isAdmin && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export" }),
         onClick: () => onExport(false),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => isAdmin && hasSelection,
       },
       {
         text: intl.formatMessage({ id: "actions.export_all" }),
         onClick: () => onExport(true),
+        isDisplayed: () => isAdmin,
       },
     ];
 

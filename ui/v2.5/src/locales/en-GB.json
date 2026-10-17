@@ -308,13 +308,9 @@
     "general": {
       "auth": {
         "api_key": "API key",
-        "api_key_desc": "API key for external systems. Only required when username/password is configured. Username must be saved before generating API key.",
+        "api_key_desc": "API key that external systems send to use Stash without signing in. There is one API key for the whole system. It has full administrator access, and only works while the administrator who generated it exists and has the Admin role.",
         "authentication": "Authentication",
         "clear_api_key": "Clear API key",
-        "credentials": {
-          "description": "Credentials to restrict access to Stash.",
-          "heading": "Credentials"
-        },
         "generate_api_key": "Generate API key",
         "log_file": "Log file",
         "log_file_desc": "Path to the file to output logging to. Blank to disable file logging. Requires restart.",
@@ -327,10 +323,33 @@
         "maximum_session_age": "Maximum session age",
         "maximum_session_age_desc": "Maximum idle time before a login session is expired, in seconds. Requires restart.",
         "password": "Password",
-        "password_desc": "Password to access Stash. Leave blank to disable user authentication",
         "stash-box_integration": "Stash-box integration",
         "username": "Username",
-        "username_desc": "Username to access Stash. Leave blank to disable user authentication"
+        "users": {
+          "add_user": "Add user",
+          "change_password_for": "Change password for {name}",
+          "change_role": "Change role",
+          "change_role_for": "Change role for {name}",
+          "current_user": "(you)",
+          "description": "Users that can sign in to Stash, and what each of them may do. If there are no users, Stash does not require signing in.",
+          "first_user_desc": "The first user must be an administrator. Once a user exists, Stash requires signing in.",
+          "heading": "Users",
+          "last_admin": "The last administrator cannot be removed or demoted.",
+          "no_users": "No users are configured. Stash does not require signing in.",
+          "password_changed": "Changed the password of {name}. Their existing sessions have ended.",
+          "password_too_long": "Password cannot be longer than {max} bytes.",
+          "remove_user": "Remove user",
+          "remove_user_confirm": "Are you sure you want to remove the user {name}?",
+          "role": "Role",
+          "role_desc": {
+            "admin": "Full access, including settings, tasks, deleting and merging objects, and managing users.",
+            "modify": "Everything a viewer can do, plus creating and editing library metadata, ratings and play history. Cannot delete or merge objects, change settings or run tasks.",
+            "read": "Can browse and play content. Cannot change library data or settings."
+          },
+          "user_added": "Added user {name}",
+          "user_removed": "Removed user {name}",
+          "user_updated": "Updated user {name}"
+        }
       },
       "backup_directory_path": {
         "description": "Directory location for SQLite database file backups.",
@@ -1001,6 +1020,14 @@
   "details": "Details",
   "developmentVersion": "Development Version",
   "dialogs": {
+    "change_password": {
+      "confirm_password": "Confirm new password",
+      "current_password": "Current password",
+      "heading": "Change password for {name}",
+      "mismatch": "The passwords do not match.",
+      "new_password": "New password",
+      "success": "Password changed. Log in with your new password."
+    },
     "clear_o_history_confirm": "Are you sure you want to clear the O history?",
     "clear_o_history_confirm_sfw": "Are you sure you want to clear the like history?",
     "clear_play_history_confirm": "Are you sure you want to clear the play history?",
@@ -1419,6 +1446,19 @@
   },
   "performer_tags": "Performer Tags",
   "performers": "Performers",
+  "permissions": {
+    "change_password": "Change password",
+    "denied": "Permission denied: this action requires the {role} role.",
+    "load_error": "Could not load the current user, so Stash only allows viewing: {error}",
+    "locked": "Locked",
+    "logged_in_as": "Logged in as {name} ({role}). Click to change your password.",
+    "page_denied": "You do not have permission to view this page.",
+    "roles": {
+      "admin": "Admin",
+      "modify": "Editor",
+      "read": "Viewer"
+    }
+  },
   "photographer": "Photographer",
   "piercings": "Piercings",
   "play_count": "Play Count",

@@ -20,6 +20,7 @@ import isEqual from "lodash-es/isEqual";
 import { formikUtils } from "src/utils/form";
 import { yupFormikValidate } from "src/utils/yup";
 import { Tag, TagSelect } from "src/components/Tags/TagSelect";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface ISceneMarkerForm {
   sceneID: string;
@@ -33,6 +34,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
   onClose,
 }) => {
   const intl = useIntl();
+  const { canDelete } = usePermissions();
 
   const [sceneMarkerCreate] = useSceneMarkerCreate();
   const [sceneMarkerUpdate] = useSceneMarkerUpdate();
@@ -316,7 +318,7 @@ export const SceneMarkerForm: React.FC<ISceneMarkerForm> = ({
           >
             <FormattedMessage id="actions.cancel" />
           </Button>
-          {!isNew && (
+          {!isNew && canDelete && (
             <Button
               variant="danger"
               className="ml-auto"

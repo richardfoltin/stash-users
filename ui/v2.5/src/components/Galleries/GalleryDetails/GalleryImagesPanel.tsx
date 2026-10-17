@@ -18,6 +18,7 @@ import { galleryTitle } from "src/core/galleries";
 import { View } from "src/components/List/views";
 import { PatchComponent } from "src/patch";
 import { IItemListOperation } from "src/components/List/FilteredListToolbar";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IGalleryDetailsProps {
   active: boolean;
@@ -31,6 +32,7 @@ export const GalleryImagesPanel: React.FC<IGalleryDetailsProps> =
     ({ active, gallery, extraOperations = [] }) => {
       const intl = useIntl();
       const Toast = useToast();
+      const { canModify } = usePermissions();
 
       const filterHook = useCallback(
         (filter: ListFilterModel) => {
@@ -132,12 +134,12 @@ export const GalleryImagesPanel: React.FC<IGalleryDetailsProps> =
         {
           text: intl.formatMessage({ id: "actions.set_cover" }),
           onClick: setCover,
-          isDisplayed: showWhenSingleSelection,
+          isDisplayed: canModify ? showWhenSingleSelection : () => false,
         },
         {
           text: intl.formatMessage({ id: "actions.remove_from_gallery" }),
           onClick: removeImages,
-          isDisplayed: showWhenSelected,
+          isDisplayed: canModify ? showWhenSelected : () => false,
           postRefetch: true,
           icon: faMinus,
           buttonVariant: "danger",

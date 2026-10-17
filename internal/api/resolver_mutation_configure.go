@@ -333,28 +333,11 @@ func (r *mutationResolver) ConfigureGeneral(ctx context.Context, input ConfigGen
 		c.SetString(config.GalleryCoverRegex, *input.GalleryCoverRegex)
 	}
 
-	if input.Username != nil && *input.Username != c.GetUsername() {
-		c.SetString(config.Username, *input.Username)
-		if *input.Password == "" {
-			logger.Info("Username cleared")
-		} else {
-			logger.Info("Username changed")
-		}
-	}
-
-	if input.Password != nil {
-		// bit of a hack - check if the passed in password is the same as the stored hash
-		// and only set if they are different
-		currentPWHash := c.GetPasswordHash()
-
-		if *input.Password != currentPWHash {
-			if *input.Password == "" {
-				logger.Info("Password cleared")
-			} else {
-				logger.Info("Password changed")
-			}
-			c.SetPassword(*input.Password)
-		}
+	// the legacy username and password can only be changed while users are
+	// not managed in the users list. A password equal to the stored hash is
+	// left unchanged.
+	if err := c.UserStore.SetLegacyCredentials(input.Username, input.Password); err != nil {
+		return makeConfigGeneralResult(), err
 	}
 
 	r.setConfigInt(config.MaxSessionAge, input.MaxSessionAge)
@@ -667,7 +650,12 @@ func (r *mutationResolver) GenerateAPIKey(ctx context.Context, input GenerateAPI
 
 	var newAPIKey string
 	if input.Clear == nil || !*input.Clear {
+		// the key is generated for the current user, falling back to the
+		// legacy username. The key always authenticates with the ADMIN role.
 		username := c.GetUsername()
+		if u := models.GetCurrentUser(ctx); u != nil && u.Username != "" {
+			username = u.Username
+		}
 		if username != "" {
 			var err error
 			newAPIKey, err = manager.GenerateAPIKey(username)

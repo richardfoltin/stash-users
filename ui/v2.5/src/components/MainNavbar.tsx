@@ -25,6 +25,7 @@ import { SettingsButton } from "./SettingsButton";
 import {
   faBars,
   faChartColumn,
+  faCircleUser,
   faFilm,
   faHeart,
   faImage,
@@ -40,6 +41,8 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { baseURL } from "src/core/createClient";
 import { PatchComponent } from "src/patch";
+import { roleMessageID, usePermissions } from "src/hooks/Permissions";
+import { ChangePasswordDialog } from "./Dialogs/ChangePasswordDialog";
 
 interface IMenuItem {
   name: string;
@@ -184,8 +187,10 @@ export const MainNavbar: React.FC = () => {
   const location = useLocation();
   const { configuration } = useConfigurationContext();
   const { openManual } = React.useContext(ManualStateContext);
+  const { user, role, isAdmin, canModify } = usePermissions();
 
   const [expanded, setExpanded] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   // Show all menu items by default, unless config says otherwise
   const menuItems = useMemo(() => {
@@ -243,7 +248,8 @@ export const MainNavbar: React.FC = () => {
   );
 
   const pathname = location.pathname.replace(/\/$/, "");
-  let newPath = newPathsList.includes(pathname) ? `${pathname}/new` : null;
+  let newPath =
+    canModify && newPathsList.includes(pathname) ? `${pathname}/new` : null;
   if (newPath !== null) {
     const queryParam = new URLSearchParams(location.search).get("q");
     if (queryParam) {
@@ -254,7 +260,9 @@ export const MainNavbar: React.FC = () => {
   // set up hotkeys
   useEffect(() => {
     Mousetrap.bind("?", () => openManual());
-    Mousetrap.bind("g z", () => goto("/settings"));
+    if (isAdmin) {
+      Mousetrap.bind("g z", () => goto("/settings"));
+    }
 
     menuItems.forEach((item) => {
       Mousetrap.bind(item.hotkey, () => goto(item.href));
@@ -276,6 +284,29 @@ export const MainNavbar: React.FC = () => {
       }
     };
   });
+
+  function maybeRenderUser() {
+    if (!user) return;
+
+    return (
+      <Button
+        className="nav-utility minimal user-button d-flex align-items-center"
+        onClick={() => {
+          handleDismiss();
+          setShowChangePassword(true);
+        }}
+        title={intl.formatMessage(
+          { id: "permissions.logged_in_as" },
+          {
+            name: user.name,
+            role: intl.formatMessage({ id: roleMessageID(role) }),
+          }
+        )}
+      >
+        <Icon icon={faCircleUser} />
+      </Button>
+    );
+  }
 
   function maybeRenderLogout() {
     if (SessionUtils.isLoggedIn()) {
@@ -325,14 +356,16 @@ export const MainNavbar: React.FC = () => {
             <Icon icon={faChartColumn} />
           </Button>
         </NavLink>
-        <NavLink
-          className="nav-utility"
-          exact
-          to="/settings"
-          onClick={handleDismiss}
-        >
-          <SettingsButton />
-        </NavLink>
+        {isAdmin && (
+          <NavLink
+            className="nav-utility"
+            exact
+            to="/settings"
+            onClick={handleDismiss}
+          >
+            <SettingsButton />
+          </NavLink>
+        )}
         <Button
           className="nav-utility minimal"
           onClick={() => openManual()}
@@ -340,6 +373,7 @@ export const MainNavbar: React.FC = () => {
         >
           <Icon icon={faQuestionCircle} />
         </Button>
+        {maybeRenderUser()}
         {maybeRenderLogout()}
       </>
     );
@@ -357,6 +391,12 @@ export const MainNavbar: React.FC = () => {
       onToggle={setExpanded}
       ref={navbarRef}
     >
+      {showChangePassword && user && (
+        <ChangePasswordDialog
+          username={user.name}
+          onClose={() => setShowChangePassword(false)}
+        />
+      )}
       <Navbar.Collapse className="bg-dark order-sm-1">
         <MainNavbarMenuItems>
           {menuItems.map(({ href, icon, message }) => (

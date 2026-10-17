@@ -8,7 +8,6 @@ import (
 	"github.com/stashapp/stash/internal/api/urlbuilders"
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/pkg/models"
-	"github.com/stashapp/stash/pkg/session"
 	"github.com/stashapp/stash/pkg/signedurl"
 )
 
@@ -43,14 +42,14 @@ func (r *queryResolver) SceneStreams(ctx context.Context, id *string) ([]*manage
 	builder := urlbuilders.NewSceneURLBuilder(baseURL, scene)
 
 	streamURL := builder.GetStreamURL("")
-	if config.HasCredentials() {
-		userID := session.GetCurrentUserID(ctx)
-		if userID == nil {
+	if r.userService.LoginRequired(ctx) {
+		currentUser := models.GetCurrentUser(ctx)
+		if currentUser == nil {
 			return nil, fmt.Errorf("user ID not found")
 		}
-		streamURL.RawQuery = signedParams(config, *userID, signedurl.DerivePrefix(streamURL.Path)).Encode()
+		streamURL.RawQuery = signedParams(config, currentUser.Username, signedurl.DerivePrefix(streamURL.Path)).Encode()
 	} else {
-		apiKey := config.GetAPIKey()
+		apiKey := userAPIKey(ctx, config)
 		if apiKey != "" {
 			v := streamURL.Query()
 			v.Set("apikey", apiKey)

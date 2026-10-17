@@ -37,6 +37,8 @@ The "Minimum play percent" gives the minimum proportion of a video that must be 
 
 By default, when a scene has a resume point, the scene player will automatically seek to this point when the scene is played. Setting "Always start video from beginning" to true disables this behaviour.
 
+These options, like all interface settings, are shared by all users, and only administrators can change them.
+
 ## Custom CSS
 
 The stash UI can be customised using custom CSS. See [here](https://discourse.stashapp.cc/t/custom-css-snippets/4043) for a community-curated set of CSS snippets to customise your UI. 

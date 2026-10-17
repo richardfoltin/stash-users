@@ -46,6 +46,7 @@ import { AliasList } from "src/components/Shared/DetailsPage/AliasList";
 import { HeaderImage } from "src/components/Shared/DetailsPage/HeaderImage";
 import { goBackOrReplace } from "src/utils/history";
 import { PatchComponent } from "src/patch";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IProps {
   tag: GQL.TagDataFragment;
@@ -289,6 +290,7 @@ const TagPage: React.FC<IProps> = PatchComponent(
     const history = useHistory();
     const Toast = useToast();
     const intl = useIntl();
+    const { isAdmin, canModify, canDelete } = usePermissions();
 
     // Configuration settings
     const { configuration } = useConfigurationContext();
@@ -345,12 +347,18 @@ const TagPage: React.FC<IProps> = PatchComponent(
 
     // set up hotkeys
     useEffect(() => {
-      Mousetrap.bind("e", () => toggleEditing());
-      Mousetrap.bind("d d", () => {
-        setIsDeleteAlertOpen(true);
-      });
+      if (canModify) {
+        Mousetrap.bind("e", () => toggleEditing());
+      }
+      if (canDelete) {
+        Mousetrap.bind("d d", () => {
+          setIsDeleteAlertOpen(true);
+        });
+      }
       Mousetrap.bind(",", () => setCollapsed(!collapsed));
-      Mousetrap.bind("f", () => setFavorite(!tag.favorite));
+      if (canModify) {
+        Mousetrap.bind("f", () => setFavorite(!tag.favorite));
+      }
 
       return () => {
         if (isEditing) {
@@ -553,7 +561,7 @@ const TagPage: React.FC<IProps> = PatchComponent(
                     autoTagDisabled={tag.ignore_auto_tag}
                     onDelete={onDelete}
                     classNames="mb-2"
-                    customButtons={renderMergeButton()}
+                    customButtons={isAdmin ? renderMergeButton() : undefined}
                   />
                 )}
               </div>

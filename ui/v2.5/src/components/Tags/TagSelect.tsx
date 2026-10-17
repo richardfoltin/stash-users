@@ -32,6 +32,7 @@ import { sortByRelevance } from "src/utils/query";
 import { PatchComponent, PatchFunction } from "src/patch";
 import { isUUID } from "src/utils/stashIds";
 import { filterByStashID } from "src/models/list-filter/utils";
+import { usePermissions } from "src/hooks/Permissions";
 
 export type SelectObject = {
   id: string;
@@ -74,7 +75,9 @@ const _TagSelect: React.FC<TagSelectProps> = (props) => {
   const intl = useIntl();
   const maxOptionsShown =
     configuration?.ui.maxOptionsShown ?? defaultMaxOptionsShown;
-  const defaultCreatable = !configuration?.interface.disableDropdownCreate.tag;
+  const { canModify } = usePermissions();
+  const defaultCreatable =
+    canModify && !configuration?.interface.disableDropdownCreate.tag;
 
   const exclude = useMemo(() => props.excludeIds ?? [], [props.excludeIds]);
 

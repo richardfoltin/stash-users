@@ -14,6 +14,7 @@ import { SceneSearchResults } from "./StashSearchResult";
 import { useConfigurationContext } from "src/hooks/Config";
 import { useLightbox } from "src/hooks/Lightbox/hooks";
 import { ConfigButton } from "../TaggerConfig";
+import { usePermissions } from "src/hooks/Permissions";
 
 const Scene: React.FC<{
   scene: GQL.SlimSceneDataFragment;
@@ -120,6 +121,7 @@ export const Tagger: React.FC<ITaggerProps> = ({
   const [hideUnmatched, setHideUnmatched] = useState(false);
 
   const intl = useIntl();
+  const { isAdmin } = usePermissions();
 
   const hasSelection = selectedIds.size > 0;
 
@@ -198,7 +200,7 @@ export const Tagger: React.FC<ITaggerProps> = ({
   }
 
   function maybeRenderSubmitFingerprintsButton() {
-    if (pendingFingerprints.length) {
+    if (pendingFingerprints.length && isAdmin) {
       return (
         <OperationButton
           className="ml-1"

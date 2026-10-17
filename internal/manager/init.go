@@ -27,6 +27,7 @@ import (
 	"github.com/stashapp/stash/pkg/scraper"
 	"github.com/stashapp/stash/pkg/session"
 	"github.com/stashapp/stash/pkg/sqlite"
+	"github.com/stashapp/stash/pkg/user"
 	"github.com/stashapp/stash/pkg/utils"
 	"github.com/stashapp/stash/ui"
 )
@@ -105,6 +106,10 @@ func Initialize(cfg *config.Config, l *log.Logger) (*Manager, error) {
 		ImageService:   imageService,
 		GalleryService: galleryService,
 		GroupService:   groupService,
+		UserService: &user.Service{
+			Store:        cfg.UserStore,
+			APIKeyUserID: GetUserIDFromAPIKey,
+		},
 
 		scanSubs: &subscriptionManager{},
 	}
@@ -128,7 +133,7 @@ func Initialize(cfg *config.Config, l *log.Logger) (*Manager, error) {
 
 		// create temporary session store - this will be re-initialised
 		// after config is complete
-		mgr.SessionStore = session.NewStore(cfg)
+		mgr.SessionStore = session.NewStore(cfg, mgr.UserService)
 
 		logger.Warnf("config file %snot found. Assuming new system...", cfgFile)
 	}
@@ -187,7 +192,7 @@ func initJobManager(cfg *config.Config) *job.Manager {
 func (s *Manager) postInit(ctx context.Context) error {
 	s.RefreshConfig()
 
-	s.SessionStore = session.NewStore(s.Config)
+	s.SessionStore = session.NewStore(s.Config, s.UserService)
 	s.PluginCache.RegisterSessionStore(s.SessionStore)
 
 	s.RefreshPluginCache()

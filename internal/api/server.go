@@ -125,8 +125,15 @@ func Initialize() (*Server, error) {
 	r.Use(middleware.Heartbeat("/healthz"))
 	r.Use(cors.AllowAll().Handler)
 	r.Use(RequestIPMiddleware)
-	r.Use(authenticateHandler())
-	visitedPluginHandler := mgr.SessionStore.VisitedPluginHandler()
+	userService := mgr.UserService
+
+	r.Use(authenticateHandler(userService))
+	// the session store is replaced when setup completes
+	visitedPluginHandler := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			manager.GetInstance().SessionStore.VisitedPluginHandler()(next).ServeHTTP(w, r)
+		})
+	}
 	r.Use(visitedPluginHandler)
 
 	r.Use(middleware.Recoverer)
@@ -169,11 +176,22 @@ func Initialize() (*Server, error) {
 		imageService:   imageService,
 		galleryService: galleryService,
 		groupService:   groupService,
+		userService:    userService,
 		hookExecutor:   pluginCache,
 	}
 
-	gqlSrv := gqlHandler.New(NewExecutableSchema(Config{Resolvers: resolver}))
+	gqlCfg := Config{
+		Resolvers: resolver,
+		Directives: DirectiveRoot{
+			HasRole:     HasRoleDirective,
+			IsUserOwner: IsUserOwnerDirective,
+		},
+	}
+
+	gqlSrv := gqlHandler.New(NewExecutableSchema(gqlCfg))
 	gqlSrv.SetRecoverFunc(recoverFunc)
+	// mutations without a @hasRole directive require the ADMIN role
+	gqlSrv.AroundRootFields(mutationRoleMiddleware)
 	gqlSrv.AddTransport(gqlTransport.Websocket{
 		Upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
@@ -228,9 +246,9 @@ func Initialize() (*Server, error) {
 
 	staticLoginUI := statigz.FileServer(ui.LoginUIBox.(fs.ReadDirFS))
 
-	r.Get(loginEndpoint, handleLogin())
+	r.Get(loginEndpoint, handleLogin(userService))
 	r.Post(loginEndpoint, handleLoginPost())
-	r.Get(logoutEndpoint, handleLogout())
+	r.Get(logoutEndpoint, handleLogout(userService))
 	r.Get(loginLocaleEndpoint, handleLoginLocale(cfg))
 	r.HandleFunc(loginEndpoint+"/*", func(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = strings.TrimPrefix(r.URL.Path, loginEndpoint)

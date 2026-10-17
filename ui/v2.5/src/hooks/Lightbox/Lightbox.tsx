@@ -54,6 +54,7 @@ import { isVideo } from "src/utils/visualFile";
 import { imageTitle } from "src/core/files";
 import { galleryTitle } from "src/core/galleries";
 import type { LightboxHideReason } from "./context";
+import { usePermissions } from "src/hooks/Permissions";
 
 const CLASSNAME = "Lightbox";
 const CLASSNAME_HEADER = `${CLASSNAME}-header`;
@@ -120,6 +121,7 @@ export const LightboxComponent: React.FC<IProps> = ({
   onDeleteImage,
 }) => {
   const [updateImage] = useImageUpdate();
+  const { canModify, canDelete } = usePermissions();
 
   // zero-based
   const [index, setIndex] = useState<number | null>(null);
@@ -1088,6 +1090,7 @@ export const LightboxComponent: React.FC<IProps> = ({
                 <RatingSystem
                   value={currentImage?.rating100}
                   onSetRating={(v) => setRating(v)}
+                  disabled={!canModify}
                   clickToRate
                   withoutContext
                 />
@@ -1109,7 +1112,7 @@ export const LightboxComponent: React.FC<IProps> = ({
                   >
                     {title ?? ""}
                   </Link>
-                  {currentImage.id !== undefined && (
+                  {currentImage.id !== undefined && canDelete && (
                     <Button
                       className="minimal delete-button"
                       onClick={() => setDeleteTarget(currentImage)}

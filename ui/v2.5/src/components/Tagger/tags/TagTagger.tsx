@@ -32,6 +32,7 @@ import { apolloError } from "src/utils";
 import TagModal from "./TagModal";
 import { faTags } from "@fortawesome/free-solid-svg-icons";
 import { uniq } from "lodash-es";
+import { usePermissions } from "src/hooks/Permissions";
 
 type JobFragment = Pick<
   GQL.Job,
@@ -62,6 +63,7 @@ const TagTaggerList: React.FC<ITagTaggerListProps> = ({
   onBatchUpdate,
 }) => {
   const intl = useIntl();
+  const { isAdmin } = usePermissions();
 
   const [loading, setLoading] = useState(false);
 
@@ -474,14 +476,16 @@ const TagTaggerList: React.FC<ITagTaggerListProps> = ({
           endpoint={selectedEndpoint.endpoint}
         />
       )}
-      <div className="ml-auto mb-3">
-        <Button onClick={() => setShowBatchAdd(true)}>
-          <FormattedMessage id="tag_tagger.batch_add_tags" />
-        </Button>
-        <Button className="ml-3" onClick={() => setShowBatchUpdate(true)}>
-          <FormattedMessage id="tag_tagger.batch_update_tags" />
-        </Button>
-      </div>
+      {isAdmin && (
+        <div className="ml-auto mb-3">
+          <Button onClick={() => setShowBatchAdd(true)}>
+            <FormattedMessage id="tag_tagger.batch_add_tags" />
+          </Button>
+          <Button className="ml-3" onClick={() => setShowBatchUpdate(true)}>
+            <FormattedMessage id="tag_tagger.batch_update_tags" />
+          </Button>
+        </div>
+      )}
       <div className={CLASSNAME}>{renderTags()}</div>
     </Card>
   );

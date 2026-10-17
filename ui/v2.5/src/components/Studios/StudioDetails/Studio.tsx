@@ -51,6 +51,7 @@ import { goBackOrReplace } from "src/utils/history";
 import { PatchComponent } from "src/patch";
 import { OCounterButton } from "src/components/Shared/CountButton";
 import { OrganizedButton } from "src/components/Scenes/SceneDetails/OrganizedButton";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IProps {
   studio: GQL.StudioDataFragment;
@@ -267,6 +268,7 @@ const StudioPage: React.FC<IProps> = PatchComponent(
     const history = useHistory();
     const Toast = useToast();
     const intl = useIntl();
+    const { canModify, canDelete } = usePermissions();
 
     // Configuration settings
     const { configuration } = useConfigurationContext();
@@ -345,12 +347,18 @@ const StudioPage: React.FC<IProps> = PatchComponent(
 
     // set up hotkeys
     useEffect(() => {
-      Mousetrap.bind("e", () => toggleEditing());
-      Mousetrap.bind("d d", () => {
-        setIsDeleteAlertOpen(true);
-      });
+      if (canModify) {
+        Mousetrap.bind("e", () => toggleEditing());
+      }
+      if (canDelete) {
+        Mousetrap.bind("d d", () => {
+          setIsDeleteAlertOpen(true);
+        });
+      }
       Mousetrap.bind(",", () => setCollapsed(!collapsed));
-      Mousetrap.bind("f", () => setFavorite(!studio.favorite));
+      if (canModify) {
+        Mousetrap.bind("f", () => setFavorite(!studio.favorite));
+      }
 
       return () => {
         Mousetrap.unbind("e");
@@ -361,7 +369,7 @@ const StudioPage: React.FC<IProps> = PatchComponent(
     });
 
     useRatingKeybinds(
-      true,
+      canModify,
       configuration?.ui.ratingSystemOptions?.type,
       setRating
     );
@@ -508,6 +516,7 @@ const StudioPage: React.FC<IProps> = PatchComponent(
                   <RatingSystem
                     value={studio.rating100}
                     onSetRating={(value) => setRating(value)}
+                    disabled={!canModify}
                     clickToRate
                     withoutContext
                   />

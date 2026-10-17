@@ -11,6 +11,7 @@ import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import { galleryTitle } from "src/core/galleries";
 import { IItemListOperation } from "src/components/List/FilteredListToolbar";
 import { PatchComponent } from "src/patch";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IGalleryAddProps {
   active: boolean;
@@ -23,6 +24,7 @@ export const GalleryAddPanel: React.FC<IGalleryAddProps> = PatchComponent(
   ({ active, gallery, extraOperations = [] }) => {
     const Toast = useToast();
     const intl = useIntl();
+    const { canModify } = usePermissions();
 
     const filterHook = useCallback(
       (filter: ListFilterModel) => {
@@ -96,7 +98,7 @@ export const GalleryAddPanel: React.FC<IGalleryAddProps> = PatchComponent(
           { entityType: intl.formatMessage({ id: "gallery" }) }
         ),
         onClick: addImages,
-        isDisplayed: showWhenSelected,
+        isDisplayed: canModify ? showWhenSelected : () => false,
         postRefetch: true,
         icon: faPlus,
       },

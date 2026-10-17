@@ -1,5 +1,5 @@
 import cloneDeep from "lodash-es/cloneDeep";
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import { useHistory } from "react-router-dom";
 import { FormattedMessage, useIntl } from "react-intl";
 import Mousetrap from "mousetrap";
@@ -47,6 +47,7 @@ import useFocus from "src/utils/focus";
 import { SidebarPerformersFilter } from "../List/Filters/PerformersFilter";
 import { SidebarTagsFilter } from "../List/Filters/TagsFilter";
 import { Button } from "react-bootstrap";
+import { usePermissions } from "src/hooks/Permissions";
 
 const SceneMarkerList: React.FC<{
   markers: GQL.SceneMarkerDataFragment[];
@@ -202,6 +203,7 @@ export const FilteredSceneMarkerList = PatchComponent(
   "FilteredSceneMarkerList",
   (props: ISceneMarkerList) => {
     const intl = useIntl();
+    const { canModify, canDelete } = usePermissions();
 
     const searchFocus = useFocus();
 
@@ -273,23 +275,29 @@ export const FilteredSceneMarkerList = PatchComponent(
       result,
     });
 
-    const onEdit = useCallback(() => {
-      showModal(
-        <EditSceneMarkersDialog
-          selected={selectedItems}
-          onClose={onCloseEditDelete}
-        />
-      );
-    }, [showModal, selectedItems, onCloseEditDelete]);
+    const onEdit = useMemo(() => {
+      if (!canModify) return;
+      return () => {
+        showModal(
+          <EditSceneMarkersDialog
+            selected={selectedItems}
+            onClose={onCloseEditDelete}
+          />
+        );
+      };
+    }, [canModify, showModal, selectedItems, onCloseEditDelete]);
 
-    const onDelete = useCallback(() => {
-      showModal(
-        <DeleteSceneMarkersDialog
-          selected={selectedItems}
-          onClose={onCloseEditDelete}
-        />
-      );
-    }, [showModal, selectedItems, onCloseEditDelete]);
+    const onDelete = useMemo(() => {
+      if (!canDelete) return;
+      return () => {
+        showModal(
+          <DeleteSceneMarkersDialog
+            selected={selectedItems}
+            onClose={onCloseEditDelete}
+          />
+        );
+      };
+    }, [canDelete, showModal, selectedItems, onCloseEditDelete]);
 
     useEffect(() => {
       Mousetrap.bind("e", () => {

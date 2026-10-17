@@ -12,6 +12,7 @@ import { Icon } from "../Shared/Icon";
 import { faHeart } from "@fortawesome/free-solid-svg-icons";
 import cx from "classnames";
 import { useTagUpdate } from "src/core/StashService";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IProps {
   tag: GQL.TagDataFragment | GQL.TagListDataFragment;
@@ -88,6 +89,7 @@ const TagCardOverlays: React.FC<IProps> = PatchComponent(
   "TagCard.Overlays",
   ({ tag }) => {
     const [updateTag] = useTagUpdate();
+    const { canModify } = usePermissions();
 
     function renderFavoriteIcon() {
       return (
@@ -100,6 +102,7 @@ const TagCardOverlays: React.FC<IProps> = PatchComponent(
               tag.favorite ? "favorite" : "not-favorite"
             )}
             onClick={() => onToggleFavorite!(!tag.favorite)}
+            disabled={!canModify}
           >
             <Icon icon={faHeart} size="2x" />
           </Button>

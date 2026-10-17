@@ -9,6 +9,7 @@ import { RatingSystem } from "../Shared/Rating/RatingSystem";
 import { useGalleryUpdate } from "src/core/StashService";
 import { IColumn, ListTable } from "../List/ListTable";
 import { useTableColumns } from "src/hooks/useTableColumns";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IGalleryListTableProps {
   galleries: GQL.SlimGalleryDataFragment[];
@@ -22,6 +23,7 @@ export const GalleryListTable: React.FC<IGalleryListTableProps> = (
   props: IGalleryListTableProps
 ) => {
   const intl = useIntl();
+  const { canModify } = usePermissions();
 
   const [updateGallery] = useGalleryUpdate();
 
@@ -71,6 +73,7 @@ export const GalleryListTable: React.FC<IGalleryListTableProps> = (
     <RatingSystem
       value={gallery.rating100}
       onSetRating={(value) => setRating(value, gallery.id)}
+      disabled={!canModify}
       clickToRate
     />
   );

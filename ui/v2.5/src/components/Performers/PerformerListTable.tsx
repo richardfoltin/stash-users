@@ -20,6 +20,7 @@ import {
 import TextUtils from "src/utils/text";
 import { getCountryByISO } from "src/utils/country";
 import { IColumn, ListTable } from "../List/ListTable";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IPerformerListTableProps {
   performers: GQL.PerformerDataFragment[];
@@ -33,6 +34,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
   props: IPerformerListTableProps
 ) => {
   const intl = useIntl();
+  const { canModify } = usePermissions();
 
   const [updatePerformer] = usePerformerUpdate();
 
@@ -107,6 +109,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
     <RatingSystem
       value={performer.rating100}
       onSetRating={(value) => setRating(value, performer.id)}
+      disabled={!canModify}
       clickToRate
     />
   );
@@ -136,6 +139,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
         performer.favorite ? "favorite" : "not-favorite"
       )}
       onClick={() => setFavorite(!performer.favorite, performer.id)}
+      disabled={!canModify}
     >
       <Icon icon={faHeart} />
     </Button>

@@ -38,6 +38,7 @@ import { goBackOrReplace } from "src/utils/history";
 import { FormattedDate } from "src/components/Shared/Date";
 import { GenerateDialog } from "src/components/Dialogs/GenerateDialog";
 import { StudioLogo } from "src/components/Shared/StudioLogo";
+import { usePermissions } from "src/hooks/Permissions";
 
 interface IProps {
   image: GQL.ImageDataFragment;
@@ -51,6 +52,7 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   const history = useHistory();
   const Toast = useToast();
   const intl = useIntl();
+  const { isAdmin, canModify, canDelete } = usePermissions();
   const { configuration } = useConfigurationContext();
   const { showStudioText } = configuration?.ui ?? {};
 
@@ -154,7 +156,7 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   }
 
   useRatingKeybinds(
-    true,
+    canModify,
     configuration?.ui.ratingSystemOptions?.type,
     setRating
   );
@@ -189,6 +191,8 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   }
 
   function renderOperations() {
+    if (!isAdmin) return;
+
     return (
       <Dropdown>
         <Dropdown.Toggle
@@ -252,11 +256,13 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
                 <Counter count={image.visual_files.length} hideZero hideOne />
               </Nav.Link>
             </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="image-edit-panel">
-                <FormattedMessage id="actions.edit" />
-              </Nav.Link>
-            </Nav.Item>
+            {canModify && (
+              <Nav.Item>
+                <Nav.Link eventKey="image-edit-panel">
+                  <FormattedMessage id="actions.edit" />
+                </Nav.Link>
+              </Nav.Item>
+            )}
           </Nav>
         </div>
 
@@ -270,14 +276,18 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
           >
             <ImageFileInfoPanel image={image} />
           </Tab.Pane>
-          <Tab.Pane eventKey="image-edit-panel" mountOnEnter>
-            <ImageEditPanel
-              isVisible={activeTabKey === "image-edit-panel"}
-              image={image}
-              onSubmit={onSave}
-              onDelete={() => setIsDeleteAlertOpen(true)}
-            />
-          </Tab.Pane>
+          {canModify && (
+            <Tab.Pane eventKey="image-edit-panel" mountOnEnter>
+              <ImageEditPanel
+                isVisible={activeTabKey === "image-edit-panel"}
+                image={image}
+                onSubmit={onSave}
+                onDelete={
+                  canDelete ? () => setIsDeleteAlertOpen(true) : undefined
+                }
+              />
+            </Tab.Pane>
+          )}
         </Tab.Content>
       </Tab.Container>
     );
@@ -286,11 +296,13 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   // set up hotkeys
   useEffect(() => {
     Mousetrap.bind("a", () => setActiveTabKey("image-details-panel"));
-    Mousetrap.bind("e", () => setActiveTabKey("image-edit-panel"));
     Mousetrap.bind("f", () => setActiveTabKey("image-file-info-panel"));
-    Mousetrap.bind("o", () => {
-      onIncrementClick();
-    });
+    if (canModify) {
+      Mousetrap.bind("e", () => setActiveTabKey("image-edit-panel"));
+      Mousetrap.bind("o", () => {
+        onIncrementClick();
+      });
+    }
 
     return () => {
       Mousetrap.unbind("a");
@@ -351,6 +363,7 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
             <RatingSystem
               value={image.rating100}
               onSetRating={setRating}
+              disabled={!canModify}
               clickToRate
               withoutContext
             />

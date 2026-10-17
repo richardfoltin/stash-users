@@ -27,6 +27,7 @@ import (
 	"github.com/stashapp/stash/pkg/scraper"
 	"github.com/stashapp/stash/pkg/session"
 	"github.com/stashapp/stash/pkg/sqlite"
+	"github.com/stashapp/stash/pkg/user"
 
 	// register custom migrations
 	_ "github.com/stashapp/stash/pkg/sqlite/migrations"
@@ -67,6 +68,7 @@ type Manager struct {
 	ImageService   ImageService
 	GalleryService GalleryService
 	GroupService   GroupService
+	UserService    UserService
 
 	scanSubs *subscriptionManager
 }
@@ -212,6 +214,13 @@ func (s *Manager) Setup(ctx context.Context, input SetupInput) error {
 	setSetupDefaults(&input)
 	cfg := s.Config
 
+	setCredentials := input.InitialUsername != "" && input.InitialPassword != ""
+	if setCredentials {
+		if err := user.ValidatePassword(input.InitialPassword); err != nil {
+			return err
+		}
+	}
+
 	// create the config directory if it does not exist
 	// don't do anything if config is already set in the environment
 	if !config.FileEnvSet() {
@@ -292,9 +301,10 @@ func (s *Manager) Setup(ctx context.Context, input SetupInput) error {
 
 	cfg.SetInterface(config.Stash, input.Stashes)
 
-	if input.InitialUsername != "" && input.InitialPassword != "" {
-		cfg.SetString(config.Username, input.InitialUsername)
-		cfg.SetPassword(input.InitialPassword)
+	if setCredentials {
+		if err := cfg.UserStore.SetLegacyCredentials(&input.InitialUsername, &input.InitialPassword); err != nil {
+			return fmt.Errorf("error setting credentials: %w", err)
+		}
 	}
 
 	if err := cfg.Write(); err != nil {
