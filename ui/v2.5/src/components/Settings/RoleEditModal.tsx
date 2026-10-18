@@ -28,7 +28,7 @@ const PermissionCheck: React.FC<{
   permission?: GQL.Permission;
   value: IRoleInput;
   onChange: (v: IRoleInput) => void;
-  label?: string;
+  label?: React.ReactNode;
 }> = ({ permission, value, onChange, label }) => {
   const intl = useIntl();
 
@@ -91,7 +91,7 @@ export const RoleEditModal: React.FC<{
           </h6>
           <Form.Control
             as="textarea"
-            rows={2}
+            rows={3}
             className="text-input"
             value={v.description}
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
@@ -100,13 +100,12 @@ export const RoleEditModal: React.FC<{
           />
         </Form.Group>
 
-        <h6>
-          <FormattedMessage id="config.general.auth.roles.content" />
-        </h6>
         <Table size="sm" className="role-object-permissions">
           <thead>
             <tr>
-              <th />
+              <th>
+                <FormattedMessage id="config.general.auth.roles.content" />
+              </th>
               <th>
                 <FormattedMessage id="actions.edit" />
               </th>
@@ -150,22 +149,27 @@ export const RoleEditModal: React.FC<{
           </tbody>
         </Table>
 
-        <h6>
-          <FormattedMessage id="config.general.auth.roles.other_permissions" />
-        </h6>
-        {otherPermissions.map((p) => (
-          <Form.Group key={p} className="role-other-permission">
+        <div className="role-other-permissions">
+          <h6>
+            <FormattedMessage id="config.general.auth.roles.other_permissions" />
+          </h6>
+          {otherPermissions.map((p) => (
             <PermissionCheck
+              key={p}
               permission={p}
               value={v}
               onChange={setValue}
-              label={intl.formatMessage({ id: permissionMessageID(p) })}
+              label={
+                <>
+                  {intl.formatMessage({ id: permissionMessageID(p) })}
+                  <span className="role-permission-description">
+                    <FormattedMessage id={permissionDescriptionMessageID(p)} />
+                  </span>
+                </>
+              }
             />
-            <Form.Text className="text-muted">
-              <FormattedMessage id={permissionDescriptionMessageID(p)} />
-            </Form.Text>
-          </Form.Group>
-        ))}
+          ))}
+        </div>
       </>
     );
   }
@@ -173,7 +177,6 @@ export const RoleEditModal: React.FC<{
   return (
     <SettingModal<IRoleInput>
       heading={heading}
-      modalProps={{ size: "lg" }}
       value={{
         name: role?.name ?? "",
         description: role?.description ?? "",

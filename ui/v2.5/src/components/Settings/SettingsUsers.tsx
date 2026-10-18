@@ -285,7 +285,7 @@ export const SettingsUsers: React.FC = () => {
   const { user: currentUser } = usePermissions();
 
   const { data, loading, error } = useUsers();
-  const { data: rolesData } = useRoles();
+  const { data: rolesData, error: rolesError } = useRoles();
   const [createUser] = useUserCreate();
   const [updateUser] = useUserUpdate();
   const [destroyUser] = useUserDestroy();
@@ -451,30 +451,59 @@ export const SettingsUsers: React.FC = () => {
 
       return (
         <div key={u.name} className="setting user-setting">
-          <div>
-            <h3>
-              {u.name}
-              {isCurrentUser && (
-                <span className="user-current">
-                  <FormattedMessage id="config.general.auth.users.current_user" />
-                </span>
-              )}
-            </h3>
-            <div className="user-badges">
+          <div className="user-header">
+            <div className="user-title">
+              <h3>
+                {u.name}
+                {isCurrentUser && (
+                  <span className="user-current">
+                    <FormattedMessage id="config.general.auth.users.current_user" />
+                  </span>
+                )}
+              </h3>
               <Badge className="user-badge" variant={roleBadgeVariant(u.role)}>
                 {roleName(u.role, intl)}
               </Badge>
-              {u.autoLogin && (
-                <Badge className="user-badge" variant="info">
-                  <FormattedMessage id="config.general.auth.users.auto_login_enabled" />
-                </Badge>
-              )}
               {!u.hasPassword && (
                 <Badge className="user-badge" variant="warning">
                   <FormattedMessage id="config.general.auth.users.no_password" />
                 </Badge>
               )}
             </div>
+            <div className="user-buttons">
+              <Button
+                disabled={isLastAdmin || !roles.length}
+                title={
+                  isLastAdmin
+                    ? intl.formatMessage({
+                        id: "config.general.auth.users.last_admin",
+                      })
+                    : undefined
+                }
+                onClick={() => setEditingRole(u)}
+              >
+                <FormattedMessage id="config.general.auth.users.change_role" />
+              </Button>
+              <Button onClick={() => setEditingPassword(u)}>
+                <FormattedMessage id="permissions.change_password" />
+              </Button>
+              <Button
+                variant="danger"
+                disabled={isLastAdmin}
+                title={
+                  isLastAdmin
+                    ? intl.formatMessage({
+                        id: "config.general.auth.users.last_admin",
+                      })
+                    : undefined
+                }
+                onClick={() => setDeleting(u)}
+              >
+                <FormattedMessage id="actions.remove" />
+              </Button>
+            </div>
+          </div>
+          <div className="user-auto-login">
             <Form.Switch
               id={`user-auto-login-${i}`}
               className="user-auto-login-switch"
@@ -497,44 +526,6 @@ export const SettingsUsers: React.FC = () => {
                 <FormattedMessage id="config.general.auth.users.auto_login_admin_warning" />
               </div>
             )}
-            {isLastAdmin && (
-              <div className="user-note">
-                <Icon icon={faInfoCircle} />
-                <FormattedMessage id="config.general.auth.users.last_admin" />
-              </div>
-            )}
-          </div>
-          <div>
-            <Button
-              disabled={isLastAdmin || !roles.length}
-              title={
-                isLastAdmin
-                  ? intl.formatMessage({
-                      id: "config.general.auth.users.last_admin",
-                    })
-                  : undefined
-              }
-              onClick={() => setEditingRole(u)}
-            >
-              <FormattedMessage id="config.general.auth.users.change_role" />
-            </Button>
-            <Button onClick={() => setEditingPassword(u)}>
-              <FormattedMessage id="permissions.change_password" />
-            </Button>
-            <Button
-              variant="danger"
-              disabled={isLastAdmin}
-              title={
-                isLastAdmin
-                  ? intl.formatMessage({
-                      id: "config.general.auth.users.last_admin",
-                    })
-                  : undefined
-              }
-              onClick={() => setDeleting(u)}
-            >
-              <FormattedMessage id="actions.remove" />
-            </Button>
           </div>
         </div>
       );
@@ -623,6 +614,12 @@ export const SettingsUsers: React.FC = () => {
           />
         </p>
       </ModalComponent>
+
+      {rolesError && (
+        <div className="setting">
+          <div className="text-danger">{rolesError.message}</div>
+        </div>
+      )}
 
       {renderUsers()}
 

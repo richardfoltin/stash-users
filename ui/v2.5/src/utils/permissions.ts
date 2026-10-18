@@ -63,16 +63,16 @@ export const objectPermissionRows: IObjectPermissions[] = [
 // the permissions that are not of one kind of object, in the order of the
 // role editor
 export const otherPermissions: GQL.Permission[] = [
-  GQL.Permission.RecordActivity,
-  GQL.Permission.UseScrapers,
-  GQL.Permission.SaveFilters,
-  GQL.Permission.DeleteSavedFilters,
-  GQL.Permission.ManageFiles,
   GQL.Permission.ViewRestrictedScenes,
   GQL.Permission.ViewPrivateScenes,
   GQL.Permission.ChangeSceneVisibility,
-  GQL.Permission.RunLibraryTasks,
+  GQL.Permission.RecordActivity,
+  GQL.Permission.SaveFilters,
+  GQL.Permission.DeleteSavedFilters,
   GQL.Permission.ManageSharedListSettings,
+  GQL.Permission.UseScrapers,
+  GQL.Permission.ManageFiles,
+  GQL.Permission.RunLibraryTasks,
 ];
 
 // the permission to create and edit the objects of each filter mode

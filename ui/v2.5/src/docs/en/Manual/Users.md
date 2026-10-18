@@ -58,7 +58,7 @@ Plugin hooks run with `Admin` rights, regardless of the role of the user whose c
 
 ## First admin and automatic login
 
-When Stash starts without any users, it creates the user `admin` with the `Admin` role, no password and `Log in automatically from the local network` turned on. The users list shows it with `No password` and `Auto login`.
+When Stash starts without any users, it creates the user `admin` with the `Admin` role, no password and `Log in automatically from the local network` turned on. The users list shows it with `No password` and its automatic login switch turned on.
 
 Requests from the local network that are not signed in are signed in as the automatic user, without a password. The local network means private, loopback and link-local addresses, and the `100.64.0.0/10` range. Requests from other addresses must sign in with a password, so a user without a password cannot sign in from them at all.
 

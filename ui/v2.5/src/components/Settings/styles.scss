@@ -141,16 +141,37 @@
 }
 
 #users .user-setting {
+  // the line of the name and the buttons above the auto login switch
+  display: block;
+
+  > div:last-child {
+    min-width: 0;
+    text-align: left;
+  }
+
+  // the buttons wrap below the name when they do not fit beside it
+  .user-header {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    justify-content: space-between;
+  }
+
+  .user-title {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 0.5rem;
+  }
+
+  .user-buttons .btn {
+    margin: 0.25rem;
+  }
+
   .user-current {
     font-weight: 400;
     margin-left: 0.5rem;
-  }
-
-  .user-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.375rem;
-    margin-top: 0.5rem;
   }
 
   .user-badge {
@@ -190,11 +211,41 @@
   }
 }
 
+// the description of a role is a short text
+#role-description textarea {
+  min-height: 0;
+}
+
+// the role editor shows the permissions of each kind of object as a grid, and
+// the other permissions as a list under the same kind of header
+.role-object-permissions,
+.role-other-permissions {
+  margin-bottom: 1rem;
+
+  thead th,
+  h6 {
+    border-bottom: 1px solid $secondary;
+    color: $text-muted;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin: 0;
+    padding: 0 0 0.375rem;
+    text-transform: uppercase;
+  }
+}
+
 .role-object-permissions {
+  td {
+    border-bottom: 1px solid $secondary;
+    padding: 0.375rem 0;
+    vertical-align: middle;
+  }
+
   th:not(:first-child),
   td:not(:first-child) {
     text-align: center;
-    width: 6rem;
+    width: 3.75rem;
   }
 
   .form-check {
@@ -202,8 +253,22 @@
   }
 }
 
-.role-other-permission {
-  margin-bottom: 0.75rem;
+.role-other-permissions {
+  .form-check {
+    border-bottom: 1px solid $secondary;
+    padding-bottom: 0.375rem;
+    padding-top: 0.375rem;
+  }
+
+  .form-check-input {
+    margin-top: 0.375rem;
+  }
+
+  .role-permission-description {
+    color: $text-muted;
+    display: block;
+    font-size: 0.8rem;
+  }
 }
 
 #stashes .card {
