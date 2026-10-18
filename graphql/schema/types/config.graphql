@@ -641,3 +641,28 @@ type StashBoxValidationResult {
   valid: Boolean!
   status: String!
 }
+
+enum PersonalSettingSection {
+  "A field of the interface configuration"
+  INTERFACE
+  "A key of the UI configuration"
+  UI
+}
+
+"An interface setting that the current user changed for themselves"
+type PersonalSetting {
+  section: PersonalSettingSection!
+  """
+  Dot separated key of the setting, for example language,
+  imageLightbox.slideshowDelay or tableColumns.scenes
+  """
+  key: String!
+  value: Any
+  "The default, which every user who has not changed the setting gets"
+  defaultValue: Any
+}
+
+input PersonalSettingInput {
+  section: PersonalSettingSection!
+  key: String!
+}

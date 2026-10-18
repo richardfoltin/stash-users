@@ -467,6 +467,27 @@ func (r *mutationResolver) ConfigureGeneral(ctx context.Context, input ConfigGen
 }
 
 func (r *mutationResolver) ConfigureInterface(ctx context.Context, input ConfigInterfaceInput) (*ConfigInterfaceResult, error) {
+	if _, personal := personalUser(ctx); personal {
+		return r.configurePersonalInterface(ctx, input)
+	}
+
+	// without personal settings, the shared configuration is changed
+	if err := checkRequirement(ctx, adminRequirement); err != nil {
+		return nil, err
+	}
+
+	r.applyInterfaceInput(input)
+
+	if err := config.GetInstance().Write(); err != nil {
+		return makeConfigInterfaceResult(), err
+	}
+
+	return makeConfigInterfaceResult(), nil
+}
+
+// applyInterfaceInput sets the fields of the input in the shared interface
+// configuration, without writing the config file.
+func (r *mutationResolver) applyInterfaceInput(input ConfigInterfaceInput) {
 	c := config.GetInstance()
 
 	r.setConfigBool(config.SFWContentMode, input.SfwContentMode)
@@ -540,12 +561,6 @@ func (r *mutationResolver) ConfigureInterface(ctx context.Context, input ConfigI
 	r.setConfigString(config.HandyKey, input.HandyKey)
 	r.setConfigInt(config.FunscriptOffset, input.FunscriptOffset)
 	r.setConfigBool(config.UseStashHostedFunscript, input.UseStashHostedFunscript)
-
-	if err := c.Write(); err != nil {
-		return makeConfigInterfaceResult(), err
-	}
-
-	return makeConfigInterfaceResult(), nil
 }
 
 func (r *mutationResolver) ConfigureDlna(ctx context.Context, input ConfigDLNAInput) (*ConfigDLNAResult, error) {
@@ -677,6 +692,22 @@ func (r *mutationResolver) GenerateAPIKey(ctx context.Context, input GenerateAPI
 }
 
 func (r *mutationResolver) ConfigureUI(ctx context.Context, input map[string]interface{}, partial map[string]interface{}) (map[string]interface{}, error) {
+	if _, personal := personalUser(ctx); personal {
+		return r.configurePersonalUI(ctx, input, partial)
+	}
+
+	// without personal settings, the shared configuration is changed, which
+	// requires the Admin role: every other user is in the users list
+	if err := checkRequirement(ctx, adminRequirement); err != nil {
+		return nil, err
+	}
+
+	return r.configureSharedUI(input, partial)
+}
+
+// configureSharedUI replaces the shared UI configuration with input, and
+// merges partial into it.
+func (r *mutationResolver) configureSharedUI(input map[string]interface{}, partial map[string]interface{}) (map[string]interface{}, error) {
 	c := config.GetInstance()
 
 	if input != nil {
@@ -702,10 +733,6 @@ func (r *mutationResolver) ConfigureUI(ctx context.Context, input map[string]int
 }
 
 func (r *mutationResolver) ConfigureUISetting(ctx context.Context, key string, value interface{}) (map[string]interface{}, error) {
-	c := config.GetInstance()
-
-	cfg := utils.NestedMap(c.GetUIConfiguration())
-
 	// #5483 - convert JSON numbers to float64 or int64
 	if m, ok := value.(map[string]interface{}); ok {
 		value = convertMapJSONNumbers(m)
@@ -713,9 +740,31 @@ func (r *mutationResolver) ConfigureUISetting(ctx context.Context, key string, v
 		value = jsonNumberToNumber(n)
 	}
 
+	username, personal := personalUser(ctx)
+	if personal && !config.IsShared(config.PersonalSectionUI, key) {
+		return r.configurePersonalUISetting(ctx, username, key, value)
+	}
+
+	// the shared keys, and every key of a user without personal settings,
+	// require the Admin role
+	if err := checkRequirement(ctx, adminRequirement); err != nil {
+		return nil, err
+	}
+
+	c := config.GetInstance()
+
+	cfg := utils.NestedMap(c.GetUIConfiguration())
 	cfg.Set(key, value)
 
-	return r.ConfigureUI(ctx, cfg, nil)
+	if _, err := r.configureSharedUI(cfg, nil); err != nil {
+		return nil, err
+	}
+
+	if personal {
+		return makeEffectiveUIResult(ctx), nil
+	}
+
+	return c.GetUIConfiguration(), nil
 }
 
 func (r *mutationResolver) ConfigurePlugin(ctx context.Context, pluginID string, input map[string]interface{}) (map[string]interface{}, error) {

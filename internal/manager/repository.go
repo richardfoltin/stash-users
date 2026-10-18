@@ -8,6 +8,7 @@ import (
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/scene"
 	"github.com/stashapp/stash/pkg/session"
+	"github.com/stashapp/stash/pkg/user"
 )
 
 type SceneService interface {
@@ -57,6 +58,7 @@ type UserService interface {
 	AutoLoginUser(ctx context.Context) (*models.User, string, error)
 
 	CreateUser(ctx context.Context, u models.User, password string) error
+	CreateUserFrom(ctx context.Context, u models.User, password string, from user.CopyFrom) error
 	UpdateUser(ctx context.Context, username string, updated models.User) error
 	ChangePassword(ctx context.Context, username, existingPassword, newPassword string) error
 	ChangeUserPassword(ctx context.Context, username string, newPassword string) error

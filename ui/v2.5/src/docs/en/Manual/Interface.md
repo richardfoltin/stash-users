@@ -1,5 +1,36 @@
 # Interface options
 
+## Personal and shared settings
+
+Each user has their own interface settings. Every setting on this page is personal, except the shared settings listed below, so changing it changes it for you only.
+
+The settings that are saved where they are changed are personal too:
+- default filters
+- pinned filter criteria and sort options
+- table columns
+- the front page
+- the Tagger settings
+- "Advanced mode"
+- the image lightbox options changed in the lightbox, which are the options of the "Image Lightbox" section
+
+A setting you have never changed follows the default. A setting you changed shows an "Own" badge and a reset button, which returns it to the default. "Reset all my settings" returns every setting you changed to the default. The "My list settings" section lists your personal settings that have no option on this page, such as table columns or the front page, each with its reset button.
+
+The following settings are shared: they apply to every user, and only administrators see and change them. On this page, their sections show the note "Shared: applies to every user".
+- Custom CSS, Custom JavaScript and Custom localisation
+- Interactive Options, including the Handy connection key
+- Desktop Integration
+- "Custom title"
+- troubleshooting mode
+- the task defaults, the options of the tasks on the `Tasks` page
+
+### Publishing defaults
+
+"Publish my settings as defaults…" makes some of your own settings the defaults of every user. Choose the settings to publish from the list of your own settings. Administrators can publish any of their own settings. Users whose role has `Shared list settings` can publish their list settings: default filters, pinned criteria and sort options, table columns, the front page and the Tagger settings.
+
+A published setting becomes the default of every user who has not changed it. Users who changed it keep their own value. The published setting is removed from your own settings, so you follow the new default too.
+
+When `config.yml` has no `users` section, for example while the `username` and `password` of an earlier version of Stash have not been moved into it yet, there are no personal settings: every setting is shared, as before. See [Users and Permissions](/help/Users.md).
+
 ## Language
 
 Setting the language affects the formatting of numbers and dates.
@@ -39,7 +70,7 @@ The "Minimum play percent" gives the minimum proportion of a video that must be 
 
 By default, when a scene has a resume point, the scene player will automatically seek to this point when the scene is played. Setting "Always start video from beginning" to true disables this behaviour.
 
-These options, like all interface settings, are shared by all users, and only administrators can change them.
+Like the other settings on this page, these options are personal: each user sets their own. DLNA, which plays without a signed-in user, follows the defaults of "Enable scene play history" and "Minimum play percent".
 
 ## Custom CSS
 

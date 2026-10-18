@@ -6,7 +6,6 @@ Some shortcuts only work for users whose role has the permission for the action.
 
 | Keyboard sequence | Action | Required permission |
 |-------------------|--------|---------------------|
-| `g z` | Go to Settings | `Admin` role, or `Run library tasks` for the `Tasks` page |
 | `d d` | Delete, wherever it is listed below | `Delete` of the object |
 | `e` | Edit, edit tab, edit selected | `Edit` of the object |
 | `n` | New object, new marker, new chapter | `Edit` of the new object |

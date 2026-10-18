@@ -57,6 +57,9 @@ type UserSource interface {
 	ReplaceUser(ctx context.Context, username string, updated models.User) error
 	ChangeUserPassword(ctx context.Context, username string, newPassword string) error
 	DeleteUser(ctx context.Context, username string) error
+	// CopyUserData copies the personal settings and/or the viewing activity
+	// of the user from to the user to.
+	CopyUserData(ctx context.Context, from, to string, settings, activity bool) error
 
 	// AllRoles returns the built-in Admin role, followed by the other roles.
 	AllRoles(ctx context.Context) ([]*models.Role, error)
@@ -289,6 +292,48 @@ func (s *Service) CreateUser(ctx context.Context, u models.User, password string
 	}
 
 	logger.Infof("[user] created %q", u.Username)
+
+	return nil
+}
+
+// CopyFrom selects what a new user copies from an existing user.
+type CopyFrom struct {
+	Username string
+	// Settings copies the personal interface settings
+	Settings bool
+	// Activity copies the plays, play history, O counts and resume positions
+	Activity bool
+}
+
+// CreateUserFrom creates a user with a copy of the settings or the viewing
+// activity of an existing user. If copying fails, the user is deleted again.
+func (s *Service) CreateUserFrom(ctx context.Context, u models.User, password string, from CopyFrom) error {
+	source, err := s.GetUser(ctx, from.Username)
+	if err != nil {
+		return err
+	}
+
+	if source == nil {
+		return ErrUserNotExist
+	}
+
+	if err := s.CreateUser(ctx, u, password); err != nil {
+		return err
+	}
+
+	if !from.Settings && !from.Activity {
+		return nil
+	}
+
+	if err := s.Store.CopyUserData(ctx, from.Username, u.Username, from.Settings, from.Activity); err != nil {
+		if delErr := s.Store.DeleteUser(ctx, u.Username); delErr != nil {
+			logger.Errorf("[user] deleting %q after the failed copy: %v", u.Username, delErr)
+		}
+
+		return fmt.Errorf("copying from %q: %w", from.Username, err)
+	}
+
+	logger.Infof("[user] copied %q to %q", from.Username, u.Username)
 
 	return nil
 }

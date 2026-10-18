@@ -40,9 +40,9 @@ Each kind of library object - scenes, markers, images, galleries, gallery chapte
 | `See private scenes` | Seeing the scenes whose visibility is `Private`. |
 | `Change scene visibility` | Changing who can see a scene, together with `Edit` of scenes. |
 | `Run library tasks` | Scanning, generating, auto tagging, identifying and cleaning, and stopping running tasks. `Settings` shows the `Tasks` page with these tasks only. |
-| `Shared list settings` | Changing what all users share: default filters, pinned criteria and sort options, table columns, the front page and the `Tagger` settings. |
+| `Shared list settings` | Publishing their own list settings as the defaults of every user: default filters, pinned criteria and sort options, table columns, the front page and the `Tagger` settings. |
 
-Only the `Admin` role can change settings, including the interface settings, whose custom JavaScript and CSS run in the browser of every user. It is also the only role that can manage users and roles, generate the API key, manage plugins, scrapers and packages, submit to stash-box and batch tag, import, export, back up and maintain the database, run SQL, read the logs, control DLNA and browse the folders of the server.
+Only the `Admin` role can change settings, including the shared interface settings, whose custom JavaScript and CSS run in the browser of every user. It is also the only role that can manage users and roles, generate the API key, manage plugins, scrapers and packages, submit to stash-box and batch tag, import, export, back up and maintain the database, run SQL, read the logs, control DLNA and browse the folders of the server. Every user can change their own personal interface settings, described below.
 
 ### Managing roles
 
@@ -131,6 +131,21 @@ Export and import carry the activity of the first admin only. A full import repl
 
 Removing a user deletes their activity. Renaming a user moves their activity to the new name.
 
+## Personal interface settings
+
+Each user has their own interface settings, including list settings such as default filters and table columns. Every user can open `Settings > Interface` to change their own. The other pages of `Settings` stay with administrators, apart from the `Tasks` page for `Run library tasks`. Which settings are personal, which are shared, and how defaults are published is described in [Interface Options](/help/Interface.md).
+
+Personal settings are stored with the user, in their entry of the `users` section of `config.yml`. Renaming a user keeps them, and removing a user deletes them.
+
+When adding a user, `Copy from` copies from an existing user:
+
+- `Settings`: their personal interface settings. Checked by default.
+- `Viewing history`: their plays and play history, O counts and resume times. Not checked by default.
+
+If copying fails, the user is not created.
+
+> **⚠️ Note for maintainers:** An upstream database migration that rewrites UI configuration keys, as migrations 58 and 60 did, only rewrites the shared defaults. Check the personal values of the same keys when merging upstream.
+
 ## API key
 
 There is one API key for the whole system. An administrator generates it with `Generate API key` in `Settings > Security`. Generating a new key replaces the old one, and `Clear API key` removes it.
@@ -148,7 +163,7 @@ If no administrator can sign in:
 3. Start Stash. Because there are no users, it creates the user `admin` with no password and automatic login from the local network.
 4. Open Stash from the local network, and set a password with `Change password` in the account menu.
 
-All other users are removed along with the `users` section, so add them again. Their viewing activity stays in the database, and belongs again to a user added with the same name. The API key only works again if the administrator who generated it is added again with the same name and the `Admin` role. Otherwise, generate a new key.
+All other users are removed along with the `users` section, so add them again. Their personal interface settings are kept in the `users` section, so they are lost with it. Their viewing activity stays in the database, and belongs again to a user added with the same name. The API key only works again if the administrator who generated it is added again with the same name and the `Admin` role. Otherwise, generate a new key.
 
 ## Upgrading
 

@@ -7,6 +7,7 @@ import { StringListInput } from "../Shared/StringListInput";
 import { PatchComponent } from "src/patch";
 import { useSettings, useSettingsOptional } from "./context";
 import { NumberField } from "src/utils/form";
+import { IPersonalSettingKey, PersonalSettingBadge } from "./PersonalSettings";
 
 interface ISetting {
   id?: string;
@@ -19,6 +20,9 @@ interface ISetting {
   tooltipID?: string;
   onClick?: React.MouseEventHandler<HTMLDivElement>;
   disabled?: boolean;
+  // the personal setting of the row, which shows whether the current user
+  // changed it for themselves
+  personal?: IPersonalSettingKey;
 }
 
 export const Setting: React.FC<PropsWithChildren<ISetting>> = PatchComponent(
@@ -36,6 +40,7 @@ export const Setting: React.FC<PropsWithChildren<ISetting>> = PatchComponent(
       onClick,
       disabled,
       advanced,
+      personal,
     } = props;
 
     // these components can be used in the setup wizard, where advanced mode is not available
@@ -77,7 +82,10 @@ export const Setting: React.FC<PropsWithChildren<ISetting>> = PatchComponent(
         onClick={onClick}
       >
         <div>
-          <h3 title={tooltip}>{renderHeading()}</h3>
+          <h3 title={tooltip}>
+            {renderHeading()}
+            {personal && <PersonalSettingBadge setting={personal} />}
+          </h3>
           {renderSubHeading()}
         </div>
         <div>{children}</div>
@@ -178,13 +186,23 @@ interface ISelectSetting extends ISetting {
 export const SelectSetting: React.FC<PropsWithChildren<ISelectSetting>> =
   PatchComponent(
     "SelectSetting",
-    ({ id, headingID, subHeadingID, value, children, onChange, advanced }) => {
+    ({
+      id,
+      headingID,
+      subHeadingID,
+      value,
+      children,
+      onChange,
+      advanced,
+      personal,
+    }) => {
       return (
         <Setting
           advanced={advanced}
           headingID={headingID}
           subHeadingID={subHeadingID}
           id={id}
+          personal={personal}
         >
           <Form.Control
             className="input-control"
@@ -221,6 +239,7 @@ const _ChangeButtonSetting = <T extends {}>(props: IDialogSetting<T>) => {
     buttonText,
     buttonTextID,
     disabled,
+    personal,
   } = props;
   const intl = useIntl();
 
@@ -236,6 +255,7 @@ const _ChangeButtonSetting = <T extends {}>(props: IDialogSetting<T>) => {
             : heading
               ? heading
               : undefined}
+          {personal && <PersonalSettingBadge setting={personal} />}
         </h3>
 
         <div className="value">
@@ -383,6 +403,7 @@ export const _ModalSetting = <T extends {}>(props: IModalSetting<T>) => {
     disabled,
     advanced,
     validateChange,
+    personal,
   } = props;
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState<string>();
@@ -437,6 +458,7 @@ export const _ModalSetting = <T extends {}>(props: IModalSetting<T>) => {
         value={value}
         onChange={() => setShowModal(true)}
         renderValue={renderValue}
+        personal={personal}
       />
     </>
   );

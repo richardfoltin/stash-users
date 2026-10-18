@@ -64,8 +64,9 @@ enum Permission {
   "Run and stop the library tasks: scan, generate, auto tag, identify and clean"
   RUN_LIBRARY_TASKS
   """
-  Change the list settings and the front page shared by every user: default
-  filters, table columns and the tagger settings
+  Publish their own list settings as the defaults of every user: default
+  filters, pinned filters and sort options, table columns, the front page and
+  the tagger settings
   """
   MANAGE_SHARED_LIST_SETTINGS
 }
@@ -131,6 +132,20 @@ input UserCreateInput {
   roleId: ID
   "Setting auto login for this user clears it for every other user"
   autoLogin: Boolean
+  """
+  Copies the personal settings or the viewing activity of an existing user.
+  If copying fails, the user is not created.
+  """
+  copyFrom: UserCopyFromInput
+}
+
+input UserCopyFromInput {
+  "Name of the existing user to copy from"
+  name: String!
+  "Copies the personal interface settings"
+  settings: Boolean!
+  "Copies the plays, play history, O counts and resume positions"
+  activity: Boolean!
 }
 
 input UserUpdateInput {

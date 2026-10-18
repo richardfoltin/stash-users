@@ -145,18 +145,85 @@ const AutoLoginInput: React.FC<{
   );
 };
 
+// the name of the user to copy from, empty for none, and what to copy
+interface ICopyFrom {
+  name: string;
+  settings: boolean;
+  activity: boolean;
+}
+
+const CopyFromInput: React.FC<{
+  users: GQL.UserDataFragment[];
+  value: ICopyFrom;
+  onChange: (v: ICopyFrom) => void;
+}> = ({ users, value, onChange }) => {
+  const intl = useIntl();
+
+  return (
+    <Form.Group id="user-copy-from">
+      <h6>
+        {intl.formatMessage({ id: "config.general.auth.users.copy_from" })}
+      </h6>
+      <Form.Control
+        as="select"
+        className="input-control"
+        value={value.name}
+        onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+          onChange({ ...value, name: e.currentTarget.value })
+        }
+      >
+        <option value="">
+          {intl.formatMessage({
+            id: "config.general.auth.users.copy_from_none",
+          })}
+        </option>
+        {users.map((u) => (
+          <option key={u.name} value={u.name}>
+            {u.name}
+          </option>
+        ))}
+      </Form.Control>
+      <Form.Check
+        id="user-copy-settings"
+        checked={value.settings}
+        disabled={!value.name}
+        label={intl.formatMessage({
+          id: "config.general.auth.users.copy_settings",
+        })}
+        onChange={() => onChange({ ...value, settings: !value.settings })}
+      />
+      <Form.Check
+        id="user-copy-activity"
+        checked={value.activity}
+        disabled={!value.name}
+        label={intl.formatMessage({
+          id: "config.general.auth.users.copy_activity",
+        })}
+        onChange={() => onChange({ ...value, activity: !value.activity })}
+      />
+      <Form.Text className="text-muted">
+        {intl.formatMessage({
+          id: "config.general.auth.users.copy_from_desc",
+        })}
+      </Form.Text>
+    </Form.Group>
+  );
+};
+
 interface IUserInput {
   name: string;
   password: string;
   roleId: string;
   autoLogin: boolean;
+  copyFrom: ICopyFrom;
 }
 
 const AddUserModal: React.FC<{
   roles: GQL.RoleDataFragment[];
+  users: GQL.UserDataFragment[];
   autoLoginDisabledReason?: string;
   close: (v?: IUserInput) => void;
-}> = ({ roles, autoLoginDisabledReason, close }) => {
+}> = ({ roles, users, autoLoginDisabledReason, close }) => {
   const intl = useIntl();
 
   return (
@@ -167,6 +234,7 @@ const AddUserModal: React.FC<{
         password: "",
         roleId: defaultRoleID(roles),
         autoLogin: false,
+        copyFrom: { name: "", settings: true, activity: false },
       }}
       validate={(v) => v.name.trim() !== "" && validPassword(v.password)}
       renderField={(v, setValue) => (
@@ -198,6 +266,11 @@ const AddUserModal: React.FC<{
             isAdmin={!!roles.find((r) => r.id === v?.roleId)?.builtin}
             disabledReason={autoLoginDisabledReason}
             onChange={(autoLogin) => setValue({ ...v!, autoLogin })}
+          />
+          <CopyFromInput
+            users={users}
+            value={v!.copyFrom}
+            onChange={(copyFrom) => setValue({ ...v!, copyFrom })}
           />
         </>
       )}
@@ -254,6 +327,7 @@ export const SettingsUsers: React.FC = () => {
             password: v.password,
             roleId: v.roleId,
             autoLogin: v.autoLogin,
+            copyFrom: v.copyFrom.name ? v.copyFrom : undefined,
           },
         },
       });
@@ -476,6 +550,7 @@ export const SettingsUsers: React.FC = () => {
       {isCreating && (
         <AddUserModal
           roles={roles}
+          users={users}
           autoLoginDisabledReason={autoLoginDisabledReason()}
           close={(v) => {
             setIsCreating(false);

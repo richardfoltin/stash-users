@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
-import { useConfigureUI } from "src/core/StashService";
+import { useConfigureUISetting } from "src/core/StashService";
 import { LoadingIndicator } from "../Shared/LoadingIndicator";
 import { Button } from "react-bootstrap";
 import { FrontPageConfig } from "./FrontPageConfig";
@@ -14,19 +14,15 @@ import {
 } from "src/core/config";
 import { useScrollToTopOnMount } from "src/hooks/scrollToTop";
 import { PatchComponent } from "src/patch";
-import { usePermissions } from "src/hooks/Permissions";
-import * as GQL from "src/core/generated-graphql";
 
 const FrontPage: React.FC = PatchComponent("FrontPage", () => {
   const intl = useIntl();
   const Toast = useToast();
-  const { can } = usePermissions();
-  const canEdit = can(GQL.Permission.ManageSharedListSettings);
 
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [saveUI] = useConfigureUI();
+  const [saveUISetting] = useConfigureUISetting();
 
   const { configuration } = useConfigurationContext();
 
@@ -41,12 +37,10 @@ const FrontPage: React.FC = PatchComponent("FrontPage", () => {
 
     setSaving(true);
     try {
-      await saveUI({
+      await saveUISetting({
         variables: {
-          input: {
-            ...configuration?.ui,
-            frontPageContent: content,
-          },
+          key: "frontPageContent",
+          value: content,
         },
       });
     } catch (e) {
@@ -65,16 +59,10 @@ const FrontPage: React.FC = PatchComponent("FrontPage", () => {
 
   const ui = configuration?.ui ?? {};
 
-  let frontPageContent = getFrontPageContent(ui);
-
-  if (!ui.frontPageContent) {
-    const defaultContent = generateDefaultFrontPageContent(intl);
-    if (canEdit) {
-      onUpdateConfig(defaultContent);
-    } else {
-      frontPageContent = defaultContent;
-    }
-  }
+  // the generated front page is shown, but not saved, so that a published
+  // front page reaches every user who has not customised their own
+  const frontPageContent =
+    getFrontPageContent(ui) ?? generateDefaultFrontPageContent(intl);
 
   return (
     <div className="recommendations-container">
@@ -83,13 +71,11 @@ const FrontPage: React.FC = PatchComponent("FrontPage", () => {
           <Control key={i} content={content} />
         ))}
       </div>
-      {canEdit && (
-        <div className="recommendations-footer">
-          <Button onClick={() => setIsEditing(true)}>
-            <FormattedMessage id={"actions.customise"} />
-          </Button>
-        </div>
-      )}
+      <div className="recommendations-footer">
+        <Button onClick={() => setIsEditing(true)}>
+          <FormattedMessage id={"actions.customise"} />
+        </Button>
+      </div>
     </div>
   );
 });

@@ -253,7 +253,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
     const [sceneSaveActivity] = useSceneSaveActivity();
     const [sceneIncrementPlayCount] = useSceneIncrementPlayCount();
     const [updateInterfaceConfig] = useConfigureInterface();
-    const { isAdmin, can } = usePermissions();
+    const { can } = usePermissions();
     const canRecordActivity = can(GQL.Permission.RecordActivity);
 
     const [time, setTime] = useState(0);
@@ -883,8 +883,6 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
       if (!player) return;
 
       async function updateAutoStart(enabled: boolean) {
-        if (!isAdmin) return;
-
         await updateInterfaceConfig({
           variables: {
             input: {
@@ -901,12 +899,7 @@ export const ScenePlayer: React.FC<IScenePlayerProps> = PatchComponent(
         );
         autostartButton.updateAutoStart = updateAutoStart;
       }
-    }, [
-      getPlayer,
-      updateInterfaceConfig,
-      interfaceConfig?.autostartVideo,
-      isAdmin,
-    ]);
+    }, [getPlayer, updateInterfaceConfig, interfaceConfig?.autostartVideo]);
 
     useEffect(() => {
       const player = getPlayer();

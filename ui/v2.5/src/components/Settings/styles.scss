@@ -525,3 +525,25 @@
     position: static;
   }
 }
+
+.personal-settings-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.personal-setting-badge {
+  margin-left: 0.5rem;
+  white-space: nowrap;
+
+  .badge {
+    font-size: 0.7rem;
+    vertical-align: middle;
+  }
+
+  .btn {
+    padding: 0 0.25rem;
+    vertical-align: middle;
+  }
+}

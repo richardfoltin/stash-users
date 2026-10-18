@@ -2749,9 +2749,17 @@ export const useConfigureGeneral = () =>
     },
   });
 
+// configuring the interface or the UI may change the personal settings
 export const useConfigureInterface = () =>
   GQL.useConfigureInterfaceMutation({
-    update: updateConfiguration,
+    update(cache, result) {
+      if (!result.data?.configureInterface) return;
+
+      evictQueries(cache, [
+        GQL.ConfigurationDocument,
+        GQL.PersonalSettingsDocument,
+      ]);
+    },
   });
 
 export const useGenerateAPIKey = () =>
@@ -2878,6 +2886,8 @@ function updateUIConfig(
       },
     },
   });
+
+  evictQueries(cache, [GQL.PersonalSettingsDocument]);
 }
 
 export const useConfigureUI = () =>
@@ -2889,6 +2899,26 @@ export const useConfigureUISetting = () =>
   GQL.useConfigureUiSettingMutation({
     update: (cache, result) =>
       updateUIConfig(cache, result.data?.configureUISetting),
+  });
+
+export const usePersonalSettings = () => GQL.usePersonalSettingsQuery();
+
+const personalSettingsImpactedQueries = [
+  GQL.ConfigurationDocument,
+  GQL.PersonalSettingsDocument,
+];
+
+export const useResetPersonalSettings = () =>
+  GQL.useResetPersonalSettingsMutation({
+    refetchQueries: personalSettingsImpactedQueries,
+    awaitRefetchQueries: true,
+  });
+
+// publishing leaves the effective configuration of the user as it was
+export const usePublishPersonalSettings = () =>
+  GQL.usePublishPersonalSettingsMutation({
+    refetchQueries: [GQL.PersonalSettingsDocument],
+    awaitRefetchQueries: true,
   });
 
 export const useConfigureScraping = () =>

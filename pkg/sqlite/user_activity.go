@@ -301,6 +301,40 @@ func moveUserActivity(ctx context.Context, from string, to string) error {
 	return nil
 }
 
+var copyUserActivitySQL = []string{
+	`INSERT INTO user_scene_views (scene_id, user_name, view_date)
+		SELECT scene_id, :to, view_date FROM user_scene_views WHERE user_name = :from`,
+	`INSERT INTO user_scene_o_dates (scene_id, user_name, o_date)
+		SELECT scene_id, :to, o_date FROM user_scene_o_dates WHERE user_name = :from`,
+	`INSERT INTO user_scene_activity (scene_id, user_name, resume_time, play_duration)
+		SELECT scene_id, :to, resume_time, play_duration FROM user_scene_activity WHERE user_name = :from
+		ON CONFLICT (scene_id, user_name) DO UPDATE SET
+			resume_time = CASE WHEN resume_time = 0 THEN excluded.resume_time ELSE resume_time END,
+			play_duration = play_duration + excluded.play_duration`,
+	`INSERT INTO user_image_o_counters (image_id, user_name, o_counter)
+		SELECT image_id, :to, o_counter FROM user_image_o_counters WHERE user_name = :from
+		ON CONFLICT (image_id, user_name) DO UPDATE SET o_counter = o_counter + excluded.o_counter`,
+}
+
+// CopyUserActivity adds a copy of the activity of the user from to the user
+// to.
+func (db *Database) CopyUserActivity(ctx context.Context, from string, to string) error {
+	if from == to {
+		return nil
+	}
+
+	return txn.WithTxn(ctx, db, func(ctx context.Context) error {
+		arg := map[string]interface{}{"from": from, "to": to}
+		for _, stmt := range copyUserActivitySQL {
+			if _, err := dbWrapper.NamedExec(ctx, stmt, arg); err != nil {
+				return fmt.Errorf("copying the activity of %q to %q: %w", from, to, err)
+			}
+		}
+
+		return nil
+	})
+}
+
 func deleteUserActivity(ctx context.Context, name string) error {
 	for _, table := range []string{userSceneViewsTable, userSceneODatesTable, userSceneActivityTable, userImageOCountersTable} {
 		if _, err := dbWrapper.Exec(ctx, "DELETE FROM "+table+" WHERE user_name = ?", name); err != nil {

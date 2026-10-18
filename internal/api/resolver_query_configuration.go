@@ -15,6 +15,13 @@ import (
 func (r *queryResolver) Configuration(ctx context.Context) (*ConfigResult, error) {
 	ret := makeConfigResult()
 
+	// the interface and UI configuration of the current user
+	iface, ui := currentPersonalSettings(ctx)
+	ret.Interface = withPersonalInterface(ret.Interface, iface)
+	if len(ui) > 0 {
+		ret.UI = config.ApplyUnits(config.PersonalSectionUI, ret.UI, ui)
+	}
+
 	if u := models.GetCurrentUser(ctx); u != nil && !u.IsAdmin() {
 		redactConfigResult(ret)
 	}
@@ -31,10 +38,7 @@ func redactConfigResult(c *ConfigResult) {
 	c.General.Username = ""
 	c.General.Password = ""
 
-	if c.Interface.HandyKey != nil {
-		empty := ""
-		c.Interface.HandyKey = &empty
-	}
+	redactInterfaceResult(c.Interface)
 
 	stashBoxes := make([]*models.StashBox, len(c.General.StashBoxes))
 	for i, sb := range c.General.StashBoxes {
@@ -43,6 +47,15 @@ func redactConfigResult(c *ConfigResult) {
 		stashBoxes[i] = &redacted
 	}
 	c.General.StashBoxes = stashBoxes
+}
+
+// redactInterfaceResult removes the Handy key from the interface configuration
+// returned to non-admin users.
+func redactInterfaceResult(c *ConfigInterfaceResult) {
+	if c.HandyKey != nil {
+		empty := ""
+		c.HandyKey = &empty
+	}
 }
 
 func (r *queryResolver) Directory(ctx context.Context, path, locale *string) (*Directory, error) {

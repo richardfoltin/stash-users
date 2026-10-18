@@ -79,7 +79,9 @@ The default filter for the top-level pages may be set to the current filter by c
 
 ### Permissions and shared filters
 
-Saved filters, default filters, pinned criteria and pinned sort options are shared by all users. Saving a filter, including `Overwrite` and `Rename`, requires the `Save filters` permission. Deleting a saved filter requires `Delete saved filters`. `Set as default` and pinning criteria or sort options require `Shared list settings`. See [Users and Permissions](/help/Users.md).
+Saved filters are shared by all users. Saving a filter, including `Overwrite` and `Rename`, requires the `Save filters` permission. Deleting a saved filter requires `Delete saved filters`. See [Users and Permissions](/help/Users.md).
+
+Default filters, pinned criteria and pinned sort options are personal: `Set as default` and pinning change them for you only. A user who never changed one follows the default. Administrators, and users whose role has `Shared list settings`, can publish their own as the defaults of every user from `Settings > Interface`. See [Interface Options](/help/Interface.md).
 
 ### List memory
 

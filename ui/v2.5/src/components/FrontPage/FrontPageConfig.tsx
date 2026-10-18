@@ -9,6 +9,7 @@ import {
   ISavedFilterRow,
   ICustomFilter,
   FrontPageContent,
+  generateDefaultFrontPageContent,
   generatePremadeFrontPageContent,
   getFrontPageContent,
 } from "src/core/config";
@@ -279,6 +280,7 @@ interface IFrontPageConfigProps {
 export const FrontPageConfig: React.FC<IFrontPageConfigProps> = ({
   onClose,
 }) => {
+  const intl = useIntl();
   const { configuration } = useConfigurationContext();
 
   const ui = configuration?.ui;
@@ -294,7 +296,9 @@ export const FrontPageConfig: React.FC<IFrontPageConfigProps> = ({
       return;
     }
 
-    const frontPageContent = getFrontPageContent(ui);
+    // without a saved front page, the generated one is shown
+    const frontPageContent =
+      getFrontPageContent(ui) ?? generateDefaultFrontPageContent(intl);
     if (frontPageContent) {
       setCurrentContent(
         // filter out rows where the saved filter no longer exists
@@ -309,7 +313,7 @@ export const FrontPageConfig: React.FC<IFrontPageConfigProps> = ({
         })
       );
     }
-  }, [allFilters, ui]);
+  }, [allFilters, ui, intl]);
 
   function onDragStart(event: React.DragEvent<HTMLElement>, index: number) {
     event.dataTransfer.effectAllowed = "move";

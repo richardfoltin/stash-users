@@ -13,8 +13,9 @@ import (
 
 type fakeUserSource struct {
 	user.UserSource
-	users []*models.User
-	err   error
+	users  []*models.User
+	copies []copyCall
+	err    error
 }
 
 func (s *fakeUserSource) AllUsers(ctx context.Context) ([]*models.User, error) {
@@ -33,6 +34,16 @@ func (s *fakeUserSource) DeleteUser(ctx context.Context, username string) error 
 	return s.err
 }
 
+type copyCall struct {
+	from, to           string
+	settings, activity bool
+}
+
+func (s *fakeUserSource) CopyUserData(ctx context.Context, from, to string, settings, activity bool) error {
+	s.copies = append(s.copies, copyCall{from, to, settings, activity})
+	return s.err
+}
+
 type activityMove struct {
 	from string
 	to   *string
@@ -41,6 +52,7 @@ type activityMove struct {
 type fakeActivityStore struct {
 	notReady bool
 	moves    []activityMove
+	copies   []activityMove
 	adopted  int
 }
 
@@ -53,6 +65,11 @@ func (s *fakeActivityStore) Ready() error {
 
 func (s *fakeActivityStore) MoveUserActivity(ctx context.Context, from string, to *string) error {
 	s.moves = append(s.moves, activityMove{from, to})
+	return nil
+}
+
+func (s *fakeActivityStore) CopyUserActivity(ctx context.Context, from string, to string) error {
+	s.copies = append(s.copies, activityMove{from, &to})
 	return nil
 }
 
@@ -129,5 +146,44 @@ func TestActivityUserSource(t *testing.T) {
 
 		assert.NoError(t, s.DeleteUser(ctx, "bob"))
 		assert.Empty(t, store.moves)
+	})
+}
+
+func TestActivityUserSourceCopy(t *testing.T) {
+	ctx := context.Background()
+	bela := "bela"
+
+	t.Run("settings and activity", func(t *testing.T) {
+		store := &fakeActivityStore{}
+		users := &fakeUserSource{}
+		s := &activityUserSource{UserSource: users, activity: store}
+
+		assert.NoError(t, s.CopyUserData(ctx, "anna", bela, true, true))
+		assert.Equal(t, []copyCall{{"anna", bela, true, false}}, users.copies, "the user source copies the settings")
+		assert.Equal(t, []activityMove{{"anna", &bela}}, store.copies)
+	})
+
+	t.Run("settings only", func(t *testing.T) {
+		store := &fakeActivityStore{}
+		s := &activityUserSource{UserSource: &fakeUserSource{}, activity: store}
+
+		assert.NoError(t, s.CopyUserData(ctx, "anna", bela, true, false))
+		assert.Empty(t, store.copies)
+	})
+
+	t.Run("activity without a database", func(t *testing.T) {
+		store := &fakeActivityStore{notReady: true}
+		s := &activityUserSource{UserSource: &fakeUserSource{}, activity: store}
+
+		assert.Error(t, s.CopyUserData(ctx, "anna", bela, false, true))
+		assert.Empty(t, store.copies)
+	})
+
+	t.Run("failed settings copy", func(t *testing.T) {
+		store := &fakeActivityStore{}
+		s := &activityUserSource{UserSource: &fakeUserSource{err: user.ErrUserNotExist}, activity: store}
+
+		assert.ErrorIs(t, s.CopyUserData(ctx, "anna", bela, true, true), user.ErrUserNotExist)
+		assert.Empty(t, store.copies)
 	})
 }

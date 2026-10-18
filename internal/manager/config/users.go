@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync/atomic"
 
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/user"
@@ -26,6 +27,10 @@ const FirstAdminUsername = "admin"
 
 var ErrUsersListExists = errors.New("the username and password are managed in the users list: use the user management instead")
 
+// errUnchanged is returned by a function that modifyUsers calls when it
+// changed nothing, so that the config file is not written.
+var errUnchanged = errors.New("unchanged")
+
 // StoredUser is a user as stored in the config file, with its password hash.
 type StoredUser struct {
 	Username     string `json:"username" koanf:"username"`
@@ -35,6 +40,10 @@ type StoredUser struct {
 	// SessionToken is replaced when the password changes, ending the sessions
 	SessionToken string `json:"sessiontoken" koanf:"sessiontoken"`
 	AutoLogin    bool   `json:"autologin" koanf:"autologin"`
+	// Interface and UI are the units of the interface and UI configuration
+	// that the user changed for themselves
+	Interface map[string]interface{} `json:"interface,omitempty" koanf:"interface"`
+	UI        map[string]interface{} `json:"ui,omitempty" koanf:"ui"`
 }
 
 func (u StoredUser) toMap() map[string]interface{} {
@@ -53,6 +62,14 @@ func (u StoredUser) toMap() map[string]interface{} {
 
 	if u.AutoLogin {
 		ret["autologin"] = true
+	}
+
+	if len(u.Interface) > 0 {
+		ret["interface"] = u.Interface
+	}
+
+	if len(u.UI) > 0 {
+		ret["ui"] = u.UI
 	}
 
 	return ret
@@ -144,6 +161,34 @@ func newSessionToken() (string, error) {
 // change.
 type UserStore struct {
 	*Config
+
+	// the users and roles lists, which every request reads, as last decoded
+	users atomic.Pointer[decoded[[]StoredUser]]
+	roles atomic.Pointer[decoded[[]StoredRole]]
+}
+
+// decoded is a value decoded from the configuration, with the generation of
+// the configuration it was decoded from.
+type decoded[T any] struct {
+	generation uint64
+	value      T
+}
+
+// cloneUsers returns copies of the users that share nothing with them.
+func cloneUsers(users []StoredUser) []StoredUser {
+	ret := make([]StoredUser, len(users))
+	for i, u := range users {
+		u.Roles = slices.Clone(u.Roles)
+		if u.Interface != nil {
+			u.Interface = copyMap(u.Interface)
+		}
+		if u.UI != nil {
+			u.UI = copyMap(u.UI)
+		}
+		ret[i] = u
+	}
+
+	return ret
 }
 
 func (i *Config) GetUsername() string {
@@ -228,18 +273,25 @@ func (s *UserStore) legacyUserNoLock() *StoredUser {
 	}
 }
 
-// listedUsersNoLock assumes read lock held.
+// listedUsersNoLock returns the users list. Every request reads it, so it is
+// decoded once for each change of the configuration, and the users are shared:
+// they must not be changed. Assumes read lock held.
 func (s *UserStore) listedUsersNoLock() ([]StoredUser, error) {
+	if c := s.users.Load(); c != nil && c.generation == s.generation {
+		return c.value, nil
+	}
+
 	var ret []StoredUser
 	if err := s.forKey(Users).Unmarshal(Users, &ret); err != nil {
 		return nil, fmt.Errorf("reading users from config: %w", err)
 	}
 
+	s.users.Store(&decoded[[]StoredUser]{generation: s.generation, value: ret})
 	return ret, nil
 }
 
-// allUsersNoLock returns all users, including the legacy user. Assumes read
-// lock held.
+// allUsersNoLock returns all users, including the legacy user. The users are
+// shared, and must not be changed. Assumes read lock held.
 func (s *UserStore) allUsersNoLock() ([]StoredUser, error) {
 	ret, err := s.listedUsersNoLock()
 	if err != nil {
@@ -301,7 +353,8 @@ func (s *UserStore) getStoredUser(username string) (*StoredUser, error) {
 		return nil, nil
 	}
 
-	return &users[idx], nil
+	u := users[idx]
+	return &u, nil
 }
 
 // GetUser returns the user with the provided username, or nil if not found.
@@ -351,7 +404,7 @@ func (s *UserStore) AllUsers(ctx context.Context) ([]*models.User, error) {
 }
 
 // LoginRequired returns true if any users are configured.
-// It is called for every request, so it does not read the users list.
+// It is called for every request.
 func (s *UserStore) LoginRequired(ctx context.Context) bool {
 	s.RLock()
 	defer s.RUnlock()
@@ -360,17 +413,10 @@ func (s *UserStore) LoginRequired(ctx context.Context) bool {
 		return true
 	}
 
-	switch listed := s.forKey(Users).Get(Users).(type) {
-	case nil:
-		return false
-	case []interface{}:
-		return len(listed) > 0
-	case []map[string]interface{}:
-		return len(listed) > 0
-	default:
-		// fail closed - an unexpected value must not disable authentication
-		return true
-	}
+	listed, err := s.listedUsersNoLock()
+
+	// fail closed - an unexpected value must not disable authentication
+	return err != nil || len(listed) > 0
 }
 
 func (s *UserStore) ValidateCredentials(ctx context.Context, username string, password string) bool {
@@ -414,7 +460,11 @@ func (s *UserStore) modifyUsers(fn func(users []StoredUser) ([]StoredUser, error
 		return err
 	}
 
-	users, err = fn(users)
+	// fn changes the users, which must not be the shared ones
+	users, err = fn(cloneUsers(users))
+	if errors.Is(err, errUnchanged) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}

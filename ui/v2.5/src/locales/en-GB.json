@@ -357,6 +357,11 @@
           "change_password_for": "Change password for {name}",
           "change_role": "Change role",
           "change_role_for": "Change role for {name}",
+          "copy_activity": "Viewing history",
+          "copy_from": "Copy from",
+          "copy_from_desc": "Copies the settings or the viewing history of an existing user to the new user.",
+          "copy_from_none": "None",
+          "copy_settings": "Settings",
           "current_user": "(you)",
           "description": "Users that can sign in to Stash, and what each of them may do.",
           "heading": "Users",
@@ -863,6 +868,33 @@
           }
         }
       },
+      "personal_settings": {
+        "labels": {
+          "default_filter": "Default filter: {list}",
+          "front_page": "Front page",
+          "pinned_filters": "Pinned filters: {list}",
+          "pinned_sort_by": "Pinned sort options: {list}",
+          "table_columns": "Table columns: {list}",
+          "tagger_settings": "Tagger settings"
+        },
+        "list_settings": {
+          "description": "Settings you changed for yourself where they are used, such as the columns of a table or the default filter of a list.",
+          "heading": "My list settings"
+        },
+        "own": "Own",
+        "publish": "Publish my settings as defaults…",
+        "publish_dialog": {
+          "description": "The checked settings become the defaults of every user who has not changed them, and are removed from your own settings.",
+          "heading": "Publish my settings as defaults",
+          "not_set": "not set",
+          "publish": "Publish",
+          "published": "Published your settings as the defaults",
+          "values": "Yours: {value} · Default: {defaultValue}"
+        },
+        "reset": "Reset to default",
+        "reset_all": "Reset all my settings",
+        "reset_all_confirm": "Are you sure you want to reset all your settings? They will follow the defaults again."
+      },
       "preview_type": {
         "description": "The default option is video (mp4) previews. For less CPU usage when browsing, you can use the animated image (webp) previews. However they must be generated in addition to the video previews and are larger files.",
         "heading": "Preview type",
@@ -928,6 +960,7 @@
         "description": "Enable if using stash to store SFW content. Hides or changes some adult-content-related aspects of the UI.",
         "heading": "SFW content mode"
       },
+      "shared_setting_note": "Shared: applies to every user",
       "show_tag_card_on_hover": {
         "description": "Show tag card when hovering tag badges.",
         "heading": "Tag card tooltips"
@@ -1484,7 +1517,7 @@
       "change_scene_visibility": "Change who can see a scene.",
       "delete_saved_filters": "Delete saved filters.",
       "manage_files": "Move, delete and reassign files, set fingerprints and reveal files in the file manager. Also needed to delete the files of scenes, images and galleries when deleting them.",
-      "manage_shared_list_settings": "Change what every user shares: the default filters, pinned criteria and sorts, table columns, the front page and the Tagger settings.",
+      "manage_shared_list_settings": "Publish their own list settings as the defaults of every user: the default filters, pinned criteria and sorts, table columns, the front page and the Tagger settings.",
       "record_activity": "Record their own plays, O counts and resume times, and edit their own play and O history.",
       "run_library_tasks": "Scan, generate, auto tag, identify and clean, and stop running tasks. Opens Settings › Tasks with these tasks only.",
       "save_filters": "Save filters, and overwrite saved filters.",

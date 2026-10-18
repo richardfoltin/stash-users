@@ -144,15 +144,20 @@ var mutationRequirements = map[string]string{
 	"setDefaultFilter":   "MANAGE_SHARED_LIST_SETTINGS",
 
 	// configuration
-	"configureGeneral":   "ADMIN",
-	"configureInterface": "ADMIN",
-	"configureDLNA":      "ADMIN",
-	"configureScraping":  "ADMIN",
-	"configureDefaults":  "ADMIN",
-	"configurePlugin":    "ADMIN",
-	"configureUI":        "MANAGE_SHARED_LIST_SETTINGS",
-	"configureUISetting": "MANAGE_SHARED_LIST_SETTINGS",
-	"generateAPIKey":     "ADMIN",
+	"configureGeneral":  "ADMIN",
+	"configureDLNA":     "ADMIN",
+	"configureScraping": "ADMIN",
+	"configureDefaults": "ADMIN",
+	"configurePlugin":   "ADMIN",
+	"generateAPIKey":    "ADMIN",
+
+	// interface settings: the shared fields and keys are checked by the
+	// resolvers
+	"configureInterface":      "SIGNED_IN",
+	"configureUI":             "SIGNED_IN",
+	"configureUISetting":      "SIGNED_IN",
+	"resetPersonalSettings":   "SIGNED_IN",
+	"publishPersonalSettings": "SIGNED_IN",
 
 	// tasks and jobs
 	"exportObjects":           "ADMIN",
@@ -218,6 +223,7 @@ var mutationRequirements = map[string]string{
 // Queries and subscriptions that require more than being signed in. All other
 // queries and subscriptions are available to every user.
 var queryRequirements = map[string]string{
+	"personalSettings":            "SIGNED_IN",
 	"users":                       "ADMIN",
 	"roles":                       "ADMIN",
 	"logs":                        "ADMIN",
@@ -396,9 +402,9 @@ func TestInputFieldRequirements(t *testing.T) {
 }
 
 // TestAllPermissionsRoleDeniedAdminOnly checks that a role with every
-// permission is still denied the admin only operations, such as
-// configureInterface, which sets the custom JavaScript that every browser
-// runs, and the users and roles queries.
+// permission is still denied the admin only operations, such as the users
+// and roles queries. The custom JavaScript, which every browser runs, is
+// checked by the configureInterface resolver.
 func TestAllPermissionsRoleDeniedAdminOnly(t *testing.T) {
 	schema := loadTestSchema(t)
 	ctx := models.SetCurrentUser(context.Background(), models.User{
@@ -438,7 +444,7 @@ func TestAllPermissionsRoleDeniedAdminOnly(t *testing.T) {
 		}
 	}
 	assert.Len(t, denied, len(adminOnly))
-	for _, name := range []string{"configureInterface", "users", "roles", "roleCreate", "userCreate", "generateAPIKey"} {
+	for _, name := range []string{"users", "roles", "roleCreate", "userCreate", "generateAPIKey"} {
 		assert.True(t, denied[name], "%s is denied", name)
 	}
 }

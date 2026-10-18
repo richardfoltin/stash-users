@@ -20,7 +20,7 @@ import { faSquareCheck } from "@fortawesome/free-regular-svg-icons";
 import { useIntl } from "react-intl";
 import cx from "classnames";
 import { useConfigurationContext } from "src/hooks/Config";
-import { useConfigureUI } from "src/core/StashService";
+import { useConfigureUISetting } from "src/core/StashService";
 import { usePermissions } from "src/hooks/Permissions";
 import * as GQL from "src/core/generated-graphql";
 import { editPermissions } from "src/utils/permissions";
@@ -111,7 +111,7 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
 
   const Toast = useToast();
 
-  const [saveUI] = useConfigureUI();
+  const [saveUISetting] = useConfigureUISetting();
   const { can } = usePermissions();
 
   const pinnedOptions = useMemo(
@@ -126,22 +126,17 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
       }
 
       try {
-        await saveUI({
+        await saveUISetting({
           variables: {
-            input: {
-              ...configuration?.ui,
-              pinnedSortBy: {
-                ...configuration?.ui.pinnedSortBy,
-                [view]: value,
-              },
-            },
+            key: `pinnedSortBy.${view}`,
+            value,
           },
         });
       } catch (e) {
         Toast.error(e);
       }
     },
-    [view, saveUI, configuration.ui, Toast]
+    [view, saveUISetting, Toast]
   );
 
   const togglePinSortBy = useCallback(
@@ -227,11 +222,7 @@ export const FilteredListToolbar: React.FC<IFilteredListToolbar> = ({
               sortDirection={filter.sortDirection}
               options={filterOptions.sortByOptions}
               pinnedOptions={pinnedOptions}
-              togglePinSortBy={
-                can(GQL.Permission.ManageSharedListSettings)
-                  ? togglePinSortBy
-                  : undefined
-              }
+              togglePinSortBy={togglePinSortBy}
               onChangeSortBy={(e) =>
                 setFilter(filter.setSortBy(e ?? undefined))
               }

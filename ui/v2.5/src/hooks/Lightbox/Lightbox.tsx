@@ -26,10 +26,10 @@ import {
   mutateImageIncrementO,
   mutateImageDecrementO,
   mutateImageResetO,
+  useConfigureInterface,
   useImageUpdate,
 } from "src/core/StashService";
 import * as GQL from "src/core/generated-graphql";
-import { useInterfaceLocalForage } from "../LocalForage";
 import { imageLightboxDisplayModeIntlMap } from "src/core/enums";
 import { ILightboxImage, IChapter } from "./types";
 import {
@@ -219,21 +219,38 @@ export const LightboxComponent: React.FC<IProps> = ({
   const Toast = useToast();
   const intl = useIntl();
   const { configuration: config } = useConfigurationContext();
-  const [interfaceLocalForage, setInterfaceLocalForage] =
-    useInterfaceLocalForage();
+  const [configureInterface] = useConfigureInterface();
 
-  const lightboxSettings = interfaceLocalForage.data?.imageLightbox;
+  // the options changed here apply at once, and are saved as the user's own
+  // interface settings
+  const [lightboxSettings, setChangedSettings] = useState<
+    Partial<GQL.ConfigImageLightboxInput>
+  >({});
+  const pendingSettings = useRef<Partial<GQL.ConfigImageLightboxInput>>({});
+
+  const saveLightboxSettings = useDebounce(async () => {
+    const imageLightbox = pendingSettings.current;
+    pendingSettings.current = {};
+
+    try {
+      await configureInterface({ variables: { input: { imageLightbox } } });
+    } catch (e) {
+      Toast.error(e);
+    }
+  }, 500);
+
+  // the last change is saved when the lightbox closes
+  useEffect(
+    () => () => {
+      saveLightboxSettings.flush();
+    },
+    [saveLightboxSettings]
+  );
 
   function setLightboxSettings(v: Partial<GQL.ConfigImageLightboxInput>) {
-    setInterfaceLocalForage((prev) => {
-      return {
-        ...prev,
-        imageLightbox: {
-          ...prev.imageLightbox,
-          ...v,
-        },
-      };
-    });
+    setChangedSettings((prev) => ({ ...prev, ...v }));
+    pendingSettings.current = { ...pendingSettings.current, ...v };
+    saveLightboxSettings();
   }
 
   function setScaleUp(value: boolean) {
@@ -252,7 +269,7 @@ export const LightboxComponent: React.FC<IProps> = ({
     ? config.interface.imageLightbox.slideshowDelay * SECONDS_TO_MS
     : undefined;
 
-  const savedDelay = lightboxSettings?.slideshowDelay
+  const savedDelay = lightboxSettings.slideshowDelay
     ? lightboxSettings.slideshowDelay * SECONDS_TO_MS
     : undefined;
 
@@ -271,22 +288,22 @@ export const LightboxComponent: React.FC<IProps> = ({
   }
 
   const scaleUp =
-    lightboxSettings?.scaleUp ??
+    lightboxSettings.scaleUp ??
     config?.interface.imageLightbox.scaleUp ??
     false;
 
   const resetZoomOnNav =
-    lightboxSettings?.resetZoomOnNav ??
+    lightboxSettings.resetZoomOnNav ??
     config?.interface.imageLightbox.resetZoomOnNav ??
     false;
 
   const scrollMode =
-    lightboxSettings?.scrollMode ??
+    lightboxSettings.scrollMode ??
     config?.interface.imageLightbox.scrollMode ??
     GQL.ImageLightboxScrollMode.Zoom;
 
   const displayMode =
-    lightboxSettings?.displayMode ??
+    lightboxSettings.displayMode ??
     config?.interface.imageLightbox.displayMode ??
     GQL.ImageLightboxDisplayMode.FitXy;
   const oldDisplayMode = useRef(displayMode);

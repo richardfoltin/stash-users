@@ -721,6 +721,25 @@ func TestUserActivityRenameAndRemove(t *testing.T) {
 	assert.Equal(t, aliceBefore, d.activityOf(t, asUser("alicia", models.RoleIDEditor)), "alicia")
 }
 
+// TestUserActivityCopy tests that copying the activity of a user to a new user
+// keeps the activity of the source.
+func TestUserActivityCopy(t *testing.T) {
+	d := newActivityDB(t)
+	d.admin = "admin"
+	require.NoError(t, d.AdoptLegacyActivity(context.Background()))
+
+	alice := asUser("alice", models.RoleIDEditor)
+	d.record(t, alice, 0, 2, 1, 10, 100, 0, 2)
+	d.record(t, asUser("bob", models.RoleIDViewer), 1, 1, 1, 20, 50, 1, 1)
+
+	aliceBefore := d.activityOf(t, alice)
+
+	require.NoError(t, d.CopyUserActivity(context.Background(), "alice", "carol"))
+	// equal to alice, so without the activity of bob
+	assert.Equal(t, aliceBefore, d.activityOf(t, asUser("carol", models.RoleIDViewer)), "copy")
+	assert.Equal(t, aliceBefore, d.activityOf(t, alice), "source")
+}
+
 type mergeConfig struct{}
 
 func (mergeConfig) GetVideoFileNamingAlgorithm() models.HashAlgorithm {

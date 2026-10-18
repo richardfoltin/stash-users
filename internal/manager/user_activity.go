@@ -30,6 +30,7 @@ func firstAdmin(ctx context.Context, users user.UserSource) string {
 type userActivityStore interface {
 	Ready() error
 	MoveUserActivity(ctx context.Context, from string, to *string) error
+	CopyUserActivity(ctx context.Context, from string, to string) error
 	AdoptLegacyActivity(ctx context.Context) error
 }
 
@@ -58,6 +59,24 @@ func (s *activityUserSource) ReplaceUser(ctx context.Context, username string, u
 	}
 
 	return s.usersChanged(ctx, username, &updated.Username)
+}
+
+// CopyUserData copies the personal settings with the user source, and the
+// viewing activity in the database.
+func (s *activityUserSource) CopyUserData(ctx context.Context, from, to string, settings, activity bool) error {
+	if err := s.UserSource.CopyUserData(ctx, from, to, settings, false); err != nil {
+		return err
+	}
+
+	if !activity {
+		return nil
+	}
+
+	if err := s.activity.Ready(); err != nil {
+		return fmt.Errorf("copying the viewing activity of %q: %w", from, err)
+	}
+
+	return s.activity.CopyUserActivity(ctx, from, to)
 }
 
 func (s *activityUserSource) DeleteUser(ctx context.Context, username string) error {

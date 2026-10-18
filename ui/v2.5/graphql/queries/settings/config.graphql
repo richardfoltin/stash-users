@@ -18,3 +18,12 @@ query ValidateStashBox($input: StashBoxInput!) {
     status
   }
 }
+
+query PersonalSettings {
+  personalSettings {
+    section
+    key
+    value
+    defaultValue
+  }
+}

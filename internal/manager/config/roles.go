@@ -96,22 +96,26 @@ func roleNameTaken(roles []StoredRole, id string, name string) bool {
 }
 
 // rolesNoLock returns the roles other than Admin: the stored roles, or the
-// default roles if roles were never changed. Assumes read lock held.
+// default roles if roles were never changed. Every request reads them, so they
+// are decoded once for each change of the configuration, and the roles are
+// shared: they must not be changed. Assumes read lock held.
 func (s *UserStore) rolesNoLock() ([]StoredRole, error) {
-	if !s.forKey(Roles).Exists(Roles) {
-		defaults := models.DefaultRoles()
-		ret := make([]StoredRole, len(defaults))
-		for i, r := range defaults {
-			ret[i] = newStoredRole(r)
-		}
-		return ret, nil
+	if c := s.roles.Load(); c != nil && c.generation == s.generation {
+		return c.value, nil
 	}
 
 	var ret []StoredRole
-	if err := s.forKey(Roles).Unmarshal(Roles, &ret); err != nil {
+	if !s.forKey(Roles).Exists(Roles) {
+		defaults := models.DefaultRoles()
+		ret = make([]StoredRole, len(defaults))
+		for i, r := range defaults {
+			ret[i] = newStoredRole(r)
+		}
+	} else if err := s.forKey(Roles).Unmarshal(Roles, &ret); err != nil {
 		return nil, fmt.Errorf("reading roles from config: %w", err)
 	}
 
+	s.roles.Store(&decoded[[]StoredRole]{generation: s.generation, value: ret})
 	return ret, nil
 }
 
@@ -198,7 +202,8 @@ func (s *UserStore) modifyRoles(fn func(roles []StoredRole, users []StoredUser) 
 		return err
 	}
 
-	roles, err = fn(roles, users)
+	// fn changes the roles, which must not be the shared ones
+	roles, err = fn(slices.Clone(roles), users)
 	if err != nil {
 		return err
 	}

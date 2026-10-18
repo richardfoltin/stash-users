@@ -51,3 +51,11 @@ mutation ConfigureUISetting($key: String!, $value: Any) {
 mutation GenerateAPIKey($input: GenerateAPIKeyInput!) {
   generateAPIKey(input: $input)
 }
+
+mutation ResetPersonalSettings($settings: [PersonalSettingInput!]) {
+  resetPersonalSettings(settings: $settings)
+}
+
+mutation PublishPersonalSettings($settings: [PersonalSettingInput!]!) {
+  publishPersonalSettings(settings: $settings)
+}

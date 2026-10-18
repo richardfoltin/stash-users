@@ -21,6 +21,7 @@ import Changelog from "../Changelog/Changelog";
 import { TroubleshootingModeButton } from "../TroubleshootingMode/TroubleshootingModeButton";
 import { useTroubleshootingMode } from "../TroubleshootingMode/useTroubleshootingMode";
 import { usePermissions } from "src/hooks/Permissions";
+import * as GQL from "src/core/generated-graphql";
 
 const validTabs = [
   "tasks",
@@ -38,17 +39,26 @@ const validTabs = [
 ] as const;
 type TabKey = (typeof validTabs)[number];
 
-const defaultTab: TabKey = "tasks";
-
 function isTabKey(tab: string | null): tab is TabKey {
   return validTabs.includes(tab as TabKey);
+}
+
+// returns the tabs that the current user may see, the default tab first.
+// Users other than admins see their own interface settings, and the tasks
+// tab if they may run library tasks.
+function useAllowedTabs(): readonly TabKey[] {
+  const { isAdmin, can } = usePermissions();
+
+  if (isAdmin) return validTabs;
+  if (can(GQL.Permission.RunLibraryTasks)) return ["tasks", "interface"];
+  return ["interface"];
 }
 
 const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
   const { advancedMode, setAdvancedMode } = useSettings();
   const { isActive: troubleshootingModeActive } = useTroubleshootingMode();
-  // users who may only run library tasks see only the tasks tab
   const { isAdmin } = usePermissions();
+  const allowedTabs = useAllowedTabs();
 
   const titleProps = useTitleProps({ id: "settings" });
 
@@ -58,29 +68,33 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
       <Row>
         <Col id="settings-menu-container" sm={3} md={3} xl={2}>
           <Nav variant="pills" className="flex-column">
+            {allowedTabs.includes("tasks") && (
+              <Nav.Item>
+                <LinkContainer to="/settings?tab=tasks">
+                  <Nav.Link eventKey="tasks">
+                    <FormattedMessage id="config.categories.tasks" />
+                  </Nav.Link>
+                </LinkContainer>
+              </Nav.Item>
+            )}
+            {isAdmin && (
+              <Nav.Item>
+                <LinkContainer to="/settings?tab=library">
+                  <Nav.Link eventKey="library">
+                    <FormattedMessage id="library" />
+                  </Nav.Link>
+                </LinkContainer>
+              </Nav.Item>
+            )}
             <Nav.Item>
-              <LinkContainer to="/settings?tab=tasks">
-                <Nav.Link eventKey="tasks">
-                  <FormattedMessage id="config.categories.tasks" />
+              <LinkContainer to="/settings?tab=interface">
+                <Nav.Link eventKey="interface">
+                  <FormattedMessage id="config.categories.interface" />
                 </Nav.Link>
               </LinkContainer>
             </Nav.Item>
             {isAdmin && (
               <>
-                <Nav.Item>
-                  <LinkContainer to="/settings?tab=library">
-                    <Nav.Link eventKey="library">
-                      <FormattedMessage id="library" />
-                    </Nav.Link>
-                  </LinkContainer>
-                </Nav.Item>
-                <Nav.Item>
-                  <LinkContainer to="/settings?tab=interface">
-                    <Nav.Link eventKey="interface">
-                      <FormattedMessage id="config.categories.interface" />
-                    </Nav.Link>
-                  </LinkContainer>
-                </Nav.Item>
                 <Nav.Item>
                   <LinkContainer to="/settings?tab=security">
                     <Nav.Link eventKey="security">
@@ -144,20 +158,22 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
                     </Nav.Link>
                   </LinkContainer>
                 </Nav.Item>
-                <Nav.Item>
-                  <div className="advanced-switch">
-                    <Form.Label htmlFor="advanced-settings">
-                      <FormattedMessage id="config.advanced_mode" />
-                    </Form.Label>
-                    <Form.Switch
-                      id="advanced-settings"
-                      checked={advancedMode}
-                      onChange={() => setAdvancedMode(!advancedMode)}
-                    />
-                  </div>
-                </Nav.Item>
-                {!troubleshootingModeActive && <TroubleshootingModeButton />}
               </>
+            )}
+            <Nav.Item>
+              <div className="advanced-switch">
+                <Form.Label htmlFor="advanced-settings">
+                  <FormattedMessage id="config.advanced_mode" />
+                </Form.Label>
+                <Form.Switch
+                  id="advanced-settings"
+                  checked={advancedMode}
+                  onChange={() => setAdvancedMode(!advancedMode)}
+                />
+              </div>
+            </Nav.Item>
+            {isAdmin && !troubleshootingModeActive && (
+              <TroubleshootingModeButton />
             )}
             <hr className="d-sm-none" />
           </Nav>
@@ -174,17 +190,19 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
                 <Tab.Pane eventKey="library">
                   <SettingsLibraryPanel />
                 </Tab.Pane>
-                <Tab.Pane eventKey="interface">
-                  <SettingsInterfacePanel />
-                </Tab.Pane>
                 <Tab.Pane eventKey="security">
                   <SettingsSecurityPanel />
                 </Tab.Pane>
               </>
             )}
-            <Tab.Pane eventKey="tasks">
-              <SettingsTasksPanel />
+            <Tab.Pane eventKey="interface">
+              <SettingsInterfacePanel />
             </Tab.Pane>
+            {allowedTabs.includes("tasks") && (
+              <Tab.Pane eventKey="tasks">
+                <SettingsTasksPanel />
+              </Tab.Pane>
+            )}
             {isAdmin && (
               <>
                 <Tab.Pane eventKey="services" unmountOnExit>
@@ -222,15 +240,15 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
 
 export const Settings: React.FC = () => {
   const location = useLocation();
-  const { isAdmin } = usePermissions();
+  const allowedTabs = useAllowedTabs();
   const tab = new URLSearchParams(location.search).get("tab");
 
-  if (!isTabKey(tab) || (!isAdmin && tab !== defaultTab)) {
+  if (!isTabKey(tab) || !allowedTabs.includes(tab)) {
     return (
       <Redirect
         to={{
           ...location,
-          search: `tab=${defaultTab}`,
+          search: `tab=${allowedTabs[0]}`,
         }}
       />
     );

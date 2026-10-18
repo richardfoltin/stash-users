@@ -59,10 +59,21 @@ func (rs performerRoutes) Image(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(image) == 0 {
-		image = getDefaultPerformerImage(performer.Name, performer.Gender, rs.sfwConfig.GetSFWContentMode())
+		image = getDefaultPerformerImage(performer.Name, performer.Gender, rs.sfwContentMode(r.Context()))
 	}
 
 	utils.ServeImage(w, r, image)
+}
+
+// sfwContentMode returns the SFW content mode of the current user: their own,
+// or the shared one.
+func (rs performerRoutes) sfwContentMode(ctx context.Context) bool {
+	iface, _ := currentPersonalSettings(ctx)
+	if sfw, ok := iface["sfwContentMode"].(bool); ok {
+		return sfw
+	}
+
+	return rs.sfwConfig.GetSFWContentMode()
 }
 
 func (rs performerRoutes) PerformerCtx(next http.Handler) http.Handler {

@@ -660,11 +660,7 @@ export const SavedFilterList: React.FC<ISavedFilterListProps> = ({
           onOperationChosen={onOperationChosen}
           onOverwrite={() => setOverwritingFilter(item)}
           onRename={() => setRenamingFilter(item)}
-          onSetDefault={
-            view && can(Permission.ManageSharedListSettings)
-              ? () => setDefaultingFilter(item)
-              : undefined
-          }
+          onSetDefault={view ? () => setDefaultingFilter(item) : undefined}
           onDelete={() => setDeletingFilter(item)}
         />
       </div>
@@ -1130,16 +1126,14 @@ export const SidebarSavedFilterList: React.FC<ISavedFilterListProps> = ({
             </span>
           </Button>
         )}
-        {can(Permission.ManageSharedListSettings) && (
-          <Button
-            className="minimal set-as-default-button"
-            variant="secondary"
-            size="sm"
-            onClick={() => setSettingDefault(true)}
-          >
-            <FormattedMessage id="actions.set_as_default" />
-          </Button>
-        )}
+        <Button
+          className="minimal set-as-default-button"
+          variant="secondary"
+          size="sm"
+          onClick={() => setSettingDefault(true)}
+        >
+          <FormattedMessage id="actions.set_as_default" />
+        </Button>
       </div>
 
       <FormControl
@@ -1156,11 +1150,7 @@ export const SidebarSavedFilterList: React.FC<ISavedFilterListProps> = ({
         onFilterClicked={filterClicked}
         onOverwriteClicked={setOverwritingFilter}
         onRenameClicked={setRenamingFilter}
-        onSetDefaultClicked={
-          view && can(Permission.ManageSharedListSettings)
-            ? setDefaultingFilter
-            : undefined
-        }
+        onSetDefaultClicked={view ? setDefaultingFilter : undefined}
         onDeleteClicked={setDeletingFilter}
         onRenameCommitted={async (f, name) => {
           if (await renameSavedFilter(f, name)) {

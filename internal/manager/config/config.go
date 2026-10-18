@@ -365,6 +365,11 @@ type Config struct {
 	// cached values for high-frequency calls
 	publicIPWhitelist ipWhitelist
 
+	// generation counts the changes of the main instance, so that values
+	// decoded from it can be cached until it changes. Changed with the write
+	// lock held.
+	generation uint64
+
 	// UserStore manages the users stored in the config file
 	UserStore *UserStore
 }
@@ -383,6 +388,7 @@ func (i *Config) load(f string) error {
 		return err
 	}
 
+	i.generation++
 	i.filePath = f
 	return nil
 }
@@ -497,6 +503,7 @@ func (i *Config) SetInterface(key string, value interface{}) {
 
 func (i *Config) set(key string, value interface{}) {
 	// assumes lock held
+	i.generation++
 
 	// default behaviour for Set is to merge the value
 	// we want to replace it

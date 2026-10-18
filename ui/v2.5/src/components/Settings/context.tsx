@@ -8,6 +8,7 @@ import { Spinner } from "react-bootstrap";
 import { IUIConfig } from "src/core/config";
 import * as GQL from "src/core/generated-graphql";
 import {
+  getClient,
   useConfiguration,
   useConfigureDefaults,
   useConfigureDLNA,
@@ -53,6 +54,11 @@ export interface ISettingsContextState {
   setAdvancedMode: (value: boolean) => void;
 
   refetch: () => void;
+  // reads the interface and UI settings again from the cache, after resetting
+  // personal settings changed and refetched them
+  reloadInterface: () => void;
+  // saves the interface and UI changes that wait for the half second at once
+  flushInterface: () => Promise<void>;
 }
 
 function noop() {}
@@ -82,6 +88,8 @@ const emptyState: ISettingsContextState = {
   setAdvancedMode: noop,
 
   refetch: noop,
+  reloadInterface: noop,
+  flushInterface: () => Promise.resolve(),
 };
 
 export const SettingStateContext =
@@ -261,25 +269,53 @@ export const SettingsContext: React.FC = ({ children }) => {
     saveInterfaceConfig(pendingInterface);
   }, [pendingInterface, saveInterfaceConfig]);
 
+  // the fields of the image lightbox and dropdown create objects are merged,
+  // so that only the changed fields are saved: each field is a personal
+  // setting of its own
+  function mergeInterface(
+    current: GQL.ConfigInterfaceInput,
+    input: Partial<GQL.ConfigInterfaceInput>
+  ): GQL.ConfigInterfaceInput {
+    const ret = { ...current, ...input };
+    if (input.imageLightbox) {
+      ret.imageLightbox = {
+        ...current.imageLightbox,
+        ...input.imageLightbox,
+      };
+    }
+    if (input.disableDropdownCreate) {
+      ret.disableDropdownCreate = {
+        ...current.disableDropdownCreate,
+        ...input.disableDropdownCreate,
+      };
+    }
+    return ret;
+  }
+
   function saveInterface(input: Partial<GQL.ConfigInterfaceInput>) {
     if (!iface) {
       return;
     }
 
-    setIface({
-      ...iface,
-      ...input,
-    });
+    setIface(mergeInterface(iface, input));
 
     setPendingInterface((current) => {
       if (!current) {
         return input;
       }
-      return {
-        ...current,
-        ...input,
-      };
+      return mergeInterface(current, input);
     });
+  }
+
+  // the reset has refetched the configuration into the cache
+  function reloadInterface() {
+    const configuration = getClient().readQuery<GQL.ConfigurationQuery>({
+      query: GQL.ConfigurationDocument,
+    })?.configuration;
+    if (!configuration) return;
+
+    setIface({ ...withoutTypename(configuration.interface) });
+    setUI(configuration.ui);
   }
 
   // saves the configuration if no further changes are made after a half second
@@ -471,6 +507,10 @@ export const SettingsContext: React.FC = ({ children }) => {
     });
   }
 
+  async function flushInterface() {
+    await Promise.all([saveInterfaceConfig.flush(), saveUIConfig.flush()]);
+  }
+
   function setAdvancedMode(value: boolean) {
     saveUI({
       advancedMode: value,
@@ -591,6 +631,8 @@ export const SettingsContext: React.FC = ({ children }) => {
         saveDLNA,
         saveUI,
         refetch,
+        reloadInterface,
+        flushInterface,
         savePluginSettings,
         setAdvancedMode,
       }}

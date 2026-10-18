@@ -241,8 +241,13 @@ type Query {
     @adminOnly
 
   # Config
-  "Returns the current, complete configuration"
+  """
+  Returns the current, complete configuration. The interface and UI
+  configuration include the personal settings of the current user.
+  """
   configuration: ConfigResult!
+  "The interface settings that the current user changed for themselves"
+  personalSettings: [PersonalSetting!]! @signedIn
   "Returns an array of paths for the given path"
   directory(
     "The directory path to list"
@@ -489,8 +494,14 @@ type Mutation {
   "Change general configuration options"
   configureGeneral(input: ConfigGeneralInput!): ConfigGeneralResult!
     @adminOnly
+  """
+  Changes the interface configuration. A user in the users list changes their
+  own settings. Custom CSS, JavaScript and locales, troubleshooting mode,
+  desktop integration and the interactive options are shared by every user,
+  and require the Admin role.
+  """
   configureInterface(input: ConfigInterfaceInput!): ConfigInterfaceResult!
-    @adminOnly
+    @signedIn
   configureDLNA(input: ConfigDLNAInput!): ConfigDLNAResult!
     @adminOnly
   configureScraping(input: ConfigScrapingInput!): ConfigScrapingResult!
@@ -506,13 +517,32 @@ type Mutation {
   overwrites the UI configuration
   if input is provided, then the entire UI configuration is replaced
   if partial is provided, then the partial UI configuration is merged into the existing UI configuration
+  A user in the users list changes their own settings with partial. Replacing
+  the entire configuration, the title, taskDefaults and lastNoteSeen keys,
+  which every user shares, and every change of a user who is not in the users
+  list require the Admin role.
   """
-  configureUI(input: Map, partial: Map): Map! @hasPermission(permission: MANAGE_SHARED_LIST_SETTINGS)
+  configureUI(input: Map, partial: Map): Map! @signedIn
   """
   sets a single UI key value
   key is a dot separated path to the value
+  A user in the users list changes their own settings. The title, taskDefaults
+  and lastNoteSeen keys, which every user shares, and every key of a user who
+  is not in the users list require the Admin role.
   """
-  configureUISetting(key: String!, value: Any): Map! @hasPermission(permission: MANAGE_SHARED_LIST_SETTINGS)
+  configureUISetting(key: String!, value: Any): Map! @signedIn
+  """
+  Removes personal settings of the current user, so that they follow the
+  defaults again. Without settings, every personal setting is removed.
+  """
+  resetPersonalSettings(settings: [PersonalSettingInput!]): Boolean! @signedIn
+  """
+  Makes personal settings of the current user the defaults of every user, and
+  removes them from the personal settings. List settings require the
+  MANAGE_SHARED_LIST_SETTINGS permission, all others the Admin role.
+  """
+  publishPersonalSettings(settings: [PersonalSettingInput!]!): Boolean!
+    @signedIn
 
   "Generate and set (or clear) API key"
   generateAPIKey(input: GenerateAPIKeyInput!): String! @adminOnly

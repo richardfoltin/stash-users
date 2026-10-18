@@ -28,7 +28,7 @@ import {
 import { useCompare, usePrevious } from "src/hooks/state";
 import { CriterionType } from "src/models/list-filter/types";
 import { useToast } from "src/hooks/Toast";
-import { useConfigureUI, useSaveFilter } from "src/core/StashService";
+import { useConfigureUISetting, useSaveFilter } from "src/core/StashService";
 import { usePermissions } from "src/hooks/Permissions";
 import {
   FilterMode,
@@ -319,7 +319,7 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
   );
 
   const ui = configuration?.ui ?? {};
-  const [saveUI] = useConfigureUI();
+  const [saveUISetting] = useConfigureUISetting();
 
   const filteredOptions = useMemo(() => {
     const trimmedSearch = searchValue.trim().toLowerCase();
@@ -380,15 +380,10 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
   async function updatePinnedFilters(filters: string[]) {
     const configKey = filterModeToConfigKey(currentFilter.mode);
     try {
-      await saveUI({
+      await saveUISetting({
         variables: {
-          input: {
-            ...configuration?.ui,
-            pinnedFilters: {
-              ...ui.pinnedFilters,
-              [configKey]: filters,
-            },
-          },
+          key: `pinnedFilters.${configKey}`,
+          value: filters,
         },
       });
     } catch (e) {
@@ -592,11 +587,7 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
               optionSelected={optionSelected}
               selected={criterion?.criterionOption}
               onRemoveCriterion={(c) => removeCriterionString(c)}
-              onTogglePin={
-                can(Permission.ManageSharedListSettings)
-                  ? (c) => onTogglePinFilter(c)
-                  : undefined
-              }
+              onTogglePin={(c) => onTogglePinFilter(c)}
               externallySelected={!!editingCriterion}
             />
             {criteria.length > 0 && (

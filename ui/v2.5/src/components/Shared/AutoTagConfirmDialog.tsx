@@ -5,8 +5,6 @@ import { faExclamationTriangle } from "@fortawesome/free-solid-svg-icons";
 import { useConfigureUISetting } from "src/core/StashService";
 import { SettingStateContext } from "src/components/Settings/context";
 import { useToast } from "src/hooks/Toast";
-import { usePermissions } from "src/hooks/Permissions";
-import * as GQL from "src/core/generated-graphql";
 import { ModalComponent } from "./Modal";
 import { Icon } from "./Icon";
 
@@ -41,7 +39,6 @@ export const AutoTagConfirmDialog: React.FC<IAutoTagConfirmDialog> = ({
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [saveUISetting] = useConfigureUISetting();
   const settingsContext = useContext(SettingStateContext);
-  const { can } = usePermissions();
 
   useEffect(() => {
     if (show) {
@@ -77,16 +74,14 @@ export const AutoTagConfirmDialog: React.FC<IAutoTagConfirmDialog> = ({
       }}
     >
       <AutoTagWarning />
-      {can(GQL.Permission.ManageSharedListSettings) && (
-        <Form.Check
-          id="auto-tag-dont-show-again"
-          checked={dontShowAgain}
-          onChange={(e) => setDontShowAgain(e.currentTarget.checked)}
-          label={intl.formatMessage({
-            id: "dialogs.dont_show_again",
-          })}
-        />
-      )}
+      <Form.Check
+        id="auto-tag-dont-show-again"
+        checked={dontShowAgain}
+        onChange={(e) => setDontShowAgain(e.currentTarget.checked)}
+        label={intl.formatMessage({
+          id: "dialogs.dont_show_again",
+        })}
+      />
     </ModalComponent>
   );
 };

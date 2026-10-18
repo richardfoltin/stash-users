@@ -199,7 +199,6 @@ export const MainNavbar: React.FC = () => {
   const { configuration } = useConfigurationContext();
   const { openManual } = React.useContext(ManualStateContext);
   const { user, isAdmin, can } = usePermissions();
-  const canOpenSettings = isAdmin || can(GQL.Permission.RunLibraryTasks);
 
   // the drawer replaces the collapsed menu on phones and tablets
   const [showDrawer, setShowDrawer] = useState(false);
@@ -262,9 +261,7 @@ export const MainNavbar: React.FC = () => {
   // set up hotkeys
   useEffect(() => {
     Mousetrap.bind("?", () => openManual());
-    if (canOpenSettings) {
-      Mousetrap.bind("g z", () => goto("/settings"));
-    }
+    Mousetrap.bind("g z", () => goto("/settings"));
 
     menuItems.forEach((item) => {
       Mousetrap.bind(item.hotkey, () => goto(item.href));
@@ -515,16 +512,14 @@ export const MainNavbar: React.FC = () => {
             <Icon icon={faChartColumn} />
           </Button>
         </NavLink>
-        {canOpenSettings && (
-          <NavLink
-            className="nav-utility"
-            exact
-            to="/settings"
-            onClick={closeDrawer}
-          >
-            <SettingsButton />
-          </NavLink>
-        )}
+        <NavLink
+          className="nav-utility"
+          exact
+          to="/settings"
+          onClick={closeDrawer}
+        >
+          <SettingsButton />
+        </NavLink>
         <Button
           className="nav-utility minimal"
           onClick={() => {

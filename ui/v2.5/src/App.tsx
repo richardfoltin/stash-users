@@ -18,7 +18,7 @@ import { initPolyfills } from "src/polyfills";
 import locales, { NestedMessage, registerCountry } from "src/locales";
 import {
   useConfiguration,
-  useConfigureUI,
+  useConfigureUISetting,
   useMe,
   useSystemStatus,
 } from "src/core/StashService";
@@ -144,11 +144,11 @@ function translateLanguageLocale(l: string) {
 export const App: React.FC = () => {
   const config = useConfiguration();
   const me = useMe();
-  const [saveUI] = useConfigureUI();
+  const [saveUISetting] = useConfigureUISetting();
   const currentUser = me.data?.me;
   // if the current user cannot be loaded, fail closed with viewer permissions
   const loadFailed = !!me.error;
-  const { isAdmin, can } = getPermissions(currentUser, loadFailed);
+  const { isAdmin } = getPermissions(currentUser, loadFailed);
 
   const { data: systemStatusData } = useSystemStatus();
 
@@ -283,14 +283,7 @@ export const App: React.FC = () => {
             <Route path="/studios" component={Studios} />
             <Route path="/groups" component={Groups} />
             <Route path="/stats" component={Stats} />
-            <Route
-              path="/settings"
-              component={
-                isAdmin || can(GQL.Permission.RunLibraryTasks)
-                  ? Settings
-                  : PermissionDenied
-              }
-            />
+            <Route path="/settings" component={Settings} />
             <Route
               path="/sceneFilenameParser"
               component={isAdmin ? SceneFilenameParser : PermissionDenied}
@@ -330,12 +323,10 @@ export const App: React.FC = () => {
       <ReleaseNotesDialog
         notes={notes}
         onClose={() => {
-          saveUI({
+          saveUISetting({
             variables: {
-              input: {
-                ...config.data?.configuration.ui,
-                lastNoteSeen: notes[0].date,
-              },
+              key: "lastNoteSeen",
+              value: notes[0].date,
             },
           });
         }}

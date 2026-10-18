@@ -5,14 +5,26 @@ import (
 	"fmt"
 
 	"github.com/stashapp/stash/pkg/models"
+	"github.com/stashapp/stash/pkg/user"
 )
 
 func (r *mutationResolver) UserCreate(ctx context.Context, input UserCreateInput) (*models.User, error) {
-	err := r.userService.CreateUser(ctx, models.User{
+	u := models.User{
 		Username:  input.Name,
 		Role:      stringValue(input.RoleID),
 		AutoLogin: input.AutoLogin != nil && *input.AutoLogin,
-	}, input.Password)
+	}
+
+	var err error
+	if input.CopyFrom != nil {
+		err = r.userService.CreateUserFrom(ctx, u, input.Password, user.CopyFrom{
+			Username: input.CopyFrom.Name,
+			Settings: input.CopyFrom.Settings,
+			Activity: input.CopyFrom.Activity,
+		})
+	} else {
+		err = r.userService.CreateUser(ctx, u, input.Password)
+	}
 	if err != nil {
 		return nil, err
 	}
