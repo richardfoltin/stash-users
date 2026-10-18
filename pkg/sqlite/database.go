@@ -79,6 +79,8 @@ type storeRepository struct {
 	Studio         *StudioStore
 	Tag            *TagStore
 	Group          *GroupStore
+
+	PersonalSavedFilter *PersonalSavedFilterStore
 }
 
 type Database struct {
@@ -119,6 +121,8 @@ func NewDatabase() *Database {
 		Tag:            tagStore,
 		Group:          NewGroupStore(blobStore),
 		SavedFilter:    NewSavedFilterStore(),
+
+		PersonalSavedFilter: NewPersonalSavedFilterStore(),
 	}
 
 	ret := &Database{
@@ -275,6 +279,9 @@ func (db *Database) initialise() error {
 		return err
 	}
 	if err := db.ensureUserActivity(); err != nil {
+		return err
+	}
+	if err := ensureUserSavedFiltersTable(db.writeDB); err != nil {
 		return err
 	}
 

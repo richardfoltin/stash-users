@@ -54,6 +54,9 @@ type fakeActivityStore struct {
 	moves    []activityMove
 	copies   []activityMove
 	adopted  int
+
+	// the moves of the personal saved filters
+	filterMoves []activityMove
 }
 
 func (s *fakeActivityStore) Ready() error {
@@ -75,6 +78,11 @@ func (s *fakeActivityStore) CopyUserActivity(ctx context.Context, from string, t
 
 func (s *fakeActivityStore) AdoptLegacyActivity(ctx context.Context) error {
 	s.adopted++
+	return nil
+}
+
+func (s *fakeActivityStore) MoveUserSavedFilters(ctx context.Context, from string, to *string) error {
+	s.filterMoves = append(s.filterMoves, activityMove{from, to})
 	return nil
 }
 
@@ -102,6 +110,7 @@ func TestActivityUserSource(t *testing.T) {
 
 		assert.NoError(t, s.ReplaceUser(ctx, "alice", models.User{Username: newName}))
 		assert.Equal(t, []activityMove{{"alice", &newName}}, store.moves)
+		assert.Equal(t, []activityMove{{"alice", &newName}}, store.filterMoves, "saved filters")
 		assert.Equal(t, 1, store.adopted)
 	})
 
@@ -111,6 +120,7 @@ func TestActivityUserSource(t *testing.T) {
 
 		assert.NoError(t, s.ReplaceUser(ctx, "alice", models.User{Username: "alice", Role: models.RoleIDAdmin}))
 		assert.Empty(t, store.moves)
+		assert.Empty(t, store.filterMoves, "saved filters")
 	})
 
 	t.Run("removal deletes the activity", func(t *testing.T) {
@@ -119,6 +129,7 @@ func TestActivityUserSource(t *testing.T) {
 
 		assert.NoError(t, s.DeleteUser(ctx, "bob"))
 		assert.Equal(t, []activityMove{{"bob", nil}}, store.moves)
+		assert.Equal(t, []activityMove{{"bob", nil}}, store.filterMoves, "saved filters")
 	})
 
 	t.Run("a new user adopts the legacy activity if first admin", func(t *testing.T) {
@@ -137,6 +148,7 @@ func TestActivityUserSource(t *testing.T) {
 		assert.ErrorIs(t, s.DeleteUser(ctx, "admin"), user.ErrDeleteLastAdminUser)
 		assert.ErrorIs(t, s.ReplaceUser(ctx, "admin", models.User{Username: newName}), user.ErrDeleteLastAdminUser)
 		assert.Empty(t, store.moves)
+		assert.Empty(t, store.filterMoves, "saved filters")
 		assert.Zero(t, store.adopted)
 	})
 
@@ -146,6 +158,7 @@ func TestActivityUserSource(t *testing.T) {
 
 		assert.NoError(t, s.DeleteUser(ctx, "bob"))
 		assert.Empty(t, store.moves)
+		assert.Empty(t, store.filterMoves, "saved filters")
 	})
 }
 

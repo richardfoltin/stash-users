@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -17,6 +18,17 @@ func (r *queryResolver) FindSavedFilter(ctx context.Context, id string) (ret *mo
 	}
 
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		if models.IsPersonalSavedFilterID(idInt) {
+			// only its owner sees a personal filter
+			user := personalFilterUser(ctx)
+			if user == "" {
+				return nil
+			}
+
+			ret, err = r.repository.PersonalSavedFilter.Find(ctx, user, idInt)
+			return err
+		}
+
 		ret, err = r.repository.SavedFilter.Find(ctx, idInt)
 		return err
 	}); err != nil {
@@ -27,16 +39,42 @@ func (r *queryResolver) FindSavedFilter(ctx context.Context, id string) (ret *mo
 
 func (r *queryResolver) FindSavedFilters(ctx context.Context, mode *models.FilterMode) (ret []*models.SavedFilter, err error) {
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		var shared, personal []*models.SavedFilter
+		user := personalFilterUser(ctx)
+
 		if mode != nil {
-			ret, err = r.repository.SavedFilter.FindByMode(ctx, *mode)
+			shared, err = r.repository.SavedFilter.FindByMode(ctx, *mode)
+			if err == nil && user != "" {
+				personal, err = r.repository.PersonalSavedFilter.FindByMode(ctx, user, *mode)
+			}
 		} else {
-			ret, err = r.repository.SavedFilter.All(ctx)
+			shared, err = r.repository.SavedFilter.All(ctx)
+			if err == nil && user != "" {
+				personal, err = r.repository.PersonalSavedFilter.All(ctx, user)
+			}
 		}
-		return err
+		if err != nil {
+			return err
+		}
+
+		ret = mergeSavedFilters(personal, shared)
+		return nil
 	}); err != nil {
 		return nil, err
 	}
 	return ret, err
+}
+
+// mergeSavedFilters returns the personal and the shared filters sorted by name
+// in byte order, as the database sorts them, with a personal filter first on
+// equal names.
+func mergeSavedFilters(personal []*models.SavedFilter, shared []*models.SavedFilter) []*models.SavedFilter {
+	ret := append(append([]*models.SavedFilter{}, personal...), shared...)
+	sort.SliceStable(ret, func(i, j int) bool {
+		return ret[i].Name < ret[j].Name
+	})
+
+	return ret
 }
 
 func (r *queryResolver) FindDefaultFilter(ctx context.Context, mode models.FilterMode) (ret *models.SavedFilter, err error) {

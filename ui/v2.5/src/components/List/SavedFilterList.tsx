@@ -24,6 +24,7 @@ import {
   useRenameSavedFilter,
   useSavedFilterDestroy,
   useSaveFilter,
+  useShareSavedFilter,
 } from "src/core/StashService";
 import { usePermissions } from "src/hooks/Permissions";
 import { useToast } from "src/hooks/Toast";
@@ -41,6 +42,7 @@ import {
   faBookmark,
   faEllipsisV,
   faSave,
+  faUser,
 } from "@fortawesome/free-solid-svg-icons";
 import { AlertModal } from "../Shared/Alert";
 import cx from "classnames";
@@ -52,6 +54,43 @@ import {
   OperationDropdown,
   OperationDropdownItem,
 } from "./ListOperationButtons";
+
+// returns true if the user may save filters: a signed-in user saves personal
+// filters, and without authentication everyone saves shared filters
+export function useCanSaveFilters() {
+  const { user, can } = usePermissions();
+  return !!user || can(Permission.SaveFilters);
+}
+
+// returns true if new filters are saved as personal filters, which those of
+// a signed-in user are
+function useSavesPersonalFilters() {
+  return !!usePermissions().user;
+}
+
+// marks a personal saved filter. Fixed width, so that it takes the place of
+// the icon margin of the sidebar lists. Fontawesome does not show the title of
+// an icon, so the span has it.
+const PersonalFilterIcon: React.FC = () => {
+  const intl = useIntl();
+  const title = intl.formatMessage({ id: "search_filter.personal_filter" });
+
+  return (
+    <span title={title} role="img" aria-label={title}>
+      <Icon className="personal-filter-icon" icon={faUser} fixedWidth />
+    </span>
+  );
+};
+
+// the name of a saved filter, after the icon of a personal filter
+const SavedFilterName: React.FC<{ filter: SavedFilterDataFragment }> = ({
+  filter,
+}) => (
+  <>
+    {filter.personal && <PersonalFilterIcon />}
+    <span>{filter.name}</span>
+  </>
+);
 
 const ExistingSavedFilterList: React.FC<{
   name: string;
@@ -77,7 +116,7 @@ const ExistingSavedFilterList: React.FC<{
             onClick={() => onSelect(f)}
             disabled={disabled}
           >
-            {f.name}
+            <SavedFilterName filter={f} />
           </Button>
         </li>
       ))}
@@ -92,15 +131,24 @@ export const SaveFilterDialog: React.FC<{
 }> = ({ mode, onClose, isSaving = false }) => {
   const intl = useIntl();
   const [filterName, setFilterName] = useState("");
+  const savesPersonal = useSavesPersonalFilters();
 
   const { data } = useFindSavedFilters(mode);
 
+  // only a filter of the kind being saved can be overwritten
+  const savedFilters = useMemo(
+    () =>
+      (data?.findSavedFilters ?? []).filter(
+        (f) => f.personal === savesPersonal
+      ),
+    [data?.findSavedFilters, savesPersonal]
+  );
+
   const overwritingFilter = useMemo(() => {
-    const savedFilters = data?.findSavedFilters ?? [];
     return savedFilters.find(
       (f) => f.name.toLowerCase() === filterName.toLowerCase()
     );
-  }, [data?.findSavedFilters, filterName]);
+  }, [savedFilters, filterName]);
 
   return (
     <Modal show className="save-filter-dialog">
@@ -124,7 +172,7 @@ export const SaveFilterDialog: React.FC<{
         <ExistingSavedFilterList
           name={filterName}
           onSelect={(f) => setFilterName(f.name)}
-          savedFilters={data?.findSavedFilters ?? []}
+          savedFilters={savedFilters}
         />
 
         {!!overwritingFilter && (
@@ -313,6 +361,31 @@ const OverwriteAlert: React.FC<{
   );
 };
 
+const ShareAlert: React.FC<{
+  sharingFilter: SavedFilterDataFragment | undefined;
+  onClose: (confirm?: boolean) => void;
+}> = ({ sharingFilter, onClose }) => {
+  const intl = useIntl();
+
+  return (
+    <AlertModal
+      show={!!sharingFilter}
+      text={
+        <FormattedMessage
+          id="dialogs.share_filter_confirm"
+          values={{ entityName: sharingFilter?.name }}
+        />
+      }
+      confirmVariant="primary"
+      confirmButtonText={intl.formatMessage({
+        id: "actions.share_with_everyone",
+      })}
+      onConfirm={() => onClose(true)}
+      onCancel={() => onClose()}
+    />
+  );
+};
+
 // the operations available for a single saved filter. The menu is portalled to
 // the document body so that it is not clipped by the scrolling filter list.
 const SavedFilterOperations: React.FC<{
@@ -320,23 +393,30 @@ const SavedFilterOperations: React.FC<{
   // the toolbar dropdown stays mounted once opened, so both lists render a
   // row per filter at the same time
   id: string;
+  personal: boolean;
   onOperationChosen?: () => void;
   onOverwrite: () => void;
   onRename: () => void;
+  onShare: () => void;
   onSetDefault?: () => void;
   onDelete: () => void;
 }> = ({
   id,
+  personal,
   onOperationChosen,
   onOverwrite,
   onRename,
+  onShare,
   onSetDefault,
   onDelete,
 }) => {
   const intl = useIntl();
   const { can } = usePermissions();
-  const canSave = can(Permission.SaveFilters);
-  const canDelete = can(Permission.DeleteSavedFilters);
+  // the owner changes and deletes a personal filter, the shared filters need
+  // the permissions
+  const canSave = personal || can(Permission.SaveFilters);
+  const canShare = personal && can(Permission.SaveFilters);
+  const canDelete = personal || can(Permission.DeleteSavedFilters);
 
   function operation(action: () => void) {
     return () => {
@@ -369,6 +449,12 @@ const SavedFilterOperations: React.FC<{
         <OperationDropdownItem
           text={intl.formatMessage({ id: "actions.rename" })}
           onClick={operation(onRename)}
+        />
+      )}
+      {canShare && (
+        <OperationDropdownItem
+          text={intl.formatMessage({ id: "actions.share_with_everyone" })}
+          onClick={operation(onShare)}
         />
       )}
       {onSetDefault && (
@@ -431,15 +517,20 @@ function useSavedFilterOperations(props: {
 
   const renameFilter = useRenameSavedFilter();
   const [saveUISetting] = useConfigureUISetting();
+  const shareFilter = useShareSavedFilter();
 
   // resolves false if the rename was rejected, so that the caller can leave
   // the name being edited in place rather than discarding it
   async function renameSavedFilter(f: SavedFilterDataFragment, name: string) {
-    // saved filter names are unique per mode. The unique index is
-    // case-sensitive, but SaveFilterDialog matches names case-insensitively,
-    // so do the same here rather than allowing a confusing "foo"/"Foo" pair.
+    // saved filter names are unique per mode within their kind. The unique
+    // index is case-sensitive, but SaveFilterDialog matches names
+    // case-insensitively, so do the same here rather than allowing a
+    // confusing "foo"/"Foo" pair.
     const existing = savedFilters.find(
-      (o) => o.id !== f.id && o.name.toLowerCase() === name.toLowerCase()
+      (o) =>
+        o.id !== f.id &&
+        o.personal === f.personal &&
+        o.name.toLowerCase() === name.toLowerCase()
     );
 
     if (existing) {
@@ -508,7 +599,31 @@ function useSavedFilterOperations(props: {
     }
   }
 
-  return { renameSavedFilter, setSavedFilterAsDefault };
+  async function shareSavedFilter(f: SavedFilterDataFragment) {
+    try {
+      setSaving(true);
+
+      await shareFilter(f);
+
+      Toast.success(
+        intl.formatMessage(
+          {
+            id: "toast.filter_shared",
+          },
+          {
+            entityName: f.name,
+          }
+        )
+      );
+      refetch();
+    } catch (err) {
+      Toast.error(err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return { renameSavedFilter, setSavedFilterAsDefault, shareSavedFilter };
 }
 
 export const SavedFilterList: React.FC<ISavedFilterListProps> = ({
@@ -521,7 +636,8 @@ export const SavedFilterList: React.FC<ISavedFilterListProps> = ({
   const intl = useIntl();
 
   const { data, error, loading, refetch } = useFindSavedFilters(filter.mode);
-  const { can } = usePermissions();
+  const canSave = useCanSaveFilters();
+  const savesPersonal = useSavesPersonalFilters();
 
   const [filterName, setFilterName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -537,11 +653,14 @@ export const SavedFilterList: React.FC<ISavedFilterListProps> = ({
   const [defaultingFilter, setDefaultingFilter] = useState<
     SavedFilterDataFragment | undefined
   >();
+  const [sharingFilter, setSharingFilter] = useState<
+    SavedFilterDataFragment | undefined
+  >();
 
   const saveFilter = useSaveFilter();
   const [destroyFilter] = useSavedFilterDestroy();
 
-  const { renameSavedFilter, setSavedFilterAsDefault } =
+  const { renameSavedFilter, setSavedFilterAsDefault, shareSavedFilter } =
     useSavedFilterOperations({
       savedFilters: data?.findSavedFilters ?? [],
       view,
@@ -636,7 +755,7 @@ export const SavedFilterList: React.FC<ISavedFilterListProps> = ({
   function renderSavedFilterItem(item: SavedFilterDataFragment) {
     if (renamingFilter?.id === item.id) {
       return (
-        <div className="dropdown-item-container" key={item.name}>
+        <div className="dropdown-item-container" key={item.id}>
           <SavedFilterNameInput
             name={item.name}
             onCommit={async (name) => {
@@ -651,12 +770,16 @@ export const SavedFilterList: React.FC<ISavedFilterListProps> = ({
     }
 
     return (
-      <div className="dropdown-item-container" key={item.name}>
+      <div className="dropdown-item-container" key={item.id}>
         <Dropdown.Item onClick={() => filterClicked(item)} title={item.name}>
-          <span>{item.name}</span>
+          <span>
+            <SavedFilterName filter={item} />
+          </span>
         </Dropdown.Item>
         <SavedFilterOperations
           id={`toolbar-${item.id}`}
+          personal={item.personal}
+          onShare={() => setSharingFilter(item)}
           onOperationChosen={onOperationChosen}
           onOverwrite={() => setOverwritingFilter(item)}
           onRename={() => setRenamingFilter(item)}
@@ -711,6 +834,15 @@ export const SavedFilterList: React.FC<ISavedFilterListProps> = ({
           setOverwritingFilter(undefined);
         }}
       />
+      <ShareAlert
+        sharingFilter={sharingFilter}
+        onClose={(confirm) => {
+          if (confirm) {
+            shareSavedFilter(sharingFilter!);
+          }
+          setSharingFilter(undefined);
+        }}
+      />
       <AlertModal
         show={!!defaultingFilter}
         text={<FormattedMessage id="dialogs.set_default_filter_confirm" />}
@@ -728,7 +860,7 @@ export const SavedFilterList: React.FC<ISavedFilterListProps> = ({
           value={filterName}
           onChange={(e) => setFilterName(e.target.value)}
         />
-        {can(Permission.SaveFilters) && (
+        {canSave && (
           <InputGroup.Append>
             <OverlayTrigger
               placement="top"
@@ -741,7 +873,11 @@ export const SavedFilterList: React.FC<ISavedFilterListProps> = ({
               <Button
                 disabled={
                   !filterName ||
-                  !!savedFilters.find((f) => f.name === filterName)
+                  !!savedFilters.find(
+                    (f) =>
+                      f.personal === savesPersonal &&
+                      f.name.toLowerCase() === filterName.toLowerCase()
+                  )
                 }
                 variant="secondary"
                 onClick={() => {
@@ -766,6 +902,7 @@ interface ISavedFilterItem {
   onRename: () => void;
   onRenameCommit: (name: string) => void;
   onRenameCancel: () => void;
+  onShare: () => void;
   onSetDefault?: () => void;
   onDelete: () => void;
   renaming?: boolean;
@@ -779,6 +916,7 @@ const SavedFilterItem: React.FC<ISavedFilterItem> = ({
   onRename,
   onRenameCommit,
   onRenameCancel,
+  onShare,
   onSetDefault,
   onDelete,
   renaming = false,
@@ -800,16 +938,20 @@ const SavedFilterItem: React.FC<ISavedFilterItem> = ({
     <li className="saved-filter-item">
       <a onClick={onClick}>
         <div className="label-group">
+          {item.personal && <PersonalFilterIcon />}
           <TruncatedInlineText
-            className={cx("no-icon-margin", { selected })}
+            // the icon of a personal filter takes the place of the margin
+            className={cx({ "no-icon-margin": !item.personal, selected })}
             text={item.name}
           />
         </div>
         <div>
           <SavedFilterOperations
             id={`sidebar-${item.id}`}
+            personal={item.personal}
             onOverwrite={onOverwrite}
             onRename={onRename}
+            onShare={onShare}
             onSetDefault={onSetDefault}
             onDelete={onDelete}
           />
@@ -827,6 +969,7 @@ const SavedFilters: React.FC<{
   onFilterClicked: (f: SavedFilterDataFragment) => void;
   onOverwriteClicked: (f: SavedFilterDataFragment) => void;
   onRenameClicked: (f: SavedFilterDataFragment) => void;
+  onShareClicked: (f: SavedFilterDataFragment) => void;
   onSetDefaultClicked?: (f: SavedFilterDataFragment) => void;
   onDeleteClicked: (f: SavedFilterDataFragment) => void;
   onRenameCommitted: (f: SavedFilterDataFragment, name: string) => void;
@@ -841,6 +984,7 @@ const SavedFilters: React.FC<{
   onFilterClicked,
   onOverwriteClicked,
   onRenameClicked,
+  onShareClicked,
   onSetDefaultClicked,
   onDeleteClicked,
   onRenameCommitted,
@@ -862,11 +1006,12 @@ const SavedFilters: React.FC<{
     <ul className="saved-filter-list">
       {savedFilters.map((f) => (
         <SavedFilterItem
-          key={f.name}
+          key={f.id}
           item={f}
           onClick={() => onFilterClicked(f)}
           onOverwrite={() => onOverwriteClicked(f)}
           onRename={() => onRenameClicked(f)}
+          onShare={() => onShareClicked(f)}
           onSetDefault={
             onSetDefaultClicked ? () => onSetDefaultClicked(f) : undefined
           }
@@ -910,15 +1055,18 @@ export const SidebarSavedFilterList: React.FC<ISavedFilterListProps> = ({
   const [defaultingFilter, setDefaultingFilter] = useState<
     SavedFilterDataFragment | undefined
   >();
+  const [sharingFilter, setSharingFilter] = useState<
+    SavedFilterDataFragment | undefined
+  >();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [settingDefault, setSettingDefault] = useState(false);
-  const { can } = usePermissions();
+  const canSave = useCanSaveFilters();
 
   const saveFilter = useSaveFilter();
   const [destroyFilter] = useSavedFilterDestroy();
   const [saveUISetting] = useConfigureUISetting();
 
-  const { renameSavedFilter, setSavedFilterAsDefault } =
+  const { renameSavedFilter, setSavedFilterAsDefault, shareSavedFilter } =
     useSavedFilterOperations({
       savedFilters: data?.findSavedFilters ?? [],
       view,
@@ -1083,6 +1231,15 @@ export const SidebarSavedFilterList: React.FC<ISavedFilterListProps> = ({
           setOverwritingFilter(undefined);
         }}
       />
+      <ShareAlert
+        sharingFilter={sharingFilter}
+        onClose={(confirm) => {
+          if (confirm) {
+            shareSavedFilter(sharingFilter!);
+          }
+          setSharingFilter(undefined);
+        }}
+      />
       <AlertModal
         show={!!defaultingFilter}
         text={<FormattedMessage id="dialogs.set_default_filter_confirm" />}
@@ -1115,7 +1272,7 @@ export const SidebarSavedFilterList: React.FC<ISavedFilterListProps> = ({
       />
 
       <div className="toolbar">
-        {can(Permission.SaveFilters) && (
+        {canSave && (
           <Button
             className="minimal save-filter-button"
             size="sm"
@@ -1149,6 +1306,7 @@ export const SidebarSavedFilterList: React.FC<ISavedFilterListProps> = ({
         savedFilters={filteredFilters}
         onFilterClicked={filterClicked}
         onOverwriteClicked={setOverwritingFilter}
+        onShareClicked={setSharingFilter}
         onRenameClicked={setRenamingFilter}
         onSetDefaultClicked={view ? setDefaultingFilter : undefined}
         onDeleteClicked={setDeletingFilter}

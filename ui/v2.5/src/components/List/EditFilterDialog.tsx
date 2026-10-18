@@ -32,7 +32,6 @@ import { useConfigureUISetting, useSaveFilter } from "src/core/StashService";
 import { usePermissions } from "src/hooks/Permissions";
 import {
   FilterMode,
-  Permission,
   SavedFilterDataFragment,
 } from "src/core/generated-graphql";
 import { useFocusOnce } from "src/utils/focus";
@@ -42,6 +41,7 @@ import {
   LoadFilterDialog,
   notifySavedFilterLoaded,
   SaveFilterDialog,
+  useCanSaveFilters,
 } from "./SavedFilterList";
 import { SearchTermInput } from "./ListFilter";
 
@@ -278,6 +278,7 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
   }, [currentFilter.mode]);
 
   const { can } = usePermissions();
+  const canSaveFilters = useCanSaveFilters();
 
   const criterionOptions = useMemo(() => {
     return [...filterOptions.criterionOptions]
@@ -611,7 +612,7 @@ export const EditFilterDialog: React.FC<IEditFilterProps> = ({
             >
               <FormattedMessage id="actions.load" />…
             </Button>
-            {can(Permission.SaveFilters) && (
+            {canSaveFilters && (
               <Button
                 variant="secondary"
                 onClick={() => setShowSaveDialog(true)}

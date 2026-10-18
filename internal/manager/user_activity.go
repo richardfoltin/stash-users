@@ -32,10 +32,12 @@ type userActivityStore interface {
 	MoveUserActivity(ctx context.Context, from string, to *string) error
 	CopyUserActivity(ctx context.Context, from string, to string) error
 	AdoptLegacyActivity(ctx context.Context) error
+	MoveUserSavedFilters(ctx context.Context, from string, to *string) error
 }
 
-// activityUserSource moves the viewing activity of renamed users, deletes that
-// of removed users, and lets the first admin adopt the unowned activity.
+// activityUserSource moves the viewing activity and the personal saved filters
+// of renamed users, deletes those of removed users, and lets the first admin
+// adopt the unowned activity.
 type activityUserSource struct {
 	user.UserSource
 	activity userActivityStore
@@ -98,6 +100,9 @@ func (s *activityUserSource) usersChanged(ctx context.Context, changed string, r
 	if changed != "" {
 		if err := s.activity.MoveUserActivity(ctx, changed, renamedTo); err != nil {
 			return fmt.Errorf("moving the viewing activity of %q: %w", changed, err)
+		}
+		if err := s.activity.MoveUserSavedFilters(ctx, changed, renamedTo); err != nil {
+			return fmt.Errorf("moving the saved filters of %q: %w", changed, err)
 		}
 	}
 

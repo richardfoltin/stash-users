@@ -4,10 +4,12 @@ import { FormattedMessage, IntlShape, useIntl } from "react-intl";
 import { faRotateLeft } from "@fortawesome/free-solid-svg-icons";
 import * as GQL from "src/core/generated-graphql";
 import {
+  useFindSavedFilters,
   usePersonalSettings,
   usePublishPersonalSettings,
   useResetPersonalSettings,
 } from "src/core/StashService";
+import { FrontPageContent } from "src/core/config";
 import { usePermissions } from "src/hooks/Permissions";
 import { useToast } from "src/hooks/Toast";
 import { AlertModal } from "../Shared/Alert";
@@ -217,6 +219,32 @@ function isScalar(v: unknown): v is string | number | boolean {
   );
 }
 
+function isFrontPage(s: IPersonalSettingKey) {
+  return (
+    s.section === GQL.PersonalSettingSection.Ui && s.key === "frontPageContent"
+  );
+}
+
+// returns the names of the personal saved filters that the front page rows of
+// the settings show, which the other users cannot see
+function usePersonalFrontPageFilters(settings: PersonalSetting[]) {
+  const { data } = useFindSavedFilters();
+
+  return useMemo(() => {
+    const value = settings.find(isFrontPage)?.value;
+    const rows: FrontPageContent[] = Array.isArray(value) ? value : [];
+
+    return rows.flatMap((r) => {
+      if (r.__typename !== "SavedFilter") return [];
+
+      const f = data?.findSavedFilters.find(
+        (sf) => sf.id === String(r.savedFilterId)
+      );
+      return f?.personal ? [f.name] : [];
+    });
+  }, [settings, data]);
+}
+
 export const PublishSettingsDialog: React.FC<{
   settings: PersonalSetting[];
   onClose: () => void;
@@ -226,6 +254,7 @@ export const PublishSettingsDialog: React.FC<{
   const headings = useContext(PersonalSettingsContext)?.headings ?? noHeadings;
   const [publishSettings] = usePublishPersonalSettings();
   const { flushInterface } = useSettingsOptional();
+  const personalFilters = usePersonalFrontPageFilters(settings);
 
   const [checked, setChecked] = useState<string[]>([]);
   const [publishing, setPublishing] = useState(false);
@@ -236,11 +265,16 @@ export const PublishSettingsDialog: React.FC<{
     );
   }
 
-  async function onPublish() {
-    const selected = settings.filter((s) =>
-      checked.includes(personalSettingID(s))
-    );
+  // the server refuses it too
+  function isBlocked(s: PersonalSetting) {
+    return isFrontPage(s) && personalFilters.length > 0;
+  }
 
+  const selected = settings.filter(
+    (s) => !isBlocked(s) && checked.includes(personalSettingID(s))
+  );
+
+  async function onPublish() {
     setPublishing(true);
     try {
       // publish the values that wait to be saved too
@@ -299,7 +333,7 @@ export const PublishSettingsDialog: React.FC<{
         onClick: onPublish,
       }}
       cancel={{ variant: "secondary", onClick: onClose }}
-      disabled={checked.length === 0}
+      disabled={selected.length === 0}
       isRunning={publishing}
     >
       <p>
@@ -307,16 +341,28 @@ export const PublishSettingsDialog: React.FC<{
       </p>
       {settings.map((s) => {
         const id = personalSettingID(s);
+        const blocked = isBlocked(s);
         return (
           <Form.Check
             key={id}
             id={`publish-setting-${id}`}
-            checked={checked.includes(id)}
+            checked={!blocked && checked.includes(id)}
+            disabled={blocked}
             onChange={() => toggle(id)}
             label={
               <>
                 <span>{personalSettingLabel(s, headings, intl)}</span>
                 {renderValues(s)}
+                {blocked && (
+                  <small className="d-block text-warning">
+                    {intl.formatMessage(
+                      {
+                        id: "config.ui.personal_settings.publish_dialog.personal_filters",
+                      },
+                      { names: personalFilters.join(", ") }
+                    )}
+                  </small>
+                )}
               </>
             }
           />

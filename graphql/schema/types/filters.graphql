@@ -1005,6 +1005,8 @@ type SavedFilter {
   object_filter: Map
   # generic map for ui options
   ui_options: Map
+  "True for a personal filter of the current user, which only they can see"
+  personal: Boolean!
 }
 
 input SaveFilterInput {
@@ -1016,9 +1018,19 @@ input SaveFilterInput {
   object_filter: Map
   # generic map for ui options
   ui_options: Map
+  """
+  Creates the filter as a personal filter of the current user. Ignored when id
+  is set: an existing filter stays personal or shared.
+  """
+  personal: Boolean
 }
 
 input DestroyFilterInput {
+  id: ID!
+}
+
+input ShareSavedFilterInput {
+  "ID of a personal filter of the current user"
   id: ID!
 }
 

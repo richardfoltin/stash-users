@@ -64,10 +64,13 @@ The current sorting field is shown next to the query text field, indicating the 
 
 Saved filters can be accessed with the bookmark button on the left of the query text field, and in the `Saved filters` section of the filter sidebar. The current filter can be saved by entering a filter name and clicking on the save button.
 
+A saved filter is personal or shared. The filters you save are personal: only you can see them, and they are marked with a person icon. Shared filters are visible to every user. Both kinds are listed together.
+
 Each saved filter has an operations menu, opened with the button next to the filter name. It provides the following operations:
 
 - `Overwrite` - replaces the saved filter with the current filter.
 - `Rename` - changes the name of the saved filter, editing it in place in the list. Press `Enter` to confirm or `Escape` to cancel. The filter's criteria are left unchanged.
+- `Share with everyone` - makes a personal filter a shared filter, which every user can see. A shared filter with the same name must not exist yet. The filter keeps its row on your front page.
 - `Set as default` - makes the saved filter the default filter for the page. See below.
 - `Delete` - deletes the saved filter.
 
@@ -79,9 +82,13 @@ The default filter for the top-level pages may be set to the current filter by c
 
 ### Permissions and shared filters
 
-Saved filters are shared by all users. Saving a filter, including `Overwrite` and `Rename`, requires the `Save filters` permission. Deleting a saved filter requires `Delete saved filters`. See [Users and Permissions](/help/Users.md).
+Every signed-in user can save, overwrite, rename and delete their own personal filters. The other users, administrators included, do not see them in Stash. Like everything else in the library, they are kept in the database, so whoever can read the database or its backups can read them too.
 
-Default filters, pinned criteria and pinned sort options are personal: `Set as default` and pinning change them for you only. A user who never changed one follows the default. Administrators, and users whose role has `Shared list settings`, can publish their own as the defaults of every user from `Settings > Interface`. See [Interface Options](/help/Interface.md).
+Saving, overwriting and renaming a shared filter, and `Share with everyone`, require the `Save filters` permission. Deleting a shared filter requires `Delete saved filters`, so a user who shares a filter may not be able to delete it afterwards. See [Users and Permissions](/help/Users.md).
+
+Renaming a user keeps their personal filters, and removing a user deletes them. Exports contain the shared filters only, and a full import deletes the personal filters of every user.
+
+Default filters, pinned criteria and pinned sort options are personal: `Set as default` and pinning change them for you only. A user who never changed one follows the default. Administrators, and users whose role has `Shared list settings`, can publish their own as the defaults of every user from `Settings > Interface`. A front page that shows personal filters cannot be published until they are shared. See [Interface Options](/help/Interface.md).
 
 ### List memory
 

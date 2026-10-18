@@ -46,9 +46,9 @@ enum Permission {
   RECORD_ACTIVITY
   "Use scrapers in the edit forms and the tagger"
   USE_SCRAPERS
-  "Save filters"
+  "Save, overwrite and rename shared filters, and share personal filters"
   SAVE_FILTERS
-  "Delete saved filters"
+  "Delete shared filters"
   DELETE_SAVED_FILTERS
   """
   Move, delete and assign files and set their fingerprints, and delete the

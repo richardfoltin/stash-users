@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/stashapp/stash/internal/manager/config"
@@ -264,6 +265,115 @@ func (r *mutationResolver) configurePersonalUISetting(ctx context.Context, usern
 	return makeEffectiveUIResult(ctx), nil
 }
 
+// frontPageContentKey is the UI setting of the front page rows.
+const frontPageContentKey = "frontPageContent"
+
+// frontPageFilterID returns the id of the saved filter that the front page row
+// shows, if it shows one.
+func frontPageFilterID(row interface{}) (int, bool) {
+	m, ok := row.(map[string]interface{})
+	if !ok || m["__typename"] != "SavedFilter" {
+		return 0, false
+	}
+
+	// the UI sends the id in GraphQL variables, which decode it as json.Number,
+	// and the config file stores that as text
+	switch id := m["savedFilterId"].(type) {
+	case int:
+		return id, true
+	case int64:
+		return int(id), true
+	case uint64:
+		return int(id), true
+	case float64:
+		return int(id), true
+	case json.Number:
+		n, err := id.Int64()
+		return int(n), err == nil
+	case string:
+		n, err := strconv.Atoi(id)
+		return n, err == nil
+	}
+
+	return 0, false
+}
+
+// checkPublishedFrontPage returns an error if the front page rows show
+// personal saved filters of the current user, which the other users cannot
+// see.
+func (r *mutationResolver) checkPublishedFrontPage(ctx context.Context, rows interface{}) error {
+	var ids []int
+	list, _ := rows.([]interface{})
+	for _, row := range list {
+		if id, ok := frontPageFilterID(row); ok && models.IsPersonalSavedFilterID(id) {
+			ids = append(ids, id)
+		}
+	}
+
+	if len(ids) == 0 {
+		return nil
+	}
+
+	user := personalFilterUser(ctx)
+	var names []string
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		for _, id := range ids {
+			f, err := r.repository.PersonalSavedFilter.Find(ctx, user, id)
+			if err != nil {
+				return err
+			}
+
+			// the row of a removed filter shows nothing to anyone
+			if f != nil {
+				names = append(names, strconv.Quote(f.Name))
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if len(names) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("the front page shows personal saved filters, which the other users cannot see; share them first: %s", strings.Join(names, ", "))
+}
+
+// replaceFrontPageFilter makes the rows of the personal front page of the
+// current user that show the saved filter with the id show the filter with
+// newID instead.
+func replaceFrontPageFilter(ctx context.Context, id int, newID int) error {
+	username, ok := personalUser(ctx)
+	if !ok {
+		return nil
+	}
+
+	replace := func(ui map[string]interface{}) bool {
+		replaced := false
+		rows, _ := ui[frontPageContentKey].([]interface{})
+		for _, row := range rows {
+			if rowID, ok := frontPageFilterID(row); ok && rowID == id {
+				row.(map[string]interface{})["savedFilterId"] = newID
+				replaced = true
+			}
+		}
+		return replaced
+	}
+
+	// the copy shows whether the config file is to be written
+	store := config.GetInstance().UserStore
+	_, ui, err := store.PersonalSettings(username)
+	if err != nil || !replace(ui) {
+		return err
+	}
+
+	return store.UpdatePersonalSettings(username, func(_, ui map[string]interface{}) error {
+		replace(ui)
+		return nil
+	})
+}
+
 func personalSection(s PersonalSettingSection) config.PersonalSection {
 	if s == PersonalSettingSectionUI {
 		return config.PersonalSectionUI
@@ -372,6 +482,12 @@ func (r *mutationResolver) PublishPersonalSettings(ctx context.Context, settings
 
 		if err := checkRequirement(ctx, req); err != nil {
 			return false, err
+		}
+
+		if section == config.PersonalSectionUI && unit == frontPageContentKey {
+			if err := r.checkPublishedFrontPage(ctx, value); err != nil {
+				return false, err
+			}
 		}
 
 		values[unit] = value

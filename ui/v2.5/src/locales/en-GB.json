@@ -135,6 +135,7 @@
     "set_cover": "Set as Cover",
     "set_front_image": "Front image…",
     "set_image": "Set image…",
+    "share_with_everyone": "Share with everyone",
     "show": "Show",
     "show_configuration": "Show Configuration",
     "show_results": "Show results",
@@ -887,6 +888,7 @@
           "description": "The checked settings become the defaults of every user who has not changed them, and are removed from your own settings.",
           "heading": "Publish my settings as defaults",
           "not_set": "not set",
+          "personal_filters": "It shows your personal saved filters, which the other users cannot see: {names}. Share them first.",
           "publish": "Publish",
           "published": "Published your settings as the defaults",
           "values": "Yours: {value} · Default: {defaultValue}"
@@ -1197,6 +1199,7 @@
     "scrape_results_scraped": "Scraped",
     "set_default_filter_confirm": "Are you sure you want to set this filter as the default?",
     "set_image_url_title": "Image URL",
+    "share_filter_confirm": "Share \"{entityName}\" with everyone? Every user will see it. Only users whose role can save filters can change it, and only users whose role can delete saved filters can delete it.",
     "unsaved_changes": "Unsaved changes. Are you sure you want to leave?"
   },
   "dimensions": "Dimensions",
@@ -1302,6 +1305,7 @@
   "framerate": "Frame Rate",
   "frames_per_second": "{value} fps",
   "front_page": {
+    "personal_saved_filter": "{title} (personal)",
     "types": {
       "premade_filter": "Premade Filter",
       "saved_filter": "Saved Filter"
@@ -1515,12 +1519,12 @@
     "denied_permission": "Permission denied: this action requires the permission \"{permission}\".",
     "descriptions": {
       "change_scene_visibility": "Change who can see a scene.",
-      "delete_saved_filters": "Delete saved filters.",
+      "delete_saved_filters": "Delete shared filters.",
       "manage_files": "Move, delete and reassign files, set fingerprints and reveal files in the file manager. Also needed to delete the files of scenes, images and galleries when deleting them.",
       "manage_shared_list_settings": "Publish their own list settings as the defaults of every user: the default filters, pinned criteria and sorts, table columns, the front page and the Tagger settings.",
       "record_activity": "Record their own plays, O counts and resume times, and edit their own play and O history.",
       "run_library_tasks": "Scan, generate, auto tag, identify and clean, and stop running tasks. Opens Settings › Tasks with these tasks only.",
-      "save_filters": "Save filters, and overwrite saved filters.",
+      "save_filters": "Save, overwrite and rename shared filters, and share personal filters. Every user saves their own personal filters.",
       "use_scrapers": "Use scrapers in the edit forms and in the Tagger.",
       "view_private_scenes": "See the scenes whose visibility is Private.",
       "view_restricted_scenes": "See the scenes whose visibility is Restricted."
@@ -1614,6 +1618,7 @@
   "search_filter": {
     "edit_filter": "Edit Filter",
     "name": "Filter",
+    "personal_filter": "Personal filter: not shown to other users",
     "saved_filters": "Saved filters",
     "search_term": "Search term",
     "update_filter": "Update Filter",
@@ -1878,6 +1883,7 @@
     "default_filter_set": "Default filter set",
     "delete_past_tense": "Deleted {count, plural, one {{singularEntity}} other {{pluralEntity}}}",
     "filter_name_exists": "A filter named \"{entityName}\" already exists.",
+    "filter_shared": "Shared \"{entityName}\" with everyone",
     "generating_screenshot": "Generating screenshot…",
     "screenshot_generated": "Screenshot generated",
     "image_index_too_large": "Error: Image index is larger than the number of images in the Gallery",

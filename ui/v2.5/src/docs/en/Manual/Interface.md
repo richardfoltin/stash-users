@@ -29,6 +29,8 @@ The following settings are shared: they apply to every user, and only administra
 
 A published setting becomes the default of every user who has not changed it. Users who changed it keep their own value. The published setting is removed from your own settings, so you follow the new default too.
 
+A front page that shows your personal saved filters cannot be published: the other users cannot see those filters. Share them with everyone first. See [Browsing](/help/Browsing.md).
+
 When `config.yml` has no `users` section, for example while the `username` and `password` of an earlier version of Stash have not been moved into it yet, there are no personal settings: every setting is shared, as before. See [Users and Permissions](/help/Users.md).
 
 ## Language

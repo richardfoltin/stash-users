@@ -1,6 +1,6 @@
 # Users and Permissions
 
-Stash always has at least one user. Each user has a role, which decides what they may do and which scenes they can see, and each user has their own viewing activity.
+Stash always has at least one user. Each user has a role, which decides what they may do and which scenes they can see, and each user has their own viewing activity and personal saved filters.
 
 Administrators manage users in the `Users` section of `Settings > Security`, and roles in the `Roles` section below it. `Manage users` in the account menu opens it.
 
@@ -33,8 +33,8 @@ Each kind of library object - scenes, markers, images, galleries, gallery chapte
 |------------|--------|
 | `Record own viewing activity` | Recording their own plays, O counts and resume times, and editing their own play and O history. |
 | `Use scrapers` | Running the installed scrapers in the edit forms and the `Tagger` view, for the objects that the role can edit. |
-| `Save filters` | Saving filters, including `Overwrite` and `Rename`. |
-| `Delete saved filters` | Deleting saved filters. |
+| `Save filters` | Saving, overwriting and renaming shared filters, and making personal filters shared with `Share with everyone`. Every user can save their own personal filters without it. |
+| `Delete saved filters` | Deleting shared filters. |
 | `Manage files` | Moving, deleting and reassigning files, setting fingerprints and revealing files in the file manager. It is also needed for the `Delete file` option when deleting scenes, images and galleries. |
 | `See restricted scenes` | Seeing the scenes whose visibility is `Restricted`. |
 | `See private scenes` | Seeing the scenes whose visibility is `Private`. |
@@ -129,7 +129,7 @@ A scene merge keeps the play and O history of every user when the merge keeps th
 
 Export and import carry the activity of the first admin only. A full import replaces the activity of every user with the imported activity, which belongs to the first admin. See [Tasks](/help/Tasks.md).
 
-Removing a user deletes their activity. Renaming a user moves their activity to the new name.
+Removing a user deletes their activity and personal saved filters. Renaming a user moves them to the new name.
 
 ## Personal interface settings
 
@@ -163,7 +163,7 @@ If no administrator can sign in:
 3. Start Stash. Because there are no users, it creates the user `admin` with no password and automatic login from the local network.
 4. Open Stash from the local network, and set a password with `Change password` in the account menu.
 
-All other users are removed along with the `users` section, so add them again. Their personal interface settings are kept in the `users` section, so they are lost with it. Their viewing activity stays in the database, and belongs again to a user added with the same name. The API key only works again if the administrator who generated it is added again with the same name and the `Admin` role. Otherwise, generate a new key.
+All other users are removed along with the `users` section, so add them again. Their personal interface settings are kept in the `users` section, so they are lost with it. Their viewing activity and personal saved filters stay in the database, and belong again to a user added with the same name. The API key only works again if the administrator who generated it is added again with the same name and the `Admin` role. Otherwise, generate a new key.
 
 ## Upgrading
 

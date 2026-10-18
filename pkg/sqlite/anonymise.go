@@ -63,6 +63,8 @@ func (db *Anonymiser) Anonymise(ctx context.Context) error {
 			func() error { return db.anonymiseTags(ctx) },
 			func() error { return db.anonymiseGroups(ctx) },
 			func() error { return db.anonymiseSavedFilters(ctx) },
+			// personal data, which the anonymised database does not need
+			func() error { return db.truncateTable(userSavedFiltersTable) },
 			func() error { return db.Optimise(ctx) },
 		})
 	}(); err != nil {

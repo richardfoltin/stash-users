@@ -485,8 +485,13 @@ type Mutation {
   revealFolderInFileManager(id: ID!): Boolean! @hasPermission(permission: MANAGE_FILES)
 
   # Saved filters
-  saveFilter(input: SaveFilterInput!): SavedFilter! @hasPermission(permission: SAVE_FILTERS)
-  destroySavedFilter(input: DestroyFilterInput!): Boolean! @hasPermission(permission: DELETE_SAVED_FILTERS)
+  "Creates or updates a saved filter. Creating or changing a shared filter requires SAVE_FILTERS."
+  saveFilter(input: SaveFilterInput!): SavedFilter! @signedIn
+  "Deletes a saved filter. Deleting a shared filter requires DELETE_SAVED_FILTERS."
+  destroySavedFilter(input: DestroyFilterInput!): Boolean! @signedIn
+  "Moves a personal filter of the current user to the shared filters. The shared filter has a new id."
+  shareSavedFilter(input: ShareSavedFilterInput!): SavedFilter!
+    @hasPermission(permission: SAVE_FILTERS)
   setDefaultFilter(input: SetDefaultFilterInput!): Boolean!
     @deprecated(reason: "now uses UI config")
     @hasPermission(permission: MANAGE_SHARED_LIST_SETTINGS)

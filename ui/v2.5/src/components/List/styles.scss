@@ -271,6 +271,12 @@ input[type="range"].zoom-slider {
   }
 }
 
+// the icon of a personal saved filter, flush with the names of the shared
+// filters
+.existing-filter-list .personal-filter-icon {
+  margin-left: 0;
+}
+
 .save-filter-button {
   color: $text-color;
 }

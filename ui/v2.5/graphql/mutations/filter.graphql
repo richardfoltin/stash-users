@@ -7,3 +7,9 @@ mutation SaveFilter($input: SaveFilterInput!) {
 mutation DestroySavedFilter($input: DestroyFilterInput!) {
   destroySavedFilter(input: $input)
 }
+
+mutation ShareSavedFilter($input: ShareSavedFilterInput!) {
+  shareSavedFilter(input: $input) {
+    ...SavedFilterData
+  }
+}

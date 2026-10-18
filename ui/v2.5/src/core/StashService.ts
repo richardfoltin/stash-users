@@ -12,6 +12,7 @@ import {
   StoreObject,
 } from "@apollo/client/utilities";
 import { ListFilterModel } from "../models/list-filter/filter";
+import { usePermissions } from "../hooks/Permissions";
 import * as GQL from "./generated-graphql";
 
 import { createClient } from "./createClient";
@@ -2205,6 +2206,8 @@ export const useTagsMerge = () =>
   });
 
 export const useSaveFilter = () => {
+  // a signed-in user saves new filters as personal filters
+  const { user } = usePermissions();
   const [saveFilterMutation] = GQL.useSaveFilterMutation({
     update(cache, result) {
       if (!result.data?.saveFilter) return;
@@ -2222,6 +2225,7 @@ export const useSaveFilter = () => {
           id,
           mode: filter.mode,
           name,
+          personal: !id && !!user,
           find_filter: filterCopy.makeFindFilter(),
           object_filter: filterCopy.makeSavedFilter(),
           ui_options: filterCopy.makeSavedUIOptions(),
@@ -2294,6 +2298,30 @@ export const useSavedFilterDestroy = () =>
       deleteObject(cache, obj, GQL.FindSavedFilterDocument);
     },
   });
+
+export const useShareSavedFilter = () => {
+  const [shareSavedFilterMutation] = GQL.useShareSavedFilterMutation({
+    // the front page rows of the filter now show the shared filter
+    refetchQueries: personalSettingsImpactedQueries,
+    awaitRefetchQueries: true,
+    update(cache, result, { variables }) {
+      if (!result.data?.shareSavedFilter || !variables) return;
+
+      // the shared filter has a new id: the personal one is gone
+      const obj = { __typename: "SavedFilter", id: variables.input.id };
+      deleteObject(cache, obj, GQL.FindSavedFilterDocument);
+      evictQueries(cache, [GQL.FindSavedFiltersDocument]);
+    },
+  });
+
+  function shareSavedFilter(filter: GQL.SavedFilterDataFragment) {
+    return shareSavedFilterMutation({
+      variables: { input: { id: filter.id } },
+    });
+  }
+
+  return shareSavedFilter;
+};
 
 export const mutateDeleteFiles = (ids: string[]) =>
   client.mutate<GQL.DeleteFilesMutation>({

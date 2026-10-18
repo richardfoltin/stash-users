@@ -32,11 +32,16 @@ const FilterModeToMessageID = {
   [GQL.FilterMode.Tags]: "tags",
 };
 
-type SavedFilter = Pick<GQL.SavedFilter, "id" | "mode" | "name">;
+type SavedFilter = Pick<GQL.SavedFilter, "id" | "mode" | "name" | "personal">;
 
 function filterTitle(intl: IntlShape, f: SavedFilter) {
   const typeMessage = intl.formatMessage({ id: FilterModeToMessageID[f.mode] });
-  return `${typeMessage}: ${f.name}`;
+  const title = `${typeMessage}: ${f.name}`;
+
+  // a personal filter is not shown to other users
+  return f.personal
+    ? intl.formatMessage({ id: "front_page.personal_saved_filter" }, { title })
+    : title;
 }
 
 const AddContentModal: React.FC<IAddSavedFilterModalProps> = ({

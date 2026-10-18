@@ -68,4 +68,6 @@ type SavedFilter struct {
 	FindFilter   *FindFilterType        `json:"find_filter"`
 	ObjectFilter map[string]interface{} `json:"object_filter"`
 	UIOptions    map[string]interface{} `json:"ui_options"`
+	// Personal is true for a personal filter, which only its owner sees.
+	Personal bool `db:"-" json:"personal"`
 }

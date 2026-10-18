@@ -138,9 +138,11 @@ var mutationRequirements = map[string]string{
 	"revealFileInFileManager":   "MANAGE_FILES",
 	"revealFolderInFileManager": "MANAGE_FILES",
 
-	// saved filters
-	"saveFilter":         "SAVE_FILTERS",
-	"destroySavedFilter": "DELETE_SAVED_FILTERS",
+	// saved filters: the resolvers check SAVE_FILTERS and
+	// DELETE_SAVED_FILTERS for the shared filters
+	"saveFilter":         "SIGNED_IN",
+	"destroySavedFilter": "SIGNED_IN",
+	"shareSavedFilter":   "SAVE_FILTERS",
 	"setDefaultFilter":   "MANAGE_SHARED_LIST_SETTINGS",
 
 	// configuration
